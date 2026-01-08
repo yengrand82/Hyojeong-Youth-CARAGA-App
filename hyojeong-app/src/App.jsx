@@ -25,7 +25,7 @@ const App = () => {
     setError('');
     
     try {
-      const response = await fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSs9l7Ah1Cak85O3H1GTPD6OTc7S0K9i2cERr6gvjV0V1gOlP8XF5PF6xK8FuPp01oQW5mDxq4Gz9bV/pub?output=csv');
+      const response = await fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vTDKkd4fAQfslE_jXpOvAEbMXgiG33hjanyuS9yHexR7P900mOLPcxJMF73COflcwgNUfW7JXeHFgCX/pub?output=csv');
       const csvText = await response.text();
       const rows = csvText.split('\n').map(row => row.split(','));
       
@@ -86,7 +86,7 @@ const App = () => {
     setError('');
     
     try {
-      const response = await fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSs9l7Ah1Cak85O3H1GTPD6OTc7S0K9i2cERr6gvjV0V1gOlP8XF5PF6xK8FuPp01oQW5mDxq4Gz9bV/pub?output=csv');
+      const response = await fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vTDKkd4fAQfslE_jXpOvAEbMXgiG33hjanyuS9yHexR7P900mOLPcxJMF73COflcwgNUfW7JXeHFgCX/pub?output=csv');
       const csvText = await response.text();
       const rows = csvText.split('\n').map(row => row.split(','));
       
