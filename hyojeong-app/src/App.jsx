@@ -175,6 +175,8 @@ const App = () => {
       const data = await response.json();
       if (data.success) {
         setMyGratitudeEntries(data.entries);
+        // Check badges after loading entries
+        setTimeout(() => checkAndAwardBadges(), 1000);
       }
     } catch (err) {
       console.error('Error:', err);
@@ -281,7 +283,7 @@ const App = () => {
         setGratitudeText(''); 
         setSelectedSession(''); 
         await loadMyGratitudeEntries(studentData['Student ID']);
-        checkAndAwardBadges();
+        // Badges will be checked automatically after loading entries
         setCurrentPage('home');
       } else {
         setError('Failed to submit: ' + data.error);
@@ -358,7 +360,8 @@ const App = () => {
     });
     setGoals(g => ({...g, [statusKey]: 'Completed'}));
     alert('🎉 Goal completed! +25 points earned!');
-    checkAndAwardBadges();
+    // Check badges after completing goal
+    setTimeout(() => checkAndAwardBadges(), 500);
   };
 
   const getPhotoUrl = (url) => {
@@ -882,10 +885,6 @@ const App = () => {
 
   // HOME PAGE
   if (currentPage === 'home' && studentData) {
-    useEffect(() => {
-      checkAndAwardBadges();
-    }, [myGratitudeEntries, points]);
-
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <BadgeUnlockNotification badge={showBadgeUnlock} />
