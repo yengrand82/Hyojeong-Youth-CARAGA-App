@@ -146,6 +146,8 @@ const App = () => {
   };
 
   const checkAndAwardBadges = () => {
+    if (!studentData || !myGratitudeEntries) return; // Safety check
+    
     const gratitudeCount = myGratitudeEntries.length;
     const attendance = calculateAttendance();
     const grade = Math.round((studentData['HJ Grade'] || 0) * 100);
