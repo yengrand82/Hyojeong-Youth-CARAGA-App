@@ -1,5 +1,5 @@
 export const STUDENT_DATA = [
-  {"Student ID":"HJ001","Photo":"https://i.imgur.com/vyYrp3j.jpeg","Last Name":"Abrao","First Name":"Jamaica Jane","Age":13,"Address":"San Vicente, Butuan City","Category":"Teens","TEAM":"","Percentage":0.2414,"HJ Attendance":0.2414,"HJ Service":0,"HJ Quiz":4.75,"HJ Grade":0.5957},
+  {"Student ID":"HJ001","Photo":"https://imgur.com/79mQEd2.jpeg","Last Name":"Abrao","First Name":"Jamaica Jane","Age":13,"Address":"San Vicente, Butuan City","Category":"Teens","TEAM":"","Percentage":0.2414,"HJ Attendance":0.2414,"HJ Service":0,"HJ Quiz":4.75,"HJ Grade":0.5957},
   {"Student ID":"HJ002","Photo":"https://i.imgur.com/dvKow5C.jpeg","Last Name":"Abrao","First Name":"John Jamaico","Age":14,"Address":"San Vicente, Butuan City","Category":"Teens","TEAM":"","Percentage":0,"HJ Attendance":0,"HJ Service":0,"HJ Quiz":0,"HJ Grade":0},
   {"Student ID":"HJ003","Photo":"https://i.imgur.com/TaYxbKS.jpeg","Last Name":"Acierto","First Name":"Jasmine A","Age":21,"Address":"Agusan Pequino Butuan City","Category":"Guest","TEAM":"","Percentage":0,"HJ Attendance":0,"HJ Service":0,"HJ Quiz":0,"HJ Grade":0},
   {"Student ID":"HJ004","Photo":"https://i.imgur.com/NgOXa4Q.jpeg","Last Name":"Alag","First Name":"Pearl","Age":23,"Address":"Maug, Butuan City","Category":"Teens","TEAM":"","Percentage":0,"HJ Attendance":0,"HJ Service":0,"HJ Quiz":0,"HJ Grade":0},
