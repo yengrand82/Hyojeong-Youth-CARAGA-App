@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Home, User, CheckSquare, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Star, Target, Gift, Sparkles } from 'lucide-react';
 
 // Google Apps Script Web App URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbzCpdW06VEvlPsJjOZqkpWseXlnqouYrJ-gmwkoV7vlMrbuRHMx20A0w2aRd4VHnhBEmg/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxer-0KMA8_uJKY7rU8Vi1hgkeShRr5uMioZgw44g7WTLduGpRL_Ln7x1JQ0U8WfizaTA/exec';
 
 // Inspirational Quotes - True Parents & Bible Verses
 const QUOTES = [
