@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { Home, User, CheckSquare, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare } from 'lucide-react';
-import { STUDENT_DATA } from './studentData';
+import React, { useState, useEffect } from 'react';
+import { Home, User, CheckSquare, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw } from 'lucide-react';
+
+// Google Apps Script Web App URL
+const API_URL = 'https://script.google.com/macros/s/AKfycbyWHvgrNHXRQlnOzZWL7hC2AFP4LluHPJVshkMX-GfKkT0sjxpyzS409SaZiDEdnd7tPg/exec';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('login');
@@ -12,38 +14,94 @@ const App = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [allGratitudeEntries, setAllGratitudeEntries] = useState([]);
+  const [myGratitudeEntries, setMyGratitudeEntries] = useState([]);
   const [adminRemark, setAdminRemark] = useState('');
-  const [selectedEntryId, setSelectedEntryId] = useState(null);
+  const [selectedEntry, setSelectedEntry] = useState(null);
+  const [allStudents, setAllStudents] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedSessionFilter, setSelectedSessionFilter] = useState('');
 
-  const allStudents = STUDENT_DATA;
+  // Load students from Google Sheets on mount
+  useEffect(() => {
+    loadStudents();
+  }, []);
+
+  const loadStudents = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}?action=getStudents`);
+      const data = await response.json();
+      if (data.success) {
+        setAllStudents(data.students);
+      } else {
+        console.error('Error loading students:', data.error);
+      }
+    } catch (err) {
+      console.error('Error loading students:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMyGratitudeEntries = async (studId) => {
+    try {
+      const response = await fetch(`${API_URL}?action=getMyGratitudeEntries&studentId=${studId}`);
+      const data = await response.json();
+      if (data.success) {
+        setMyGratitudeEntries(data.entries);
+      }
+    } catch (err) {
+      console.error('Error loading gratitude entries:', err);
+    }
+  };
+
+  const loadAllGratitudeEntries = async (session) => {
+    try {
+      setLoading(true);
+      const sessionToLoad = session || 'Session 1';
+      const response = await fetch(`${API_URL}?action=getGratitudeEntries&session=${sessionToLoad}`);
+      const data = await response.json();
+      if (data.success) {
+        setAllGratitudeEntries(data.entries);
+      }
+    } catch (err) {
+      console.error('Error loading gratitude entries:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = () => {
     setError('');
-    if (!studentId.trim()) { setError('Please enter your Student ID'); return; }
-    if (studentId.toUpperCase() === 'ADMIN') { setCurrentPage('admin-login'); return; }
+    if (!studentId.trim()) { 
+      setError('Please enter your Student ID'); 
+      return; 
+    }
+    if (studentId.toUpperCase() === 'ADMIN') { 
+      setCurrentPage('admin-login'); 
+      return; 
+    }
     const searchId = studentId.trim().toUpperCase();
     const student = allStudents.find(s => (s['Student ID'] || '').toString().trim().toUpperCase() === searchId);
-    if (student) { setStudentData(student); setIsAdmin(false); setCurrentPage('home'); }
-    else { setError('Student ID not found. Please check and try again.'); }
+    if (student) { 
+      setStudentData(student); 
+      setIsAdmin(false); 
+      setCurrentPage('home');
+      loadMyGratitudeEntries(student['Student ID']);
+    } else { 
+      setError('Student ID not found. Please check and try again.'); 
+    }
   };
 
   const handleAdminLogin = () => {
-    if (adminPassword === 'hjadmin2026') { setIsAdmin(true); setCurrentPage('admin-dashboard'); loadAllGratitudeEntries(); }
-    else { setError('Incorrect admin password'); }
-  };
-
-  const loadAllGratitudeEntries = () => {
-    try {
-      const entries = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('gratitude-')) { 
-          const data = localStorage.getItem(key); 
-          if (data) entries.push(JSON.parse(data)); 
-        }
-      }
-      setAllGratitudeEntries(entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
-    } catch (err) { console.error('Error:', err); }
+    if (adminPassword === 'hjadmin2026') { 
+      setIsAdmin(true); 
+      setCurrentPage('admin-dashboard'); 
+      setSelectedSessionFilter('Session 1');
+      loadAllGratitudeEntries('Session 1');
+    } else { 
+      setError('Incorrect admin password'); 
+    }
   };
 
   const handleLogout = () => { 
@@ -51,64 +109,81 @@ const App = () => {
     setStudentId(''); 
     setIsAdmin(false); 
     setAdminPassword(''); 
-    setCurrentPage('login'); 
+    setCurrentPage('login');
+    setMyGratitudeEntries([]);
+    setAllGratitudeEntries([]);
   };
 
-  const handleGratitudeSubmit = () => {
+  const handleGratitudeSubmit = async () => {
     if (!gratitudeText.trim() || !selectedSession) { 
       setError('Please select a session and write your gratitude journal'); 
       return; 
     }
     try {
+      setLoading(true);
       const submission = { 
-        id: `gratitude-${studentData['Student ID']}-${selectedSession}-${Date.now()}`,
         studentId: studentData['Student ID'], 
         studentName: `${studentData['First Name']} ${studentData['Last Name']}`, 
         session: selectedSession, 
         content: gratitudeText, 
-        timestamp: new Date().toISOString(),
-        adminRemark: ''
+        timestamp: new Date().toISOString()
       };
-      localStorage.setItem(submission.id, JSON.stringify(submission));
-      alert('✨ Gratitude journal submitted successfully!'); 
-      setGratitudeText(''); 
-      setSelectedSession(''); 
-      setCurrentPage('home');
+      
+      const response = await fetch(`${API_URL}?action=submitGratitude`, {
+        method: 'POST',
+        body: JSON.stringify(submission)
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        alert('✨ Gratitude journal submitted successfully!'); 
+        setGratitudeText(''); 
+        setSelectedSession(''); 
+        loadMyGratitudeEntries(studentData['Student ID']);
+        setCurrentPage('home');
+      } else {
+        setError('Failed to submit: ' + data.error);
+      }
     } catch (err) { 
       setError('Failed to submit. Please try again.'); 
+      console.error('Error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleAdminRemarkSubmit = (entryId) => {
+  const handleAdminRemarkSubmit = async (entry) => {
+    if (!adminRemark.trim()) {
+      alert('Please write a remark');
+      return;
+    }
     try {
-      const entry = JSON.parse(localStorage.getItem(entryId));
-      if (entry) {
-        entry.adminRemark = adminRemark;
-        localStorage.setItem(entryId, JSON.stringify(entry));
+      setLoading(true);
+      const remarkData = {
+        session: entry.session,
+        rowIndex: entry.rowIndex,
+        remark: adminRemark
+      };
+      
+      const response = await fetch(`${API_URL}?action=addRemark`, {
+        method: 'POST',
+        body: JSON.stringify(remarkData)
+      });
+      
+      const data = await response.json();
+      if (data.success) {
         alert('✅ Remark saved!');
         setAdminRemark('');
-        setSelectedEntryId(null);
-        loadAllGratitudeEntries();
+        setSelectedEntry(null);
+        loadAllGratitudeEntries(selectedSessionFilter);
+      } else {
+        alert('Failed to save remark: ' + data.error);
       }
     } catch (err) {
       console.error('Error saving remark:', err);
-    }
-  };
-
-  const getMyGratitudeEntries = () => {
-    try {
-      const entries = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(`gratitude-${studentData['Student ID']}`)) {
-          const data = localStorage.getItem(key);
-          if (data) entries.push(JSON.parse(data));
-        }
-      }
-      return entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    } catch (err) {
-      console.error('Error:', err);
-      return [];
+      alert('Failed to save remark');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -174,18 +249,27 @@ const App = () => {
         </div>
         <div className="bg-white rounded-2xl shadow-2xl p-8 border-4 border-white">
           <h2 className="text-2xl font-black text-gray-800 mb-6 text-center">Welcome Back!</h2>
-          <input 
-            type="text" 
-            value={studentId} 
-            onChange={(e) => setStudentId(e.target.value)} 
-            onKeyPress={(e) => e.key === 'Enter' && handleLogin()} 
-            placeholder="Enter your Student ID (e.g., HJ001)" 
-            className="w-full px-4 py-4 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300 text-lg font-semibold mb-4" 
-          />
-          {error && <div className="mb-4 p-3 bg-red-50 border-2 border-red-300 rounded-xl text-red-600 text-sm font-semibold">{error}</div>}
-          <button onClick={handleLogin} className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all">
-            Login
-          </button>
+          {loading ? (
+            <div className="text-center py-8">
+              <RefreshCw className="w-8 h-8 text-purple-600 animate-spin mx-auto mb-2" />
+              <p className="text-gray-600">Loading students...</p>
+            </div>
+          ) : (
+            <>
+              <input 
+                type="text" 
+                value={studentId} 
+                onChange={(e) => setStudentId(e.target.value)} 
+                onKeyPress={(e) => e.key === 'Enter' && handleLogin()} 
+                placeholder="Enter your Student ID (e.g., HJ001)" 
+                className="w-full px-4 py-4 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300 text-lg font-semibold mb-4" 
+              />
+              {error && <div className="mb-4 p-3 bg-red-50 border-2 border-red-300 rounded-xl text-red-600 text-sm font-semibold">{error}</div>}
+              <button onClick={handleLogin} className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all">
+                Login
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -245,7 +329,7 @@ const App = () => {
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
-          <button onClick={() => { setCurrentPage('admin-gratitude'); loadAllGratitudeEntries(); }} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+          <button onClick={() => { setCurrentPage('admin-gratitude'); }} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Heart className="w-6 h-6" />
               <span className="font-bold">View Gratitude Journals</span>
@@ -290,14 +374,45 @@ const App = () => {
   if (currentPage === 'admin-gratitude' && isAdmin) return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
       <div className="p-4">
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-4">
           <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">← Back</button>
           <h1 className="text-3xl font-black text-white">Gratitude Journals</h1>
         </div>
-        {allGratitudeEntries.length === 0 ? (
+        
+        {/* Session Filter */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4 border-4 border-white">
+          <label className="block text-sm font-bold text-gray-700 mb-2">Filter by Session</label>
+          <div className="flex gap-2">
+            <select 
+              value={selectedSessionFilter} 
+              onChange={(e) => {
+                setSelectedSessionFilter(e.target.value);
+                loadAllGratitudeEntries(e.target.value);
+              }}
+              className="flex-1 px-4 py-3 border-2 border-purple-300 rounded-xl font-semibold"
+            >
+              {[...Array(20)].map((_, i) => (
+                <option key={i} value={`Session ${i + 1}`}>Session {i + 1}</option>
+              ))}
+            </select>
+            <button 
+              onClick={() => loadAllGratitudeEntries(selectedSessionFilter)}
+              className="px-4 py-3 bg-purple-500 text-white rounded-xl font-bold"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <RefreshCw className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600 font-bold">Loading entries...</p>
+          </div>
+        ) : allGratitudeEntries.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
             <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 font-bold">No gratitude entries yet</p>
+            <p className="text-gray-500 font-bold">No gratitude entries for {selectedSessionFilter}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -310,7 +425,7 @@ const App = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-gray-500">{entry.session}</p>
-                    <p className="text-xs text-gray-400">{new Date(entry.timestamp).toLocaleDateString()}</p>
+                    <p className="text-xs text-gray-400">{entry.timestamp}</p>
                   </div>
                 </div>
                 <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-3 rounded-xl mb-3">
@@ -322,7 +437,7 @@ const App = () => {
                     <p className="text-sm text-gray-700">{entry.adminRemark}</p>
                   </div>
                 )}
-                {selectedEntryId === entry.id ? (
+                {selectedEntry?.rowIndex === entry.rowIndex ? (
                   <div className="space-y-2">
                     <textarea 
                       value={adminRemark} 
@@ -333,13 +448,14 @@ const App = () => {
                     />
                     <div className="flex gap-2">
                       <button 
-                        onClick={() => handleAdminRemarkSubmit(entry.id)}
-                        className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl py-2 font-bold text-sm"
+                        onClick={() => handleAdminRemarkSubmit(entry)}
+                        disabled={loading}
+                        className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl py-2 font-bold text-sm disabled:opacity-50"
                       >
-                        Save Remark
+                        {loading ? 'Saving...' : 'Save Remark'}
                       </button>
                       <button 
-                        onClick={() => { setSelectedEntryId(null); setAdminRemark(''); }}
+                        onClick={() => { setSelectedEntry(null); setAdminRemark(''); }}
                         className="px-4 bg-gray-200 text-gray-700 rounded-xl py-2 font-bold text-sm"
                       >
                         Cancel
@@ -348,7 +464,7 @@ const App = () => {
                   </div>
                 ) : (
                   <button 
-                    onClick={() => { setSelectedEntryId(entry.id); setAdminRemark(entry.adminRemark || ''); }}
+                    onClick={() => { setSelectedEntry(entry); setAdminRemark(entry.adminRemark || ''); }}
                     className="w-full bg-purple-100 text-purple-600 rounded-xl py-2 font-bold text-sm hover:bg-purple-200"
                   >
                     {entry.adminRemark ? 'Edit Remark' : 'Add Remark'}
@@ -463,8 +579,6 @@ const App = () => {
 
   // GRATITUDE JOURNAL PAGE
   if (currentPage === 'gratitude' && studentData) {
-    const myEntries = getMyGratitudeEntries();
-    
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
@@ -496,21 +610,31 @@ const App = () => {
                 onChange={(e) => setGratitudeText(e.target.value)} 
                 placeholder="Share your gratitude, reflections, or learnings from this session..." 
                 className="w-full h-40 px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300" 
+                disabled={loading}
               />
             </div>
             {error && <div className="p-3 bg-red-50 border-2 border-red-300 rounded-xl text-red-600 text-sm font-semibold">{error}</div>}
             <button 
               onClick={handleGratitudeSubmit} 
-              className="w-full px-6 py-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all"
+              disabled={loading}
+              className="w-full px-6 py-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
             >
-              ✨ Submit Gratitude
+              {loading ? 'Submitting...' : '✨ Submit Gratitude'}
             </button>
           </div>
 
           {/* Previous Entries */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white">
-            <h2 className="text-xl font-black text-gray-800 mb-4">📚 My Previous Entries</h2>
-            {myEntries.length === 0 ? (
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-black text-gray-800">📚 My Previous Entries</h2>
+              <button 
+                onClick={() => loadMyGratitudeEntries(studentData['Student ID'])}
+                className="text-purple-600"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
+            </div>
+            {myGratitudeEntries.length === 0 ? (
               <div className="text-center py-8">
                 <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500 font-bold">No entries yet</p>
@@ -518,11 +642,11 @@ const App = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {myEntries.map((entry, idx) => (
+                {myGratitudeEntries.map((entry, idx) => (
                   <div key={idx} className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-4 border-2 border-pink-200">
                     <div className="flex justify-between items-start mb-2">
                       <p className="text-sm font-bold text-purple-600">{entry.session}</p>
-                      <p className="text-xs text-gray-500">{new Date(entry.timestamp).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500">{entry.timestamp}</p>
                     </div>
                     <p className="text-sm text-gray-700 mb-3">{entry.content}</p>
                     {entry.adminRemark && (
