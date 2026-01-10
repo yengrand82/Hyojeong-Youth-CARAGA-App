@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Home, User, CheckSquare, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw } from 'lucide-react';
 
 // Google Apps Script Web App URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbyWHvgrNHXRQlnOzZWL7hC2AFP4LluHPJVshkMX-GfKkT0sjxpyzS409SaZiDEdnd7tPg/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzCpdW06VEvlPsJjOZqkpWseXlnqouYrJ-gmwkoV7vlMrbuRHMx20A0w2aRd4VHnhBEmg/exec';
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('login');
