@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, CheckSquare, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw } from 'lucide-react';
+import { Home, User, CheckSquare, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X } from 'lucide-react';
 
 // Google Apps Script Web App URL
 const API_URL = 'https://script.google.com/macros/s/AKfycbzCpdW06VEvlPsJjOZqkpWseXlnqouYrJ-gmwkoV7vlMrbuRHMx20A0w2aRd4VHnhBEmg/exec';
@@ -20,6 +20,7 @@ const App = () => {
   const [allStudents, setAllStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedSessionFilter, setSelectedSessionFilter] = useState('');
+  const [selectedStudentDetail, setSelectedStudentDetail] = useState(null);
 
   // Load students from Google Sheets on mount
   useEffect(() => {
@@ -71,6 +72,13 @@ const App = () => {
     }
   };
 
+  const getLeaderboard = (category) => {
+    return allStudents
+      .filter(s => s.Category === category)
+      .sort((a, b) => (b['HJ Grade'] || 0) - (a['HJ Grade'] || 0))
+      .slice(0, 10);
+  };
+
   const handleLogin = () => {
     setError('');
     if (!studentId.trim()) { 
@@ -112,6 +120,7 @@ const App = () => {
     setCurrentPage('login');
     setMyGratitudeEntries([]);
     setAllGratitudeEntries([]);
+    setSelectedStudentDetail(null);
   };
 
   const handleGratitudeSubmit = async () => {
@@ -211,15 +220,15 @@ const App = () => {
     return <div className={`${sizeClasses[size]} rounded-xl bg-gradient-to-br ${getColorFromName(firstName, lastName)} flex items-center justify-center border-4 border-white shadow-lg`}><span className="font-black text-white">{initials}</span></div>;
   };
 
-  const calculateAttendance = () => {
-    if (!studentData) return 0;
-    const att = studentData['HJ Attendance'];
+  const calculateAttendance = (student = studentData) => {
+    if (!student) return 0;
+    const att = student['HJ Attendance'];
     if (typeof att === 'number') return Math.round(att * 100);
     return 0;
   };
 
   const NavBar = () => (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-purple-300 shadow-lg">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-purple-300 shadow-lg z-50">
       <div className="flex justify-around items-center py-3">
         {[
           { page: 'home', icon: Home, label: 'Home' }, 
@@ -329,7 +338,14 @@ const App = () => {
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
-          <button onClick={() => { setCurrentPage('admin-gratitude'); }} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+          <button onClick={() => setCurrentPage('admin-leaderboard')} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Trophy className="w-6 h-6" />
+              <span className="font-bold">View Leaderboards</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => setCurrentPage('admin-gratitude')} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Heart className="w-6 h-6" />
               <span className="font-bold">View Gratitude Journals</span>
@@ -341,17 +357,223 @@ const App = () => {
     </div>
   );
 
+  // ADMIN LEADERBOARD
+  if (currentPage === 'admin-leaderboard' && isAdmin) {
+    const kidsLeaderboard = getLeaderboard('Kids');
+    const teensLeaderboard = getLeaderboard('Teens');
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+        <div className="p-4">
+          <div className="flex items-center gap-3 mb-6">
+            <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <h1 className="text-3xl font-black text-white">🏆 Leaderboards</h1>
+          </div>
+
+          {/* Kids Leaderboard */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy className="w-6 h-6 text-yellow-500" />
+              <h2 className="text-2xl font-black text-gray-800">Kids Category</h2>
+            </div>
+            {kidsLeaderboard.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No students in Kids category</p>
+            ) : (
+              <div className="space-y-3">
+                {kidsLeaderboard.map((student, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`flex items-center gap-3 p-3 rounded-xl ${
+                      idx === 0 ? 'bg-yellow-50 border-2 border-yellow-400' :
+                      idx === 1 ? 'bg-gray-50 border-2 border-gray-400' :
+                      idx === 2 ? 'bg-orange-50 border-2 border-orange-400' :
+                      'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
+                      {idx === 0 && <span className="text-3xl">🥇</span>}
+                      {idx === 1 && <span className="text-3xl">🥈</span>}
+                      {idx === 2 && <span className="text-3xl">🥉</span>}
+                      {idx > 2 && <span className="text-xl font-black text-gray-600">#{idx + 1}</span>}
+                    </div>
+                    <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="sm" />
+                    <div className="flex-1">
+                      <p className="font-black text-gray-800">{student['First Name']} {student['Last Name']}</p>
+                      <p className="text-sm text-purple-600 font-bold">{student['Student ID']}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-black text-purple-600">{Math.round((student['HJ Grade'] || 0) * 100)}%</p>
+                      <p className="text-xs text-gray-500">Overall Grade</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Teens Leaderboard */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white">
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy className="w-6 h-6 text-blue-500" />
+              <h2 className="text-2xl font-black text-gray-800">Teens Category</h2>
+            </div>
+            {teensLeaderboard.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No students in Teens category</p>
+            ) : (
+              <div className="space-y-3">
+                {teensLeaderboard.map((student, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`flex items-center gap-3 p-3 rounded-xl ${
+                      idx === 0 ? 'bg-yellow-50 border-2 border-yellow-400' :
+                      idx === 1 ? 'bg-gray-50 border-2 border-gray-400' :
+                      idx === 2 ? 'bg-orange-50 border-2 border-orange-400' :
+                      'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
+                      {idx === 0 && <span className="text-3xl">🥇</span>}
+                      {idx === 1 && <span className="text-3xl">🥈</span>}
+                      {idx === 2 && <span className="text-3xl">🥉</span>}
+                      {idx > 2 && <span className="text-xl font-black text-gray-600">#{idx + 1}</span>}
+                    </div>
+                    <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="sm" />
+                    <div className="flex-1">
+                      <p className="font-black text-gray-800">{student['First Name']} {student['Last Name']}</p>
+                      <p className="text-sm text-purple-600 font-bold">{student['Student ID']}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-black text-blue-600">{Math.round((student['HJ Grade'] || 0) * 100)}%</p>
+                      <p className="text-xs text-gray-500">Overall Grade</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // STUDENT DETAIL VIEW (MODAL)
+  const StudentDetailModal = ({ student, onClose }) => {
+    if (!student) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
+        <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-t-2xl relative">
+            <button onClick={onClose} className="absolute top-4 right-4 text-white">
+              <X className="w-6 h-6" />
+            </button>
+            <div className="flex items-center gap-4">
+              <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="lg" />
+              <div className="text-white">
+                <h2 className="text-3xl font-black">{student['First Name']} {student['Last Name']}</h2>
+                <p className="text-xl font-bold opacity-90">{student['Student ID']}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="p-6 space-y-4">
+            {/* Overall Grade */}
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border-2 border-purple-200">
+              <p className="text-sm text-gray-600 font-bold mb-1">Overall Grade</p>
+              <p className="text-5xl font-black text-purple-600">{Math.round((student['HJ Grade'] || 0) * 100)}%</p>
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
+                <Calendar className="w-8 h-8 text-blue-600 mb-2" />
+                <p className="text-xs text-gray-600 font-bold">Attendance</p>
+                <p className="text-2xl font-black text-blue-600">{calculateAttendance(student)}%</p>
+              </div>
+              <div className="bg-purple-50 rounded-xl p-4 border-2 border-purple-200">
+                <BookOpen className="w-8 h-8 text-purple-600 mb-2" />
+                <p className="text-xs text-gray-600 font-bold">Quiz Score</p>
+                <p className="text-2xl font-black text-purple-600">{Math.round((student['HJ Quiz'] || 0) * 100) / 100}</p>
+              </div>
+              <div className="bg-green-50 rounded-xl p-4 border-2 border-green-200">
+                <Award className="w-8 h-8 text-green-600 mb-2" />
+                <p className="text-xs text-gray-600 font-bold">Service Hours</p>
+                <p className="text-2xl font-black text-green-600">{Math.round((student['HJ Service'] || 0) * 100) / 100}</p>
+              </div>
+              <div className="bg-orange-50 rounded-xl p-4 border-2 border-orange-200">
+                <TrendingUp className="w-8 h-8 text-orange-600 mb-2" />
+                <p className="text-xs text-gray-600 font-bold">Progress</p>
+                <p className="text-2xl font-black text-orange-600">{Math.round((student['Percentage'] || 0) * 100)}%</p>
+              </div>
+            </div>
+
+            {/* Personal Info */}
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-gray-800 mb-3">Personal Information</h3>
+              {student['Age'] && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 font-bold">Age</p>
+                  <p className="text-sm font-bold text-gray-800">{student['Age']} years old</p>
+                </div>
+              )}
+              {student['Address'] && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 font-bold">Address</p>
+                  <p className="text-sm font-bold text-gray-800">{student['Address']}</p>
+                </div>
+              )}
+              {student['Date of Birth'] && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 font-bold">Date of Birth</p>
+                  <p className="text-sm font-bold text-gray-800">{student['Date of Birth']}</p>
+                </div>
+              )}
+              {student['Category'] && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 font-bold">Category</p>
+                  <p className="text-sm font-bold text-gray-800">{student['Category']}</p>
+                </div>
+              )}
+              {student['TEAM'] && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 font-bold">Team</p>
+                  <p className="text-sm font-bold text-gray-800">{student['TEAM']}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ADMIN STUDENTS LIST
   if (currentPage === 'admin-students' && isAdmin) return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+      {selectedStudentDetail && (
+        <StudentDetailModal 
+          student={selectedStudentDetail} 
+          onClose={() => setSelectedStudentDetail(null)} 
+        />
+      )}
       <div className="p-4">
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">← Back</button>
+          <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
           <h1 className="text-3xl font-black text-white">All Students</h1>
         </div>
         <div className="space-y-3">
           {allStudents.map((student, idx) => (
-            <div key={idx} className="bg-white rounded-2xl shadow-lg p-4 border-4 border-white">
+            <div 
+              key={idx} 
+              onClick={() => setSelectedStudentDetail(student)}
+              className="bg-white rounded-2xl shadow-lg p-4 border-4 border-white cursor-pointer hover:border-purple-300 transition-all"
+            >
               <div className="flex items-center gap-3">
                 <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="sm" />
                 <div className="flex-1">
@@ -362,6 +584,7 @@ const App = () => {
                   <p className="text-xs text-gray-600">{student['Category']}</p>
                   <p className="text-sm font-bold text-purple-600">{Math.round((student['HJ Grade'] || 0) * 100)}%</p>
                 </div>
+                <ChevronRight className="w-5 h-5 text-gray-400" />
               </div>
             </div>
           ))}
@@ -370,12 +593,14 @@ const App = () => {
     </div>
   );
 
-  // ADMIN GRATITUDE JOURNALS
+  // ADMIN GRATITUDE JOURNALS (continuing from the original code...)
   if (currentPage === 'admin-gratitude' && isAdmin) return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
       <div className="p-4">
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">← Back</button>
+          <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
           <h1 className="text-3xl font-black text-white">Gratitude Journals</h1>
         </div>
         
@@ -478,7 +703,7 @@ const App = () => {
     </div>
   );
 
-  // HOME PAGE
+  // HOME PAGE (Student)
   if (currentPage === 'home' && studentData) return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
       <div className="p-4">
@@ -577,14 +802,15 @@ const App = () => {
     </div>
   );
 
-  // GRATITUDE JOURNAL PAGE
+  // GRATITUDE JOURNAL PAGE (continuing the rest of the original code... truncated for brevity)
+  // Include the rest of the gratitude and grades pages from the original App.jsx
+
   if (currentPage === 'gratitude' && studentData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
           <h1 className="text-3xl font-black text-white mb-4">📝 Gratitude Journal</h1>
           
-          {/* Submit New Entry */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <Heart className="w-6 h-6 text-pink-500" />
@@ -623,7 +849,6 @@ const App = () => {
             </button>
           </div>
 
-          {/* Previous Entries */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-black text-gray-800">📚 My Previous Entries</h2>
@@ -666,13 +891,12 @@ const App = () => {
     );
   }
 
-  // GRADES PAGE - ENHANCED
+  // GRADES PAGE
   if (currentPage === 'grades' && studentData) return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
       <div className="p-4">
         <h1 className="text-3xl font-black text-white mb-4">📊 My Grades</h1>
         
-        {/* Overall Grade Card */}
         <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
           <div className="text-center">
             <p className="text-sm text-gray-600 font-bold mb-2">Overall Grade</p>
@@ -690,9 +914,7 @@ const App = () => {
           </div>
         </div>
 
-        {/* Detailed Breakdown */}
         <div className="space-y-3">
-          {/* Attendance */}
           <div className="bg-white rounded-2xl shadow-lg p-4 border-4 border-blue-200">
             <div className="flex items-center justify-between">
               <div>
@@ -704,7 +926,6 @@ const App = () => {
             </div>
           </div>
 
-          {/* Quiz Scores */}
           <div className="bg-white rounded-2xl shadow-lg p-4 border-4 border-purple-200">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -725,7 +946,6 @@ const App = () => {
             </div>
           </div>
 
-          {/* Service Hours */}
           <div className="bg-white rounded-2xl shadow-lg p-4 border-4 border-green-200">
             <div className="flex items-center justify-between">
               <div>
@@ -737,7 +957,6 @@ const App = () => {
             </div>
           </div>
 
-          {/* Progress Percentage */}
           <div className="bg-white rounded-2xl shadow-lg p-4 border-4 border-orange-200">
             <div className="flex items-center justify-between">
               <div>
