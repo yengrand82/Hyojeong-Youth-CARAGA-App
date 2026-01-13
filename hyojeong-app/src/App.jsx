@@ -118,9 +118,25 @@ const App = () => {
           goal2Status: data.progress.goal2Status || 'Not Set',
           goal3Status: data.progress.goal3Status || 'Not Set'
         });
+      } else {
+        // If loading fails, set default values
+        console.log('Progress load failed, using defaults');
+        setPoints(0);
+        setEarnedBadges([]);
+        setGoals({
+          goal1: '', goal2: '', goal3: '',
+          goal1Status: 'Not Set', goal2Status: 'Not Set', goal3Status: 'Not Set'
+        });
       }
     } catch (err) {
       console.error('Error loading progress:', err);
+      // Set default values on error
+      setPoints(0);
+      setEarnedBadges([]);
+      setGoals({
+        goal1: '', goal2: '', goal3: '',
+        goal1Status: 'Not Set', goal2Status: 'Not Set', goal3Status: 'Not Set'
+      });
     }
   };
 
@@ -218,16 +234,23 @@ const App = () => {
       setCurrentPage('admin-login'); 
       return; 
     }
-    const searchId = studentId.trim().toUpperCase();
-    const student = allStudents.find(s => (s['Student ID'] || '').toString().trim().toUpperCase() === searchId);
-    if (student) { 
-      setStudentData(student); 
-      setIsAdmin(false); 
-      setCurrentPage('home');
-      loadMyGratitudeEntries(student['Student ID']);
-      loadStudentProgress(student['Student ID']);
-    } else { 
-      setError('Student ID not found. Please check and try again.'); 
+    
+    try {
+      const searchId = studentId.trim().toUpperCase();
+      const student = allStudents.find(s => (s['Student ID'] || '').toString().trim().toUpperCase() === searchId);
+      if (student) { 
+        setStudentData(student); 
+        setIsAdmin(false); 
+        setCurrentPage('home');
+        // Load data asynchronously but don't block page render
+        loadMyGratitudeEntries(student['Student ID']).catch(err => console.error('Gratitude load error:', err));
+        loadStudentProgress(student['Student ID']).catch(err => console.error('Progress load error:', err));
+      } else { 
+        setError('Student ID not found. Please check and try again.'); 
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('An error occurred. Please try again.');
     }
   };
 
