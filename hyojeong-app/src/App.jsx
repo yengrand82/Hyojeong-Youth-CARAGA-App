@@ -193,8 +193,6 @@ const App = () => {
       const data = await response.json();
       if (data.success) {
         setMyGratitudeEntries(data.entries);
-        // Check badges after loading entries
-        setTimeout(() => checkAndAwardBadges(), 1000);
       }
     } catch (err) {
       console.error('Error:', err);
@@ -385,8 +383,6 @@ const App = () => {
     });
     setGoals(g => ({...g, [statusKey]: 'Completed'}));
     alert('🎉 Goal completed! +25 points earned!');
-    // Check badges after completing goal
-    setTimeout(() => checkAndAwardBadges(), 500);
   };
 
   const getPhotoUrl = (url) => {
