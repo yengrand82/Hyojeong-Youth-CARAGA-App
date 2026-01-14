@@ -567,8 +567,343 @@ const App = () => {
     );
   }
 
-  // Admin pages continue with the same working code...
-  // For brevity, returning null for now - full admin pages work the same
+  // ADMIN DASHBOARD
+  if (currentPage === 'admin-dashboard' && isAdmin) return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-black text-white">Admin Dashboard</h1>
+          <button onClick={handleLogout} className="text-white font-bold bg-white/20 px-4 py-2 rounded-xl">Logout</button>
+        </div>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-purple-200">
+            <Users className="w-8 h-8 text-purple-600 mb-2" />
+            <p className="text-sm text-gray-600 font-bold">Total Students</p>
+            <p className="text-3xl font-black text-purple-600">{allStudents.length}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-pink-200">
+            <MessageSquare className="w-8 h-8 text-pink-600 mb-2" />
+            <p className="text-sm text-gray-600 font-bold">Gratitude Entries</p>
+            <p className="text-3xl font-black text-pink-600">{allGratitudeEntries.length}</p>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <button onClick={() => setCurrentPage('admin-students')} className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Users className="w-6 h-6" />
+              <span className="font-bold">View All Students</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => setCurrentPage('admin-leaderboard')} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Trophy className="w-6 h-6" />
+              <span className="font-bold">View Leaderboards</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => setCurrentPage('admin-gratitude')} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Heart className="w-6 h-6" />
+              <span className="font-bold">View Gratitude Journals</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ADMIN STUDENTS LIST
+  if (currentPage === 'admin-students' && isAdmin) return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+      {selectedStudentDetail && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setSelectedStudentDetail(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-t-2xl relative">
+              <button onClick={() => setSelectedStudentDetail(null)} className="absolute top-4 right-4 text-white">
+                <X className="w-6 h-6" />
+              </button>
+              <div className="flex items-center gap-4">
+                <Avatar firstName={selectedStudentDetail['First Name']} lastName={selectedStudentDetail['Last Name']} photoUrl={selectedStudentDetail['Photo']} size="lg" />
+                <div className="text-white">
+                  <h2 className="text-3xl font-black">{selectedStudentDetail['First Name']} {selectedStudentDetail['Last Name']}</h2>
+                  <p className="text-xl font-bold opacity-90">{selectedStudentDetail['Student ID']}</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border-2 border-purple-200">
+                <p className="text-sm text-gray-600 font-bold mb-1">Overall Grade</p>
+                <p className="text-5xl font-black text-purple-600">{Math.round((selectedStudentDetail['HJ Grade'] || 0) * 100)}%</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
+                  <Calendar className="w-8 h-8 text-blue-600 mb-2" />
+                  <p className="text-xs text-gray-600 font-bold">Attendance</p>
+                  <p className="text-2xl font-black text-blue-600">{calculateAttendance(selectedStudentDetail)}%</p>
+                </div>
+                <div className="bg-purple-50 rounded-xl p-4 border-2 border-purple-200">
+                  <BookOpen className="w-8 h-8 text-purple-600 mb-2" />
+                  <p className="text-xs text-gray-600 font-bold">Quiz Score</p>
+                  <p className="text-2xl font-black text-purple-600">{Math.round((selectedStudentDetail['HJ Quiz'] || 0) * 100) / 100}</p>
+                </div>
+                <div className="bg-green-50 rounded-xl p-4 border-2 border-green-200">
+                  <Award className="w-8 h-8 text-green-600 mb-2" />
+                  <p className="text-xs text-gray-600 font-bold">Service Hours</p>
+                  <p className="text-2xl font-black text-green-600">{Math.round((selectedStudentDetail['HJ Service'] || 0) * 100) / 100}</p>
+                </div>
+                <div className="bg-orange-50 rounded-xl p-4 border-2 border-orange-200">
+                  <TrendingUp className="w-8 h-8 text-orange-600 mb-2" />
+                  <p className="text-xs text-gray-600 font-bold">Progress</p>
+                  <p className="text-2xl font-black text-orange-600">{Math.round((selectedStudentDetail['Percentage'] || 0) * 100)}%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="p-4">
+        <div className="flex items-center gap-3 mb-6">
+          <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-3xl font-black text-white">All Students</h1>
+        </div>
+        <div className="space-y-3">
+          {allStudents.map((student, idx) => (
+            <div 
+              key={idx} 
+              onClick={() => setSelectedStudentDetail(student)}
+              className="bg-white rounded-2xl shadow-lg p-4 border-4 border-white cursor-pointer hover:border-purple-300 transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="sm" />
+                <div className="flex-1">
+                  <p className="font-black text-gray-800">{student['First Name']} {student['Last Name']}</p>
+                  <p className="text-sm text-purple-600 font-bold">{student['Student ID']}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-600">{student['Category']}</p>
+                  <p className="text-sm font-bold text-purple-600">{Math.round((student['HJ Grade'] || 0) * 100)}%</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-400" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ADMIN LEADERBOARD
+  if (currentPage === 'admin-leaderboard' && isAdmin) {
+    const kidsLeaderboard = getLeaderboard('Kids');
+    const teensLeaderboard = getLeaderboard('Teens');
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+        <div className="p-4">
+          <div className="flex items-center gap-3 mb-6">
+            <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <h1 className="text-3xl font-black text-white">🏆 Leaderboards</h1>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy className="w-6 h-6 text-yellow-500" />
+              <h2 className="text-2xl font-black text-gray-800">Kids Category</h2>
+            </div>
+            {kidsLeaderboard.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No students in Kids category</p>
+            ) : (
+              <div className="space-y-3">
+                {kidsLeaderboard.map((student, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`flex items-center gap-3 p-3 rounded-xl ${
+                      idx === 0 ? 'bg-yellow-50 border-2 border-yellow-400' :
+                      idx === 1 ? 'bg-gray-50 border-2 border-gray-400' :
+                      idx === 2 ? 'bg-orange-50 border-2 border-orange-400' :
+                      'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
+                      {idx === 0 && <span className="text-3xl">🥇</span>}
+                      {idx === 1 && <span className="text-3xl">🥈</span>}
+                      {idx === 2 && <span className="text-3xl">🥉</span>}
+                      {idx > 2 && <span className="text-xl font-black text-gray-600">#{idx + 1}</span>}
+                    </div>
+                    <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="sm" />
+                    <div className="flex-1">
+                      <p className="font-black text-gray-800">{student['First Name']} {student['Last Name']}</p>
+                      <p className="text-sm text-purple-600 font-bold">{student['Student ID']}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-black text-purple-600">{Math.round((student['HJ Grade'] || 0) * 100)}%</p>
+                      <p className="text-xs text-gray-500">Overall Grade</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white">
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy className="w-6 h-6 text-blue-500" />
+              <h2 className="text-2xl font-black text-gray-800">Teens Category</h2>
+            </div>
+            {teensLeaderboard.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No students in Teens category</p>
+            ) : (
+              <div className="space-y-3">
+                {teensLeaderboard.map((student, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`flex items-center gap-3 p-3 rounded-xl ${
+                      idx === 0 ? 'bg-yellow-50 border-2 border-yellow-400' :
+                      idx === 1 ? 'bg-gray-50 border-2 border-gray-400' :
+                      idx === 2 ? 'bg-orange-50 border-2 border-orange-400' :
+                      'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
+                      {idx === 0 && <span className="text-3xl">🥇</span>}
+                      {idx === 1 && <span className="text-3xl">🥈</span>}
+                      {idx === 2 && <span className="text-3xl">🥉</span>}
+                      {idx > 2 && <span className="text-xl font-black text-gray-600">#{idx + 1}</span>}
+                    </div>
+                    <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="sm" />
+                    <div className="flex-1">
+                      <p className="font-black text-gray-800">{student['First Name']} {student['Last Name']}</p>
+                      <p className="text-sm text-purple-600 font-bold">{student['Student ID']}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-black text-blue-600">{Math.round((student['HJ Grade'] || 0) * 100)}%</p>
+                      <p className="text-xs text-gray-500">Overall Grade</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ADMIN GRATITUDE JOURNALS
+  if (currentPage === 'admin-gratitude' && isAdmin) return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+      <div className="p-4">
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-3xl font-black text-white">Gratitude Journals</h1>
+        </div>
+        
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4 border-4 border-white">
+          <label className="block text-sm font-bold text-gray-700 mb-2">Filter by Session</label>
+          <div className="flex gap-2">
+            <select 
+              value={selectedSessionFilter} 
+              onChange={(e) => {
+                setSelectedSessionFilter(e.target.value);
+                loadAllGratitudeEntries(e.target.value);
+              }}
+              className="flex-1 px-4 py-3 border-2 border-purple-300 rounded-xl font-semibold"
+            >
+              {[...Array(20)].map((_, i) => (
+                <option key={i} value={`Session ${i + 1}`}>Session {i + 1}</option>
+              ))}
+            </select>
+            <button 
+              onClick={() => loadAllGratitudeEntries(selectedSessionFilter)}
+              className="px-4 py-3 bg-purple-500 text-white rounded-xl font-bold"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <RefreshCw className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600 font-bold">Loading entries...</p>
+          </div>
+        ) : allGratitudeEntries.length === 0 ? (
+          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 font-bold">No gratitude entries for {selectedSessionFilter}</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {allGratitudeEntries.map((entry, idx) => (
+              <div key={idx} className="bg-white rounded-2xl p-4 shadow-lg border-4 border-pink-200">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="font-black text-gray-800">{entry.studentName}</p>
+                    <p className="text-sm text-purple-600 font-bold">{entry.studentId}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">{entry.session}</p>
+                    <p className="text-xs text-gray-400">{entry.timestamp}</p>
+                  </div>
+                </div>
+                <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-3 rounded-xl mb-3">
+                  <p className="text-sm text-gray-700">{entry.content}</p>
+                </div>
+                {entry.adminRemark && (
+                  <div className="bg-blue-50 p-3 rounded-xl mb-2 border-2 border-blue-200">
+                    <p className="text-xs text-blue-600 font-bold mb-1">Your Remark:</p>
+                    <p className="text-sm text-gray-700">{entry.adminRemark}</p>
+                  </div>
+                )}
+                {selectedEntry?.rowIndex === entry.rowIndex ? (
+                  <div className="space-y-2">
+                    <textarea 
+                      value={adminRemark} 
+                      onChange={(e) => setAdminRemark(e.target.value)}
+                      placeholder="Write your remark here..."
+                      className="w-full p-3 border-2 border-purple-300 rounded-xl text-sm"
+                      rows="3"
+                    />
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleAdminRemarkSubmit(entry)}
+                        disabled={loading}
+                        className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl py-2 font-bold text-sm disabled:opacity-50"
+                      >
+                        {loading ? 'Saving...' : 'Save Remark'}
+                      </button>
+                      <button 
+                        onClick={() => { setSelectedEntry(null); setAdminRemark(''); }}
+                        className="px-4 bg-gray-200 text-gray-700 rounded-xl py-2 font-bold text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => { setSelectedEntry(entry); setAdminRemark(entry.adminRemark || ''); }}
+                    className="w-full bg-purple-100 text-purple-600 rounded-xl py-2 font-bold text-sm hover:bg-purple-200"
+                  >
+                    {entry.adminRemark ? 'Edit Remark' : 'Add Remark'}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return null;
 };
 
