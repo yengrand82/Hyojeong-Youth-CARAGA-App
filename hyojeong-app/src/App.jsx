@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift } from 'lucide-react';
+import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift, Target } from 'lucide-react';
 
 // Google Apps Script Web App URL
 const API_URL = 'https://script.google.com/macros/s/AKfycbxer-0KMA8_uJKY7rU8Vi1hgkeShRr5uMioZgw44g7WTLduGpRL_Ln7x1JQ0U8WfizaTA/exec';
@@ -82,6 +82,14 @@ const App = () => {
   // Points system
   const [points, setPoints] = useState(0);
   const [earnedBadges, setEarnedBadges] = useState([]);
+  
+  // Goals system
+  const [goals, setGoals] = useState({ 
+    goal1: '', goal2: '', goal3: '',
+    goal1Status: 'Not Set', goal2Status: 'Not Set', goal3Status: 'Not Set'
+  });
+  const [editingGoals, setEditingGoals] = useState(false);
+  const [tempGoals, setTempGoals] = useState({ goal1: '', goal2: '', goal3: '' });
 
   useEffect(() => {
     loadStudents();
@@ -121,14 +129,24 @@ const App = () => {
       if (data.success && data.progress) {
         setPoints(data.progress.totalPoints || 0);
         setEarnedBadges(data.progress.badgesEarned || []);
+        setGoals({
+          goal1: data.progress.goal1 || '',
+          goal2: data.progress.goal2 || '',
+          goal3: data.progress.goal3 || '',
+          goal1Status: data.progress.goal1Status || 'Not Set',
+          goal2Status: data.progress.goal2Status || 'Not Set',
+          goal3Status: data.progress.goal3Status || 'Not Set'
+        });
       } else {
         setPoints(0);
         setEarnedBadges([]);
+        setGoals({ goal1: '', goal2: '', goal3: '', goal1Status: 'Not Set', goal2Status: 'Not Set', goal3Status: 'Not Set' });
       }
     } catch (err) {
       console.error('Error loading progress:', err);
       setPoints(0);
       setEarnedBadges([]);
+      setGoals({ goal1: '', goal2: '', goal3: '', goal1Status: 'Not Set', goal2Status: 'Not Set', goal3Status: 'Not Set' });
     }
   };
 
@@ -145,6 +163,38 @@ const App = () => {
     } catch (err) {
       console.error('Error updating progress:', err);
     }
+  };
+
+  const handleSaveGoals = async () => {
+    await updateProgress({ 
+      goal1: tempGoals.goal1, 
+      goal1Status: tempGoals.goal1 ? 'In Progress' : 'Not Set',
+      goal2: tempGoals.goal2, 
+      goal2Status: tempGoals.goal2 ? 'In Progress' : 'Not Set',
+      goal3: tempGoals.goal3, 
+      goal3Status: tempGoals.goal3 ? 'In Progress' : 'Not Set',
+      addPoints: 5
+    });
+    setGoals({
+      goal1: tempGoals.goal1,
+      goal2: tempGoals.goal2,
+      goal3: tempGoals.goal3,
+      goal1Status: tempGoals.goal1 ? 'In Progress' : 'Not Set',
+      goal2Status: tempGoals.goal2 ? 'In Progress' : 'Not Set',
+      goal3Status: tempGoals.goal3 ? 'In Progress' : 'Not Set'
+    });
+    setEditingGoals(false);
+    alert('✨ Goals saved! +5 points earned!');
+  };
+
+  const handleCompleteGoal = async (goalNum) => {
+    const statusKey = `goal${goalNum}Status`;
+    await updateProgress({ 
+      [statusKey]: 'Completed',
+      addPoints: 25
+    });
+    setGoals(g => ({...g, [statusKey]: 'Completed'}));
+    alert('🎉 Goal completed! +25 points earned!');
   };
 
   const loadAllGratitudeEntries = async (session) => {
@@ -216,6 +266,8 @@ const App = () => {
     setSelectedStudentDetail(null);
     setPoints(0);
     setEarnedBadges([]);
+    setGoals({ goal1: '', goal2: '', goal3: '', goal1Status: 'Not Set', goal2Status: 'Not Set', goal3Status: 'Not Set' });
+    setEditingGoals(false);
   };
 
   const handleGratitudeSubmit = async () => {
@@ -748,7 +800,7 @@ const App = () => {
         <div className="p-4">
           <h1 className="text-3xl font-black text-white mb-4">My Profile</h1>
           
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
             <div className="flex justify-center">
               <Avatar firstName={studentData['First Name']} lastName={studentData['Last Name']} photoUrl={studentData['Photo']} size="lg" />
             </div>
@@ -775,6 +827,135 @@ const App = () => {
               )}
             </div>
           </div>
+
+          {/* Growth Goals Section */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Target className="w-6 h-6 text-purple-600" />
+                <h2 className="text-xl font-black text-gray-800">Growth Goals</h2>
+              </div>
+              {!editingGoals && (
+                <button 
+                  onClick={() => {
+                    setTempGoals({ goal1: goals.goal1, goal2: goals.goal2, goal3: goals.goal3 });
+                    setEditingGoals(true);
+                  }}
+                  className="text-sm font-bold text-purple-600"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+
+            {editingGoals ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-bold text-gray-700 mb-1 block">Goal 1</label>
+                  <input 
+                    type="text"
+                    value={tempGoals.goal1}
+                    onChange={(e) => setTempGoals(g => ({...g, goal1: e.target.value}))}
+                    placeholder="e.g., Read 5 books this month"
+                    className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-gray-700 mb-1 block">Goal 2</label>
+                  <input 
+                    type="text"
+                    value={tempGoals.goal2}
+                    onChange={(e) => setTempGoals(g => ({...g, goal2: e.target.value}))}
+                    placeholder="e.g., Practice gratitude daily"
+                    className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-gray-700 mb-1 block">Goal 3</label>
+                  <input 
+                    type="text"
+                    value={tempGoals.goal3}
+                    onChange={(e) => setTempGoals(g => ({...g, goal3: e.target.value}))}
+                    placeholder="e.g., Volunteer 10 hours"
+                    className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={handleSaveGoals}
+                    className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl py-3 font-bold"
+                  >
+                    Save Goals (+5 points)
+                  </button>
+                  <button 
+                    onClick={() => setEditingGoals(false)}
+                    className="px-6 bg-gray-200 text-gray-700 rounded-xl py-3 font-bold"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {[1, 2, 3].map(num => {
+                  const goal = goals[`goal${num}`];
+                  const status = goals[`goal${num}Status`];
+                  return (
+                    <div 
+                      key={num}
+                      className={`rounded-xl p-4 border-2 ${
+                        status === 'Completed' ? 'bg-green-50 border-green-300' :
+                        status === 'In Progress' ? 'bg-purple-50 border-purple-300' :
+                        'bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="text-xs font-bold text-gray-500 mb-1">Goal {num}</p>
+                          {goal ? (
+                            <>
+                              <p className="text-sm font-bold text-gray-800 mb-2">{goal}</p>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                                  status === 'Completed' ? 'bg-green-200 text-green-700' :
+                                  status === 'In Progress' ? 'bg-purple-200 text-purple-700' :
+                                  'bg-gray-200 text-gray-600'
+                                }`}>
+                                  {status}
+                                </span>
+                                {status === 'Completed' && <span className="text-xl">🎉</span>}
+                              </div>
+                            </>
+                          ) : (
+                            <p className="text-sm text-gray-400 italic">No goal set yet</p>
+                          )}
+                        </div>
+                        {goal && status === 'In Progress' && (
+                          <button 
+                            onClick={() => handleCompleteGoal(num)}
+                            className="ml-2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-lg hover:bg-green-600"
+                          >
+                            Complete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <button 
+            onClick={() => setCurrentPage('grades')} 
+            className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <BookOpen className="w-6 h-6" />
+              <span className="font-bold">View My Grades</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
         </div>
         <NavBar />
       </div>
