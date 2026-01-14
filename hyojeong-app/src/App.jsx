@@ -48,6 +48,19 @@ const getDailyQuote = () => {
   return QUOTES[dayOfYear % QUOTES.length];
 };
 
+// Achievement Badges
+const BADGES = [
+  { id: 'grateful_heart', name: 'Grateful Heart', icon: '⭐', desc: '5 gratitude entries', type: 'gratitude', count: 5, color: 'from-pink-400 to-rose-400' },
+  { id: 'grateful_soul', name: 'Grateful Soul', icon: '🌟', desc: '10 gratitude entries', type: 'gratitude', count: 10, color: 'from-purple-400 to-pink-400' },
+  { id: 'perfect_attendance', name: 'Perfect Attendance', icon: '📅', desc: '100% attendance', type: 'attendance', percent: 100, color: 'from-blue-400 to-cyan-400' },
+  { id: 'dedicated_learner', name: 'Dedicated', icon: '📚', desc: '90%+ attendance', type: 'attendance', percent: 90, color: 'from-indigo-400 to-blue-400' },
+  { id: 'service_star', name: 'Service Star', icon: '🤝', desc: 'Complete service', type: 'service', points: 1, color: 'from-green-400 to-emerald-400' },
+  { id: 'scholar', name: 'Scholar', icon: '🎓', desc: '90%+ quiz', type: 'quiz', score: 1.8, color: 'from-yellow-400 to-orange-400' },
+  { id: 'rising_star', name: 'Rising Star', icon: '✨', desc: '80%+ grade', type: 'grade', percent: 80, color: 'from-cyan-400 to-teal-400' },
+  { id: 'excellence', name: 'Excellence', icon: '🏆', desc: '90%+ grade', type: 'grade', percent: 90, color: 'from-yellow-400 to-yellow-500' },
+  { id: 'super_achiever', name: 'Super Achiever', icon: '💫', desc: '100 points', type: 'points', count: 100, color: 'from-purple-500 to-indigo-500' }
+];
+
 const App = () => {
   const [currentPage, setCurrentPage] = useState('login');
   const [studentId, setStudentId] = useState('');
@@ -68,6 +81,7 @@ const App = () => {
   
   // Points system
   const [points, setPoints] = useState(0);
+  const [earnedBadges, setEarnedBadges] = useState([]);
 
   useEffect(() => {
     loadStudents();
@@ -106,12 +120,15 @@ const App = () => {
       const data = await response.json();
       if (data.success && data.progress) {
         setPoints(data.progress.totalPoints || 0);
+        setEarnedBadges(data.progress.badgesEarned || []);
       } else {
         setPoints(0);
+        setEarnedBadges([]);
       }
     } catch (err) {
       console.error('Error loading progress:', err);
       setPoints(0);
+      setEarnedBadges([]);
     }
   };
 
@@ -198,6 +215,7 @@ const App = () => {
     setAllGratitudeEntries([]);
     setSelectedStudentDetail(null);
     setPoints(0);
+    setEarnedBadges([]);
   };
 
   const handleGratitudeSubmit = async () => {
@@ -305,13 +323,33 @@ const App = () => {
     return 0;
   };
 
+  const checkIfBadgeEarned = (badge) => {
+    if (!studentData) return false;
+    if (earnedBadges.includes(badge.id)) return true;
+    
+    const gratitudeCount = myGratitudeEntries.length;
+    const attendance = calculateAttendance();
+    const grade = Math.round((studentData['HJ Grade'] || 0) * 100);
+    const quiz = studentData['HJ Quiz'] || 0;
+    const service = studentData['HJ Service'] || 0;
+    
+    if (badge.type === 'gratitude') return gratitudeCount >= badge.count;
+    if (badge.type === 'attendance') return attendance >= badge.percent;
+    if (badge.type === 'service') return service >= badge.points;
+    if (badge.type === 'quiz') return quiz >= badge.score;
+    if (badge.type === 'grade') return grade >= badge.percent;
+    if (badge.type === 'points') return points >= badge.count;
+    
+    return false;
+  };
+
   const NavBar = () => (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-purple-300 shadow-lg z-50">
       <div className="flex justify-around items-center py-3">
         {[
           { page: 'home', icon: Home, label: 'Home' }, 
+          { page: 'badges', icon: Award, label: 'Badges' }, 
           { page: 'gratitude', icon: Heart, label: 'Gratitude' }, 
-          { page: 'grades', icon: BookOpen, label: 'Grades' }, 
           { page: 'profile', icon: User, label: 'Profile' }
         ].map(({ page, icon: Icon, label }) => (
           <button key={page} onClick={() => setCurrentPage(page)} className={`flex flex-col items-center ${currentPage === page ? 'text-purple-600' : 'text-gray-400'}`}>
@@ -453,6 +491,13 @@ const App = () => {
           </div>
 
           <div className="space-y-3">
+            <button onClick={() => setCurrentPage('badges')} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Award className="w-6 h-6" />
+                <span className="font-bold">My Badges ({earnedBadges.length}/{BADGES.length})</span>
+              </div>
+              <ChevronRight className="w-6 h-6" />
+            </button>
             <button onClick={() => setCurrentPage('gratitude')} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Heart className="w-6 h-6" />
@@ -474,6 +519,62 @@ const App = () => {
               </div>
               <ChevronRight className="w-6 h-6" />
             </button>
+          </div>
+        </div>
+        <NavBar />
+      </div>
+    );
+  }
+
+  // BADGES PAGE
+  if (currentPage === 'badges' && studentData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+        <div className="p-4">
+          <h1 className="text-3xl font-black text-white mb-4">🏅 My Badges</h1>
+          
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
+            <div className="text-center">
+              <p className="text-gray-600 font-bold mb-2">Badges Collected</p>
+              <p className="text-6xl font-black text-purple-600 mb-2">{earnedBadges.length}/{BADGES.length}</p>
+              <div className="w-full bg-gray-200 rounded-full h-4">
+                <div 
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 h-4 rounded-full transition-all duration-500"
+                  style={{ width: `${(earnedBadges.length / BADGES.length) * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {BADGES.map((badge) => {
+              const earned = checkIfBadgeEarned(badge);
+              return (
+                <div 
+                  key={badge.id}
+                  className={`rounded-2xl p-6 shadow-lg border-4 ${
+                    earned 
+                      ? `bg-gradient-to-br ${badge.color} border-white` 
+                      : 'bg-gray-100 border-gray-200 opacity-60'
+                  }`}
+                >
+                  <div className="text-center">
+                    <div className="text-6xl mb-3">{badge.icon}</div>
+                    <p className={`text-sm font-black mb-1 ${earned ? 'text-white' : 'text-gray-600'}`}>
+                      {badge.name}
+                    </p>
+                    <p className={`text-xs ${earned ? 'text-white/90' : 'text-gray-500'}`}>
+                      {badge.desc}
+                    </p>
+                    {earned && (
+                      <div className="mt-2 bg-white/20 rounded-full px-3 py-1">
+                        <p className="text-xs font-bold text-white">✓ Unlocked!</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
         <NavBar />
