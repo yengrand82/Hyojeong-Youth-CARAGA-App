@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift, Target } from 'lucide-react';
+import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift, Target, UserPlus } from 'lucide-react';
 
 // Google Apps Script Web App URL
 const API_URL = 'https://script.google.com/macros/s/AKfycbxer-0KMA8_uJKY7rU8Vi1hgkeShRr5uMioZgw44g7WTLduGpRL_Ln7x1JQ0U8WfizaTA/exec';
@@ -79,6 +79,14 @@ const App = () => {
   const [selectedSessionFilter, setSelectedSessionFilter] = useState('');
   const [selectedStudentDetail, setSelectedStudentDetail] = useState(null);
   const [selectedStudentProgress, setSelectedStudentProgress] = useState(null);
+  const [showAddStudentForm, setShowAddStudentForm] = useState(false);
+  const [newStudent, setNewStudent] = useState({
+    firstName: '',
+    lastName: '',
+    age: '',
+    category: 'Kids',
+    photoUrl: ''
+  });
   
   // Points system
   const [points, setPoints] = useState(0);
@@ -210,6 +218,36 @@ const App = () => {
     } catch (err) {
       console.error('Error loading student progress:', err);
       setSelectedStudentProgress(null);
+    }
+  };
+
+  const handleAddNewStudent = async () => {
+    if (!newStudent.firstName.trim() || !newStudent.lastName.trim()) {
+      alert('Please enter first name and last name');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}?action=addNewStudent`, {
+        method: 'POST',
+        body: JSON.stringify(newStudent)
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        alert(`✅ Student added successfully! Student ID: ${data.studentId}`);
+        setNewStudent({ firstName: '', lastName: '', age: '', category: 'Kids', photoUrl: '' });
+        setShowAddStudentForm(false);
+        await loadStudents(); // Refresh student list
+      } else {
+        alert('Failed to add student: ' + data.error);
+      }
+    } catch (err) {
+      console.error('Error adding student:', err);
+      alert('Failed to add student. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -999,6 +1037,13 @@ const App = () => {
           </div>
         </div>
         <div className="space-y-3">
+          <button onClick={() => setShowAddStudentForm(true)} className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <UserPlus className="w-6 h-6" />
+              <span className="font-bold">Add New Student</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
           <button onClick={() => setCurrentPage('admin-students')} className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Users className="w-6 h-6" />
@@ -1022,6 +1067,101 @@ const App = () => {
           </button>
         </div>
       </div>
+
+      {/* Add New Student Modal */}
+      {showAddStudentForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowAddStudentForm(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-black text-gray-800">Add New Student</h2>
+              <button onClick={() => setShowAddStudentForm(false)} className="text-gray-500">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">First Name *</label>
+                <input 
+                  type="text"
+                  value={newStudent.firstName}
+                  onChange={(e) => setNewStudent(s => ({...s, firstName: e.target.value}))}
+                  placeholder="e.g., John"
+                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Last Name *</label>
+                <input 
+                  type="text"
+                  value={newStudent.lastName}
+                  onChange={(e) => setNewStudent(s => ({...s, lastName: e.target.value}))}
+                  placeholder="e.g., Smith"
+                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Age</label>
+                <input 
+                  type="number"
+                  value={newStudent.age}
+                  onChange={(e) => setNewStudent(s => ({...s, age: e.target.value}))}
+                  placeholder="e.g., 12"
+                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Category</label>
+                <select 
+                  value={newStudent.category}
+                  onChange={(e) => setNewStudent(s => ({...s, category: e.target.value}))}
+                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                >
+                  <option value="Kids">Kids</option>
+                  <option value="Teens">Teens</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Photo URL (optional)</label>
+                <input 
+                  type="text"
+                  value={newStudent.photoUrl}
+                  onChange={(e) => setNewStudent(s => ({...s, photoUrl: e.target.value}))}
+                  placeholder="https://..."
+                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                />
+                <p className="text-xs text-gray-500 mt-1">Google Drive or Imgur link</p>
+              </div>
+
+              <div className="bg-blue-50 p-3 rounded-xl border-2 border-blue-200">
+                <p className="text-sm text-blue-700 font-bold">
+                  ℹ️ Student ID will be auto-generated (e.g., HJ075)
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={handleAddNewStudent}
+                  disabled={loading}
+                  className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl py-3 font-bold disabled:opacity-50"
+                >
+                  {loading ? 'Adding...' : 'Add Student'}
+                </button>
+                <button 
+                  onClick={() => setShowAddStudentForm(false)}
+                  className="px-6 bg-gray-200 text-gray-700 rounded-xl py-3 font-bold"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
