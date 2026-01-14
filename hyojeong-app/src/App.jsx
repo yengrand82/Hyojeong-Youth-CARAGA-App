@@ -1,8 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X } from 'lucide-react';
+import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles } from 'lucide-react';
 
 // Google Apps Script Web App URL
 const API_URL = 'https://script.google.com/macros/s/AKfycbxer-0KMA8_uJKY7rU8Vi1hgkeShRr5uMioZgw44g7WTLduGpRL_Ln7x1JQ0U8WfizaTA/exec';
+
+// Inspirational Quotes - True Parents & Bible Verses
+const QUOTES = [
+  // True Parents Quotes
+  { quote: "Love is giving and forgetting. Love is investing and then forgetting about it.", author: "True Father" },
+  { quote: "The family is the school of love, and parents are the textbooks.", author: "True Father" },
+  { quote: "Living for the sake of others is the way to bring peace to the world.", author: "True Parents" },
+  { quote: "True love begins when you love those who do not love you.", author: "True Father" },
+  { quote: "Gratitude is the foundation for receiving Heaven's blessings.", author: "True Mother" },
+  { quote: "A life lived for others is a life worth living.", author: "True Father" },
+  { quote: "The purpose of life is to perfect the ability to love.", author: "True Parents" },
+  { quote: "When you live for others, Heaven opens its doors.", author: "True Father" },
+  { quote: "Your heart should be bigger than the world.", author: "True Mother" },
+  { quote: "True happiness comes from living for the sake of others.", author: "True Father" },
+  { quote: "Love is the greatest power in the universe.", author: "True Parents" },
+  { quote: "Be a light to the world through your example of love.", author: "True Mother" },
+  { quote: "The more difficult the path, the greater the victory.", author: "True Father" },
+  { quote: "Live each day with a grateful heart.", author: "True Mother" },
+  { quote: "Your attitude of heart determines your destiny.", author: "True Father" },
+  // Bible Verses
+  { quote: "Trust in the Lord with all your heart.", author: "Proverbs 3:5" },
+  { quote: "I can do all things through Christ who strengthens me.", author: "Philippians 4:13" },
+  { quote: "For God has not given us a spirit of fear, but of power and love.", author: "2 Timothy 1:7" },
+  { quote: "Be strong and courageous. The Lord your God will be with you.", author: "Joshua 1:9" },
+  { quote: "Love is patient, love is kind.", author: "1 Corinthians 13:4" },
+  { quote: "Let your light shine before others.", author: "Matthew 5:16" },
+  { quote: "Be joyful in hope, patient in affliction, faithful in prayer.", author: "Romans 12:12" },
+  { quote: "Whatever you do, work at it with all your heart.", author: "Colossians 3:23" },
+  { quote: "Cast all your anxiety on Him because He cares for you.", author: "1 Peter 5:7" },
+  { quote: "We love because He first loved us.", author: "1 John 4:19" },
+  { quote: "With God all things are possible.", author: "Matthew 19:26" },
+  { quote: "The joy of the Lord is your strength.", author: "Nehemiah 8:10" },
+  { quote: "Be kind to one another, tenderhearted, forgiving.", author: "Ephesians 4:32" },
+  { quote: "Let us not become weary in doing good.", author: "Galatians 6:9" },
+  { quote: "A cheerful heart is good medicine.", author: "Proverbs 17:22" }
+];
+
+// Get daily quote (rotates based on day of year)
+const getDailyQuote = () => {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+  return QUOTES[dayOfYear % QUOTES.length];
+};
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('login');
@@ -243,6 +287,20 @@ const App = () => {
     </div>
   );
 
+  const DailyQuote = () => {
+    const quote = getDailyQuote();
+    return (
+      <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-6 border-4 border-purple-200 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles className="w-6 h-6 text-purple-600" />
+          <h3 className="text-lg font-black text-gray-800">Today's Inspiration</h3>
+        </div>
+        <p className="text-gray-700 italic text-base mb-2">"{quote.quote}"</p>
+        <p className="text-purple-600 font-bold text-sm">— {quote.author}</p>
+      </div>
+    );
+  };
+
   // LOGIN PAGE
   if (currentPage === 'login') return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 flex items-center justify-center p-4">
@@ -325,6 +383,8 @@ const App = () => {
               <button onClick={handleLogout} className="text-sm text-gray-500 font-semibold">Logout</button>
             </div>
           </div>
+
+          <DailyQuote />
 
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-green-200">
