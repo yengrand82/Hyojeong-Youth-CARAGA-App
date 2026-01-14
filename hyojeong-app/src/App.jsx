@@ -78,6 +78,7 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [selectedSessionFilter, setSelectedSessionFilter] = useState('');
   const [selectedStudentDetail, setSelectedStudentDetail] = useState(null);
+  const [selectedStudentProgress, setSelectedStudentProgress] = useState(null);
   
   // Points system
   const [points, setPoints] = useState(0);
@@ -195,6 +196,21 @@ const App = () => {
     });
     setGoals(g => ({...g, [statusKey]: 'Completed'}));
     alert('🎉 Goal completed! +25 points earned!');
+  };
+
+  const loadStudentProgressForAdmin = async (studId) => {
+    try {
+      const response = await fetch(`${API_URL}?action=getStudentProgress&studentId=${studId}`);
+      const data = await response.json();
+      if (data.success && data.progress) {
+        setSelectedStudentProgress(data.progress);
+      } else {
+        setSelectedStudentProgress(null);
+      }
+    } catch (err) {
+      console.error('Error loading student progress:', err);
+      setSelectedStudentProgress(null);
+    }
   };
 
   const loadAllGratitudeEntries = async (session) => {
@@ -1013,10 +1029,10 @@ const App = () => {
   if (currentPage === 'admin-students' && isAdmin) return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
       {selectedStudentDetail && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setSelectedStudentDetail(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => { setSelectedStudentDetail(null); setSelectedStudentProgress(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto my-4" onClick={(e) => e.stopPropagation()}>
             <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-t-2xl relative">
-              <button onClick={() => setSelectedStudentDetail(null)} className="absolute top-4 right-4 text-white">
+              <button onClick={() => { setSelectedStudentDetail(null); setSelectedStudentProgress(null); }} className="absolute top-4 right-4 text-white">
                 <X className="w-6 h-6" />
               </button>
               <div className="flex items-center gap-4">
@@ -1028,32 +1044,113 @@ const App = () => {
               </div>
             </div>
             <div className="p-6 space-y-4">
+              {/* Academic Progress */}
               <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border-2 border-purple-200">
-                <p className="text-sm text-gray-600 font-bold mb-1">Overall Grade</p>
-                <p className="text-5xl font-black text-purple-600">{Math.round((selectedStudentDetail['HJ Grade'] || 0) * 100)}%</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
-                  <Calendar className="w-8 h-8 text-blue-600 mb-2" />
-                  <p className="text-xs text-gray-600 font-bold">Attendance</p>
-                  <p className="text-2xl font-black text-blue-600">{calculateAttendance(selectedStudentDetail)}%</p>
-                </div>
-                <div className="bg-purple-50 rounded-xl p-4 border-2 border-purple-200">
-                  <BookOpen className="w-8 h-8 text-purple-600 mb-2" />
-                  <p className="text-xs text-gray-600 font-bold">Quiz Score</p>
-                  <p className="text-2xl font-black text-purple-600">{Math.round((selectedStudentDetail['HJ Quiz'] || 0) * 100) / 100}</p>
-                </div>
-                <div className="bg-green-50 rounded-xl p-4 border-2 border-green-200">
-                  <Award className="w-8 h-8 text-green-600 mb-2" />
-                  <p className="text-xs text-gray-600 font-bold">Service Hours</p>
-                  <p className="text-2xl font-black text-green-600">{Math.round((selectedStudentDetail['HJ Service'] || 0) * 100) / 100}</p>
-                </div>
-                <div className="bg-orange-50 rounded-xl p-4 border-2 border-orange-200">
-                  <TrendingUp className="w-8 h-8 text-orange-600 mb-2" />
-                  <p className="text-xs text-gray-600 font-bold">Progress</p>
-                  <p className="text-2xl font-black text-orange-600">{Math.round((selectedStudentDetail['Percentage'] || 0) * 100)}%</p>
+                <h3 className="text-lg font-black text-gray-800 mb-3">📚 Academic Progress</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="text-xs text-gray-600 font-bold mb-1">Overall Grade</p>
+                    <p className="text-3xl font-black text-purple-600">{Math.round((selectedStudentDetail['HJ Grade'] || 0) * 100)}%</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3">
+                    <Calendar className="w-6 h-6 text-blue-600 mb-1" />
+                    <p className="text-xs text-gray-600 font-bold mb-1">Attendance</p>
+                    <p className="text-2xl font-black text-blue-600">{calculateAttendance(selectedStudentDetail)}%</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3">
+                    <BookOpen className="w-6 h-6 text-purple-600 mb-1" />
+                    <p className="text-xs text-gray-600 font-bold mb-1">Quiz Score</p>
+                    <p className="text-2xl font-black text-purple-600">{Math.round((selectedStudentDetail['HJ Quiz'] || 0) * 100) / 100}</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3">
+                    <Award className="w-6 h-6 text-green-600 mb-1" />
+                    <p className="text-xs text-gray-600 font-bold mb-1">Service Hours</p>
+                    <p className="text-2xl font-black text-green-600">{Math.round((selectedStudentDetail['HJ Service'] || 0) * 100) / 100}</p>
+                  </div>
                 </div>
               </div>
+
+              {/* Spiritual Growth Progress */}
+              {selectedStudentProgress && (
+                <>
+                  <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-4 border-2 border-yellow-200">
+                    <h3 className="text-lg font-black text-gray-800 mb-3">✨ Spiritual Growth</h3>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="bg-white rounded-lg p-3">
+                        <Gift className="w-6 h-6 text-yellow-600 mb-1" />
+                        <p className="text-xs text-gray-600 font-bold mb-1">Total Points</p>
+                        <p className="text-3xl font-black text-yellow-600">{selectedStudentProgress.totalPoints || 0}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3">
+                        <Award className="w-6 h-6 text-purple-600 mb-1" />
+                        <p className="text-xs text-gray-600 font-bold mb-1">Badges Earned</p>
+                        <p className="text-3xl font-black text-purple-600">{selectedStudentProgress.badgesEarned?.length || 0}/{BADGES.length}</p>
+                      </div>
+                    </div>
+                    {selectedStudentProgress.badgesEarned && selectedStudentProgress.badgesEarned.length > 0 && (
+                      <div className="bg-white rounded-lg p-3">
+                        <p className="text-xs text-gray-600 font-bold mb-2">Unlocked Badges:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedStudentProgress.badgesEarned.map(badgeId => {
+                            const badge = BADGES.find(b => b.id === badgeId);
+                            return badge ? (
+                              <div key={badgeId} className="bg-gradient-to-r from-purple-100 to-pink-100 px-3 py-1 rounded-full flex items-center gap-2">
+                                <span className="text-lg">{badge.icon}</span>
+                                <span className="text-xs font-bold text-gray-700">{badge.name}</span>
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Growth Goals */}
+                  <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 border-2 border-blue-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Target className="w-6 h-6 text-blue-600" />
+                      <h3 className="text-lg font-black text-gray-800">Growth Goals</h3>
+                    </div>
+                    <div className="space-y-2">
+                      {[1, 2, 3].map(num => {
+                        const goal = selectedStudentProgress[`goal${num}`];
+                        const status = selectedStudentProgress[`goal${num}Status`];
+                        return (
+                          <div 
+                            key={num}
+                            className={`rounded-lg p-3 ${
+                              status === 'Completed' ? 'bg-green-100' :
+                              status === 'In Progress' ? 'bg-white' :
+                              'bg-gray-50'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="text-xs font-bold text-gray-500 mb-1">Goal {num}</p>
+                                {goal ? (
+                                  <>
+                                    <p className="text-sm font-bold text-gray-800 mb-1">{goal}</p>
+                                    <span className={`text-xs font-bold px-2 py-1 rounded-full inline-block ${
+                                      status === 'Completed' ? 'bg-green-200 text-green-700' :
+                                      status === 'In Progress' ? 'bg-purple-200 text-purple-700' :
+                                      'bg-gray-200 text-gray-600'
+                                    }`}>
+                                      {status}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <p className="text-sm text-gray-400 italic">No goal set</p>
+                                )}
+                              </div>
+                              {status === 'Completed' && <span className="text-xl ml-2">🎉</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1069,7 +1166,10 @@ const App = () => {
           {allStudents.map((student, idx) => (
             <div 
               key={idx} 
-              onClick={() => setSelectedStudentDetail(student)}
+              onClick={() => {
+                setSelectedStudentDetail(student);
+                loadStudentProgressForAdmin(student['Student ID']);
+              }}
               className="bg-white rounded-2xl shadow-lg p-4 border-4 border-white cursor-pointer hover:border-purple-300 transition-all"
             >
               <div className="flex items-center gap-3">
