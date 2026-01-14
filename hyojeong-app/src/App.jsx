@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles } from 'lucide-react';
+import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift } from 'lucide-react';
 
 // Google Apps Script Web App URL
 const API_URL = 'https://script.google.com/macros/s/AKfycbxer-0KMA8_uJKY7rU8Vi1hgkeShRr5uMioZgw44g7WTLduGpRL_Ln7x1JQ0U8WfizaTA/exec';
@@ -65,6 +65,9 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [selectedSessionFilter, setSelectedSessionFilter] = useState('');
   const [selectedStudentDetail, setSelectedStudentDetail] = useState(null);
+  
+  // Points system
+  const [points, setPoints] = useState(0);
 
   useEffect(() => {
     loadStudents();
@@ -94,6 +97,36 @@ const App = () => {
       }
     } catch (err) {
       console.error('Error:', err);
+    }
+  };
+
+  const loadStudentProgress = async (studId) => {
+    try {
+      const response = await fetch(`${API_URL}?action=getStudentProgress&studentId=${studId}`);
+      const data = await response.json();
+      if (data.success && data.progress) {
+        setPoints(data.progress.totalPoints || 0);
+      } else {
+        setPoints(0);
+      }
+    } catch (err) {
+      console.error('Error loading progress:', err);
+      setPoints(0);
+    }
+  };
+
+  const updateProgress = async (updates) => {
+    try {
+      await fetch(`${API_URL}?action=updateProgress`, {
+        method: 'POST',
+        body: JSON.stringify({ studentId: studentData['Student ID'], ...updates })
+      });
+      
+      if (updates.addPoints) {
+        setPoints(p => p + updates.addPoints);
+      }
+    } catch (err) {
+      console.error('Error updating progress:', err);
     }
   };
 
@@ -138,6 +171,7 @@ const App = () => {
       setIsAdmin(false); 
       setCurrentPage('home');
       loadMyGratitudeEntries(student['Student ID']);
+      loadStudentProgress(student['Student ID']);
     } else { 
       setError('Student ID not found. Please check and try again.'); 
     }
@@ -163,6 +197,7 @@ const App = () => {
     setMyGratitudeEntries([]);
     setAllGratitudeEntries([]);
     setSelectedStudentDetail(null);
+    setPoints(0);
   };
 
   const handleGratitudeSubmit = async () => {
@@ -187,7 +222,8 @@ const App = () => {
       
       const data = await response.json();
       if (data.success) {
-        alert('✨ Gratitude journal submitted successfully!'); 
+        await updateProgress({ addPoints: 10 });
+        alert('✨ Gratitude journal submitted! +10 points earned!'); 
         setGratitudeText(''); 
         setSelectedSession(''); 
         await loadMyGratitudeEntries(studentData['Student ID']);
@@ -387,15 +423,32 @@ const App = () => {
           <DailyQuote />
 
           <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-yellow-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-bold">My Points</p>
+                  <p className="text-3xl font-black text-yellow-600">{points}</p>
+                </div>
+                <Gift className="w-10 h-10 text-yellow-600" />
+              </div>
+            </div>
             <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-green-200">
               <TrendingUp className="w-8 h-8 text-green-600 mb-2" />
               <p className="text-sm text-gray-600 font-bold">Grade</p>
               <p className="text-3xl font-black text-green-600">{Math.round((studentData['HJ Grade'] || 0) * 100)}%</p>
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-blue-200">
               <Calendar className="w-8 h-8 text-blue-600 mb-2" />
               <p className="text-sm text-gray-600 font-bold">Attendance</p>
               <p className="text-3xl font-black text-blue-600">{calculateAttendance()}%</p>
+            </div>
+            <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-purple-200">
+              <Heart className="w-8 h-8 text-purple-600 mb-2" />
+              <p className="text-sm text-gray-600 font-bold">Journals</p>
+              <p className="text-3xl font-black text-purple-600">{myGratitudeEntries.length}</p>
             </div>
           </div>
 
