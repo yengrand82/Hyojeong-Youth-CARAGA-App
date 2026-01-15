@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift, Target, UserPlus } from 'lucide-react';
 
 // Google Apps Script Web App URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbyDb9imiRc-DVGqUq9XjZ6WDmf3ODJYVr7OB6PCaP3zxQMDby2uqoXH7gMaDQ5ru4lomw/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxer-0KMA8_uJKY7rU8Vi1hgkeShRr5uMioZgw44g7WTLduGpRL_Ln7x1JQ0U8WfizaTA/exec';
 
 // Inspirational Quotes - True Parents & Bible Verses
 const QUOTES = [
@@ -64,6 +64,7 @@ const BADGES = [
 const App = () => {
   const [currentPage, setCurrentPage] = useState('login');
   const [studentId, setStudentId] = useState('');
+  const [password, setPassword] = useState('');
   const [studentData, setStudentData] = useState(null);
   const [error, setError] = useState('');
   const [gratitudeText, setGratitudeText] = useState('');
@@ -236,7 +237,7 @@ const App = () => {
       
       const data = await response.json();
       if (data.success) {
-        alert(`✅ Student added successfully! Student ID: ${data.studentId}`);
+        alert(`✅ Student added successfully!\n\nStudent ID: ${data.studentId}\nPassword: ${data.password}\n\n⚠️ Please save this password! The student will need it to log in.`);
         setNewStudent({ firstName: '', lastName: '', age: '', category: 'Kids', photoUrl: '' });
         setShowAddStudentForm(false);
         await loadStudents(); // Refresh student list
@@ -284,18 +285,31 @@ const App = () => {
       setCurrentPage('admin-login'); 
       return; 
     }
+    if (!password.trim()) {
+      setError('Please enter your password');
+      return;
+    }
     
     const searchId = studentId.trim().toUpperCase();
     const student = allStudents.find(s => (s['Student ID'] || '').toString().trim().toUpperCase() === searchId);
-    if (student) { 
-      setStudentData(student); 
-      setIsAdmin(false); 
-      setCurrentPage('home');
-      loadMyGratitudeEntries(student['Student ID']);
-      loadStudentProgress(student['Student ID']);
-    } else { 
+    
+    if (!student) { 
       setError('Student ID not found. Please check and try again.'); 
+      return;
     }
+    
+    // Check password
+    const correctPassword = student['Password'] || '';
+    if (password !== correctPassword) {
+      setError('Incorrect password. Please try again.');
+      return;
+    }
+    
+    setStudentData(student); 
+    setIsAdmin(false); 
+    setCurrentPage('home');
+    loadMyGratitudeEntries(student['Student ID']);
+    loadStudentProgress(student['Student ID']);
   };
 
   const handleAdminLogin = () => {
@@ -312,6 +326,7 @@ const App = () => {
   const handleLogout = () => { 
     setStudentData(null); 
     setStudentId(''); 
+    setPassword('');
     setIsAdmin(false); 
     setAdminPassword(''); 
     setCurrentPage('login');
@@ -507,6 +522,14 @@ const App = () => {
                 onChange={(e) => setStudentId(e.target.value)} 
                 onKeyPress={(e) => e.key === 'Enter' && handleLogin()} 
                 placeholder="Enter your Student ID (e.g., HJ001)" 
+                className="w-full px-4 py-4 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300 text-lg font-semibold mb-4" 
+              />
+              <input 
+                type="password" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                onKeyPress={(e) => e.key === 'Enter' && handleLogin()} 
+                placeholder="Enter your password" 
                 className="w-full px-4 py-4 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300 text-lg font-semibold mb-4" 
               />
               {error && <div className="mb-4 p-3 bg-red-50 border-2 border-red-300 rounded-xl text-red-600 text-sm font-semibold">{error}</div>}
