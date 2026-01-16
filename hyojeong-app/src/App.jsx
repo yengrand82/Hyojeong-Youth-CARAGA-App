@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift, Target, UserPlus } from 'lucide-react';
 
 // Google Apps Script Web App URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbyDb9imiRc-DVGqUq9XjZ6WDmf3ODJYVr7OB6PCaP3zxQMDby2uqoXH7gMaDQ5ru4lomw/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxer-0KMA8_uJKY7rU8Vi1hgkeShRr5uMioZgw44g7WTLduGpRL_Ln7x1JQ0U8WfizaTA/exec';
 
 // Inspirational Quotes - True Parents & Bible Verses
 const QUOTES = [
@@ -501,8 +501,12 @@ const App = () => {
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="bg-white rounded-full w-24 h-24 mx-auto mb-4 flex items-center justify-center shadow-lg">
-            <Award className="w-14 h-14 text-purple-600" />
+          <div className="flex justify-center mb-4">
+            <img 
+              src="https://i.imgur.com/bhXEh9q.png" 
+              alt="Hyojeong Youth Caraga Logo" 
+              className="w-32 h-32 object-contain"
+            />
           </div>
           <h1 className="text-4xl font-black text-white mb-2 drop-shadow-lg">Hyojeong Youth</h1>
           <p className="text-white text-lg font-bold">Caraga 2026</p>
@@ -547,8 +551,18 @@ const App = () => {
   if (currentPage === 'admin-login') return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
+        <div className="text-center mb-6">
+          <div className="flex justify-center mb-4">
+            <img 
+              src="https://i.imgur.com/bhXEh9q.png" 
+              alt="Hyojeong Youth Caraga Logo" 
+              className="w-24 h-24 object-contain"
+            />
+          </div>
+          <h2 className="text-2xl font-black text-white mb-2">Admin Access</h2>
+        </div>
         <div className="bg-white rounded-2xl shadow-2xl p-8 border-4 border-white">
-          <h2 className="text-2xl font-black text-gray-800 mb-6 text-center">Admin Login</h2>
+          <h2 className="text-2xl font-black text-gray-800 mb-6 text-center">Enter Password</h2>
           <input 
             type="password" 
             value={adminPassword} 
@@ -1044,7 +1058,14 @@ const App = () => {
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
       <div className="p-4">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-black text-white">Admin Dashboard</h1>
+          <div className="flex items-center gap-3">
+            <img 
+              src="https://i.imgur.com/bhXEh9q.png" 
+              alt="Hyojeong Youth Caraga Logo" 
+              className="w-12 h-12 object-contain"
+            />
+            <h1 className="text-3xl font-black text-white">Admin Dashboard</h1>
+          </div>
           <button onClick={handleLogout} className="text-white font-bold bg-white/20 px-4 py-2 rounded-xl">Logout</button>
         </div>
         <div className="grid grid-cols-2 gap-4 mb-4">
