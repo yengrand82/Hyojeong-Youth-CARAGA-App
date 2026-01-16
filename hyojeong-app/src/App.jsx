@@ -463,9 +463,9 @@ const App = () => {
     const [imageError, setImageError] = useState(false);
     const initials = `${(firstName || '?')[0]}${(lastName || '')[0] || ''}`.toUpperCase();
     const url = getPhotoUrl(photoUrl);
-    const sizeClasses = { sm: 'w-12 h-12 text-lg', md: 'w-16 h-16 text-2xl', lg: 'w-32 h-32 text-5xl' };
-    if (url && !imageError) return <img src={url} alt={`${firstName}`} className={`${sizeClasses[size]} rounded-xl object-cover border-4 border-white shadow-lg`} onError={() => setImageError(true)} />;
-    return <div className={`${sizeClasses[size]} rounded-xl bg-gradient-to-br ${getColorFromName(firstName, lastName)} flex items-center justify-center border-4 border-white shadow-lg`}><span className="font-black text-white">{initials}</span></div>;
+    const sizeClasses = { sm: 'w-12 h-12 text-lg', md: 'w-16 h-16 text-2xl', lg: 'w-48 h-48 text-7xl' };
+    if (url && !imageError) return <img src={url} alt={`${firstName}`} className={`${sizeClasses[size]} rounded-3xl object-cover border-4 border-white shadow-2xl`} onError={() => setImageError(true)} />;
+    return <div className={`${sizeClasses[size]} rounded-3xl bg-gradient-to-br ${getColorFromName(firstName, lastName)} flex items-center justify-center border-4 border-white shadow-2xl`}><span className="font-black text-white">{initials}</span></div>;
   };
 
   const calculateAttendance = (student = studentData) => {
@@ -622,11 +622,11 @@ const App = () => {
         </div>
         <div className="bg-white rounded-2xl shadow-2xl p-8 border-4 border-white relative overflow-hidden">
           {/* FFWPU Logo Watermark Background */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+          <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
             <img 
               src="https://i.imgur.com/sdbdHPL.png" 
               alt="FFWPU" 
-              className="w-80 h-80 object-contain"
+              className="w-64 h-64 object-contain"
             />
           </div>
           
@@ -1016,31 +1016,57 @@ const App = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
-          <h1 className="text-3xl font-black text-white mb-4">My Profile</h1>
+          <h1 className="text-3xl font-black text-white mb-4 drop-shadow-lg">✨ My Profile ✨</h1>
           
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
-            <div className="flex justify-center">
-              <Avatar firstName={studentData['First Name']} lastName={studentData['Last Name']} photoUrl={studentData['Photo']} size="lg" />
+          {/* Main Profile Card - More Vibrant! */}
+          <div className="bg-gradient-to-br from-white to-purple-50 rounded-3xl shadow-2xl p-8 border-4 border-white mb-4">
+            {/* Larger Photo with Fun Border */}
+            <div className="flex justify-center mb-6">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 rounded-3xl blur-xl opacity-50"></div>
+                <div className="relative">
+                  <Avatar firstName={studentData['First Name']} lastName={studentData['Last Name']} photoUrl={studentData['Photo']} size="lg" />
+                </div>
+              </div>
             </div>
-            <div className="space-y-3">
-              <div className="bg-purple-50 rounded-xl p-3">
-                <p className="text-sm text-gray-600 font-bold">Name</p>
-                <p className="text-lg font-black">{studentData['First Name']} {studentData['Last Name']}</p>
+            
+            {/* Info Cards - Colorful Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-4 border-2 border-purple-200">
+                <p className="text-xs text-purple-600 font-bold uppercase tracking-wide mb-1">👤 Full Name</p>
+                <p className="text-xl font-black text-gray-800">{studentData['First Name']} {studentData['Last Name']}</p>
               </div>
-              <div className="bg-blue-50 rounded-xl p-3">
-                <p className="text-sm text-gray-600 font-bold">Student ID</p>
-                <p className="text-lg font-black">{studentData['Student ID']}</p>
+              
+              <div className="bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl p-4 border-2 border-blue-200">
+                <p className="text-xs text-blue-600 font-bold uppercase tracking-wide mb-1">🆔 Student ID</p>
+                <p className="text-lg font-black text-gray-800">{studentData['Student ID']}</p>
               </div>
+              
               {studentData['Age'] && (
-                <div className="bg-green-50 rounded-xl p-3">
-                  <p className="text-sm text-gray-600 font-bold">Age</p>
-                  <p className="text-lg font-black">{studentData['Age']} years old</p>
+                <div className="bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl p-4 border-2 border-green-200">
+                  <p className="text-xs text-green-600 font-bold uppercase tracking-wide mb-1">🎂 Age</p>
+                  <p className="text-lg font-black text-gray-800">{studentData['Age']} years</p>
                 </div>
               )}
+              
+              {studentData['Date of Birth'] && (
+                <div className="col-span-2 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-2xl p-4 border-2 border-yellow-200">
+                  <p className="text-xs text-orange-600 font-bold uppercase tracking-wide mb-1">📅 Birthday</p>
+                  <p className="text-lg font-black text-gray-800">{studentData['Date of Birth']}</p>
+                </div>
+              )}
+              
+              {studentData['Address'] && (
+                <div className="col-span-2 bg-gradient-to-br from-pink-100 to-rose-100 rounded-2xl p-4 border-2 border-pink-200">
+                  <p className="text-xs text-pink-600 font-bold uppercase tracking-wide mb-1">📍 Address</p>
+                  <p className="text-base font-bold text-gray-800">{studentData['Address']}</p>
+                </div>
+              )}
+              
               {studentData['Category'] && (
-                <div className="bg-indigo-50 rounded-xl p-3">
-                  <p className="text-sm text-gray-600 font-bold">Category</p>
-                  <p className="text-lg font-black">{studentData['Category']}</p>
+                <div className="col-span-2 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl p-4 border-2 border-indigo-200">
+                  <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-1">⭐ Category</p>
+                  <p className="text-lg font-black text-gray-800">{studentData['Category']}</p>
                 </div>
               )}
             </div>
