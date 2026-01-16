@@ -228,6 +228,16 @@ const App = () => {
     alert('✨ Affirmation saved!');
   };
 
+  const handleEditAffirmation = () => {
+    setTempAffirmation(affirmation);
+    setEditingAffirmation(true);
+  };
+
+  const handleCancelAffirmation = () => {
+    setEditingAffirmation(false);
+    setTempAffirmation(affirmation);
+  };
+
   const loadStudentProgressForAdmin = async (studId) => {
     try {
       const response = await fetch(`${API_URL}?action=getStudentProgress&studentId=${studId}`);
@@ -532,15 +542,13 @@ const App = () => {
             maxLength={100}
             className="w-full px-4 py-3 border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-orange-300 mb-3 resize-none"
             rows="3"
+            autoFocus
           />
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600">{tempAffirmation.length}/100</span>
             <div className="flex gap-2">
               <button
-                onClick={() => {
-                  setEditingAffirmation(false);
-                  setTempAffirmation(affirmation);
-                }}
+                onClick={handleCancelAffirmation}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl font-bold"
               >
                 Cancel
@@ -565,10 +573,7 @@ const App = () => {
             <h3 className="text-lg font-black text-gray-800">My Weekly Affirmation</h3>
           </div>
           <button
-            onClick={() => {
-              setTempAffirmation(affirmation);
-              setEditingAffirmation(true);
-            }}
+            onClick={handleEditAffirmation}
             className="text-orange-600 font-bold text-sm"
           >
             {affirmation ? 'Edit' : 'Set'}
