@@ -622,7 +622,7 @@ const App = () => {
         </div>
         <div className="bg-white rounded-2xl shadow-2xl p-8 border-4 border-white relative overflow-hidden">
           {/* FFWPU Logo Watermark Background */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-15 pointer-events-none">
+          <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
             <img 
               src="https://i.imgur.com/sdbdHPL.png" 
               alt="FFWPU" 
