@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift, Target, UserPlus } from 'lucide-react';
 
 // Google Apps Script Web App URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbyDb9imiRc-DVGqUq9XjZ6WDmf3ODJYVr7OB6PCaP3zxQMDby2uqoXH7gMaDQ5ru4lomw/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxer-0KMA8_uJKY7rU8Vi1hgkeShRr5uMioZgw44g7WTLduGpRL_Ln7x1JQ0U8WfizaTA/exec';
 
 // Inspirational Quotes - True Parents & Bible Verses
 const QUOTES = [
@@ -100,6 +100,9 @@ const App = () => {
   });
   const [editingGoals, setEditingGoals] = useState(false);
   const [tempGoals, setTempGoals] = useState({ goal1: '', goal2: '', goal3: '' });
+  const [affirmation, setAffirmation] = useState('');
+  const [editingAffirmation, setEditingAffirmation] = useState(false);
+  const [tempAffirmation, setTempAffirmation] = useState('');
 
   useEffect(() => {
     loadStudents();
@@ -139,6 +142,7 @@ const App = () => {
       if (data.success && data.progress) {
         setPoints(data.progress.totalPoints || 0);
         setEarnedBadges(data.progress.badgesEarned || []);
+        setAffirmation(data.progress.affirmation || '');
         setGoals({
           goal1: data.progress.goal1 || '',
           goal2: data.progress.goal2 || '',
@@ -150,12 +154,14 @@ const App = () => {
       } else {
         setPoints(0);
         setEarnedBadges([]);
+        setAffirmation('');
         setGoals({ goal1: '', goal2: '', goal3: '', goal1Status: 'Not Set', goal2Status: 'Not Set', goal3Status: 'Not Set' });
       }
     } catch (err) {
       console.error('Error loading progress:', err);
       setPoints(0);
       setEarnedBadges([]);
+      setAffirmation('');
       setGoals({ goal1: '', goal2: '', goal3: '', goal1Status: 'Not Set', goal2Status: 'Not Set', goal3Status: 'Not Set' });
     }
   };
@@ -205,6 +211,21 @@ const App = () => {
     });
     setGoals(g => ({...g, [statusKey]: 'Completed'}));
     alert('🎉 Goal completed! +25 points earned!');
+  };
+
+  const handleSaveAffirmation = async () => {
+    if (!tempAffirmation.trim()) {
+      alert('Please write your affirmation');
+      return;
+    }
+    if (tempAffirmation.length > 100) {
+      alert('Please keep your affirmation under 100 characters');
+      return;
+    }
+    await updateProgress({ affirmation: tempAffirmation.trim() });
+    setAffirmation(tempAffirmation.trim());
+    setEditingAffirmation(false);
+    alert('✨ Affirmation saved!');
   };
 
   const loadStudentProgressForAdmin = async (studId) => {
@@ -496,6 +517,72 @@ const App = () => {
     );
   };
 
+  const WeeklyAffirmation = () => {
+    if (editingAffirmation) {
+      return (
+        <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-2xl p-6 border-4 border-yellow-200 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-6 h-6 text-orange-600" />
+            <h3 className="text-lg font-black text-gray-800">My Weekly Affirmation</h3>
+          </div>
+          <textarea
+            value={tempAffirmation}
+            onChange={(e) => setTempAffirmation(e.target.value)}
+            placeholder="I am a Filial Child of Heavenly Parents and True Parents"
+            maxLength={100}
+            className="w-full px-4 py-3 border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-orange-300 mb-3 resize-none"
+            rows="3"
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">{tempAffirmation.length}/100</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setEditingAffirmation(false);
+                  setTempAffirmation(affirmation);
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveAffirmation}
+                className="px-4 py-2 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-xl font-bold"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-2xl p-6 border-4 border-yellow-200 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-orange-600" />
+            <h3 className="text-lg font-black text-gray-800">My Weekly Affirmation</h3>
+          </div>
+          <button
+            onClick={() => {
+              setTempAffirmation(affirmation);
+              setEditingAffirmation(true);
+            }}
+            className="text-orange-600 font-bold text-sm"
+          >
+            {affirmation ? 'Edit' : 'Set'}
+          </button>
+        </div>
+        {affirmation ? (
+          <p className="text-gray-700 font-bold text-lg italic">"{affirmation}"</p>
+        ) : (
+          <p className="text-gray-500 italic">Set your weekly positive affirmation to inspire yourself!</p>
+        )}
+      </div>
+    );
+  };
+
   // LOGIN PAGE
   if (currentPage === 'login') return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 flex items-center justify-center p-4">
@@ -602,6 +689,8 @@ const App = () => {
           </div>
 
           <DailyQuote />
+
+          <WeeklyAffirmation />
 
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-yellow-200">
@@ -918,6 +1007,8 @@ const App = () => {
               )}
             </div>
           </div>
+
+          <WeeklyAffirmation />
 
           {/* Growth Goals Section */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
