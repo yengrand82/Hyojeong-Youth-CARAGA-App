@@ -608,11 +608,11 @@ const App = () => {
               {/* Animated glow effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-400 to-yellow-400 rounded-full blur-2xl opacity-75 animate-pulse"></div>
               {/* Logo container */}
-              <div className="relative bg-white rounded-full p-4 shadow-2xl animate-bounce-slow">
+              <div className="relative bg-white rounded-full p-2 shadow-2xl animate-bounce-slow">
                 <img 
                   src="https://i.imgur.com/bhXEh9q.png" 
                   alt="Hyojeong Youth Caraga Logo" 
-                  className="w-40 h-40 object-contain rounded-full"
+                  className="w-48 h-48 object-cover rounded-full"
                 />
               </div>
             </div>
@@ -666,11 +666,11 @@ const App = () => {
               {/* Animated glow effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 rounded-full blur-xl opacity-75 animate-pulse"></div>
               {/* Logo container */}
-              <div className="relative bg-white rounded-full p-3 shadow-2xl">
+              <div className="relative bg-white rounded-full p-2 shadow-2xl">
                 <img 
                   src="https://i.imgur.com/bhXEh9q.png" 
                   alt="Hyojeong Youth Caraga Logo" 
-                  className="w-28 h-28 object-contain rounded-full"
+                  className="w-32 h-32 object-cover rounded-full"
                 />
               </div>
             </div>
