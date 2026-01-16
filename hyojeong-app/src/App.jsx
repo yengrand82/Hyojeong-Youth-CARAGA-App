@@ -617,11 +617,20 @@ const App = () => {
               </div>
             </div>
           </div>
-          <h1 className="text-4xl font-black text-white mb-2 drop-shadow-lg">Hyojeong Youth</h1>
-          <p className="text-white text-lg font-bold">Caraga 2026</p>
+          <h1 className="text-4xl font-black text-white mb-2 drop-shadow-lg">Hyojeong Youth Caraga</h1>
+          <p className="text-white text-lg font-bold">A Youth Circle of FFWPU</p>
         </div>
-        <div className="bg-white rounded-2xl shadow-2xl p-8 border-4 border-white">
-          <h2 className="text-2xl font-black text-gray-800 mb-6 text-center">Welcome Back!</h2>
+        <div className="bg-white rounded-2xl shadow-2xl p-8 border-4 border-white relative overflow-hidden">
+          {/* FFWPU Logo Watermark Background */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
+            <img 
+              src="https://i.imgur.com/sdbdHPL.png" 
+              alt="FFWPU" 
+              className="w-64 h-64 object-contain"
+            />
+          </div>
+          
+          <h2 className="text-2xl font-black text-gray-800 mb-6 text-center relative z-10">Welcome Back!</h2>
           {loading ? (
             <div className="text-center py-8">
               <RefreshCw className="w-8 h-8 text-purple-600 animate-spin mx-auto mb-2" />
