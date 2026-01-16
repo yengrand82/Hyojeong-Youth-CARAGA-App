@@ -604,11 +604,18 @@ const App = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <img 
-              src="https://i.imgur.com/bhXEh9q.png" 
-              alt="Hyojeong Youth Caraga Logo" 
-              className="w-32 h-32 object-contain"
-            />
+            <div className="relative">
+              {/* Animated glow effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-400 to-yellow-400 rounded-full blur-2xl opacity-75 animate-pulse"></div>
+              {/* Logo container */}
+              <div className="relative bg-white rounded-full p-4 shadow-2xl animate-bounce-slow">
+                <img 
+                  src="https://i.imgur.com/bhXEh9q.png" 
+                  alt="Hyojeong Youth Caraga Logo" 
+                  className="w-40 h-40 object-contain rounded-full"
+                />
+              </div>
+            </div>
           </div>
           <h1 className="text-4xl font-black text-white mb-2 drop-shadow-lg">Hyojeong Youth</h1>
           <p className="text-white text-lg font-bold">Caraga 2026</p>
@@ -655,11 +662,18 @@ const App = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           <div className="flex justify-center mb-4">
-            <img 
-              src="https://i.imgur.com/bhXEh9q.png" 
-              alt="Hyojeong Youth Caraga Logo" 
-              className="w-24 h-24 object-contain"
-            />
+            <div className="relative">
+              {/* Animated glow effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 rounded-full blur-xl opacity-75 animate-pulse"></div>
+              {/* Logo container */}
+              <div className="relative bg-white rounded-full p-3 shadow-2xl">
+                <img 
+                  src="https://i.imgur.com/bhXEh9q.png" 
+                  alt="Hyojeong Youth Caraga Logo" 
+                  className="w-28 h-28 object-contain rounded-full"
+                />
+              </div>
+            </div>
           </div>
           <h2 className="text-2xl font-black text-white mb-2">Admin Access</h2>
         </div>
