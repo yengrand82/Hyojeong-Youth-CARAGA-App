@@ -626,7 +626,7 @@ const App = () => {
             <img 
               src="https://i.imgur.com/sdbdHPL.png" 
               alt="FFWPU" 
-              className="w-64 h-64 object-contain"
+              className="w-80 h-80 object-contain"
             />
           </div>
           
