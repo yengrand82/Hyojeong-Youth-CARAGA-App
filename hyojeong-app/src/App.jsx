@@ -528,6 +528,16 @@ const App = () => {
   };
 
   const WeeklyAffirmation = () => {
+    const textareaRef = React.useRef(null);
+
+    React.useEffect(() => {
+      if (editingAffirmation && textareaRef.current) {
+        const len = textareaRef.current.value.length;
+        textareaRef.current.setSelectionRange(len, len);
+        textareaRef.current.focus();
+      }
+    }, [editingAffirmation]);
+
     if (editingAffirmation) {
       return (
         <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-2xl p-6 border-4 border-yellow-200 mb-4">
@@ -536,13 +546,13 @@ const App = () => {
             <h3 className="text-lg font-black text-gray-800">My Weekly Affirmation</h3>
           </div>
           <textarea
+            ref={textareaRef}
             value={tempAffirmation}
             onChange={(e) => setTempAffirmation(e.target.value)}
             placeholder="I am a Filial Child of Heavenly Parents and True Parents"
             maxLength={100}
             className="w-full px-4 py-3 border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-orange-300 mb-3 resize-none"
             rows="3"
-            autoFocus
           />
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600">{tempAffirmation.length}/100</span>
