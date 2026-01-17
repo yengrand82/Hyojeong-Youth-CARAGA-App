@@ -84,8 +84,10 @@ const App = () => {
   const [newStudent, setNewStudent] = useState({
     firstName: '',
     lastName: '',
+    dateOfBirth: '',
     age: '',
-    category: 'Kids',
+    address: '',
+    category: '',
     photoUrl: ''
   });
   
@@ -269,7 +271,7 @@ const App = () => {
       const data = await response.json();
       if (data.success) {
         alert(`✅ Student added successfully!\n\nStudent ID: ${data.studentId}\nPassword: ${data.password}\n\n⚠️ Please save this password! The student will need it to log in.`);
-        setNewStudent({ firstName: '', lastName: '', age: '', category: 'Kids', photoUrl: '' });
+        setNewStudent({ firstName: '', lastName: '', dateOfBirth: '', age: '', address: '', category: '', photoUrl: '' });
         setShowAddStudentForm(false);
         await loadStudents(); // Refresh student list
       } else {
@@ -281,6 +283,35 @@ const App = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateAgeAndCategory = (dateOfBirth) => {
+    if (!dateOfBirth) return { age: '', category: '' };
+    
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    // Adjust age if birthday hasn't occurred this year
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    // Classify as Kids (under 13) or Teens (13+)
+    const category = age < 13 ? 'Kids' : 'Teens';
+    
+    return { age, category };
+  };
+
+  const handleDateOfBirthChange = (dateOfBirth) => {
+    const { age, category } = calculateAgeAndCategory(dateOfBirth);
+    setNewStudent(s => ({
+      ...s,
+      dateOfBirth,
+      age: age.toString(),
+      category
+    }));
   };
 
   const loadAllGratitudeEntries = async (session) => {
@@ -1270,7 +1301,7 @@ const App = () => {
       {/* Add New Student Modal */}
       {showAddStudentForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowAddStudentForm(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-black text-gray-800">Add New Student</h2>
               <button onClick={() => setShowAddStudentForm(false)} className="text-gray-500">
@@ -1302,26 +1333,45 @@ const App = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Age</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Date of Birth *</label>
                 <input 
-                  type="number"
-                  value={newStudent.age}
-                  onChange={(e) => setNewStudent(s => ({...s, age: e.target.value}))}
-                  placeholder="e.g., 12"
+                  type="date"
+                  value={newStudent.dateOfBirth}
+                  onChange={(e) => handleDateOfBirthChange(e.target.value)}
                   className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
                 />
+                <p className="text-xs text-gray-500 mt-1">Age and category will be calculated automatically</p>
               </div>
 
+              {newStudent.dateOfBirth && (
+                <>
+                  <div className="bg-green-50 p-4 rounded-xl border-2 border-green-200">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-green-600 font-bold uppercase">🎂 Age (Auto)</p>
+                        <p className="text-2xl font-black text-gray-800">{newStudent.age} years</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-green-600 font-bold uppercase">⭐ Category (Auto)</p>
+                        <p className="text-2xl font-black text-gray-800">{newStudent.category}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-green-600 mt-2">
+                      {newStudent.category === 'Kids' ? '🧒 Under 13 years old' : '👦 13 years or older'}
+                    </p>
+                  </div>
+                </>
+              )}
+
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Category</label>
-                <select 
-                  value={newStudent.category}
-                  onChange={(e) => setNewStudent(s => ({...s, category: e.target.value}))}
-                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
-                >
-                  <option value="Kids">Kids</option>
-                  <option value="Teens">Teens</option>
-                </select>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Address</label>
+                <textarea 
+                  value={newStudent.address}
+                  onChange={(e) => setNewStudent(s => ({...s, address: e.target.value}))}
+                  placeholder="e.g., 123 Main Street, Butuan City"
+                  rows="2"
+                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300 resize-none"
+                />
               </div>
 
               <div>
@@ -1338,15 +1388,16 @@ const App = () => {
 
               <div className="bg-blue-50 p-3 rounded-xl border-2 border-blue-200">
                 <p className="text-sm text-blue-700 font-bold">
-                  ℹ️ Student ID will be auto-generated (e.g., HJ075)
+                  ℹ️ Student ID and Password will be auto-generated
                 </p>
+                <p className="text-xs text-blue-600 mt-1">Example: HJ075 / HJ075-2026</p>
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button 
                   onClick={handleAddNewStudent}
-                  disabled={loading}
-                  className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl py-3 font-bold disabled:opacity-50"
+                  disabled={loading || !newStudent.firstName || !newStudent.lastName || !newStudent.dateOfBirth}
+                  className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl py-3 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Adding...' : 'Add Student'}
                 </button>
