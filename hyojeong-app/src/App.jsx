@@ -105,6 +105,12 @@ const App = () => {
   const [affirmation, setAffirmation] = useState('');
   const [editingAffirmation, setEditingAffirmation] = useState(false);
   const [tempAffirmation, setTempAffirmation] = useState('');
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [tempProfile, setTempProfile] = useState({
+    dateOfBirth: '',
+    address: '',
+    photoUrl: ''
+  });
 
   useEffect(() => {
     loadStudents();
@@ -312,6 +318,52 @@ const App = () => {
       age: age.toString(),
       category
     }));
+  };
+
+  const handleEditProfile = () => {
+    setTempProfile({
+      dateOfBirth: studentData['Date of Birth'] || '',
+      address: studentData['Address'] || '',
+      photoUrl: studentData['Photo'] || ''
+    });
+    setEditingProfile(true);
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}?action=updateStudentInfo`, {
+        method: 'POST',
+        body: JSON.stringify({
+          studentId: studentData['Student ID'],
+          dateOfBirth: tempProfile.dateOfBirth,
+          address: tempProfile.address,
+          photoUrl: tempProfile.photoUrl
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        // Update local student data
+        setStudentData(prev => ({
+          ...prev,
+          'Date of Birth': tempProfile.dateOfBirth,
+          'Address': tempProfile.address,
+          'Photo': tempProfile.photoUrl,
+          'Age': data.age,
+          'Category': data.category
+        }));
+        setEditingProfile(false);
+        alert('✅ Profile updated successfully!');
+      } else {
+        alert('Failed to update profile: ' + data.error);
+      }
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      alert('Failed to update profile. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadAllGratitudeEntries = async (session) => {
@@ -1051,18 +1103,95 @@ const App = () => {
           
           {/* Main Profile Card - More Vibrant! */}
           <div className="bg-gradient-to-br from-white to-purple-50 rounded-3xl shadow-2xl p-8 border-4 border-white mb-4">
+            {/* Edit Button */}
+            <div className="flex justify-end mb-4">
+              {!editingProfile ? (
+                <button
+                  onClick={handleEditProfile}
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-xl font-bold shadow-lg"
+                >
+                  ✏️ Edit Profile
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditingProfile(false)}
+                    className="bg-gray-200 text-gray-700 px-4 py-2 rounded-xl font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={loading}
+                    className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2 rounded-xl font-bold disabled:opacity-50"
+                  >
+                    {loading ? 'Saving...' : '💾 Save'}
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Larger Photo with Fun Border */}
             <div className="flex justify-center mb-6">
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 rounded-3xl blur-xl opacity-50"></div>
                 <div className="relative">
-                  <Avatar firstName={studentData['First Name']} lastName={studentData['Last Name']} photoUrl={studentData['Photo']} size="lg" />
+                  <Avatar firstName={studentData['First Name']} lastName={studentData['Last Name']} photoUrl={editingProfile ? tempProfile.photoUrl : studentData['Photo']} size="lg" />
                 </div>
               </div>
             </div>
-            
-            {/* Info Cards - Colorful Grid */}
-            <div className="grid grid-cols-2 gap-3">
+
+            {editingProfile ? (
+              /* Editing Mode */
+              <div className="space-y-4">
+                <div className="bg-purple-50 rounded-2xl p-4 border-2 border-purple-200">
+                  <p className="text-xs text-purple-600 font-bold uppercase tracking-wide mb-1">👤 Full Name</p>
+                  <p className="text-xl font-black text-gray-400">{studentData['First Name']} {studentData['Last Name']}</p>
+                  <p className="text-xs text-gray-500 mt-1">Name cannot be changed</p>
+                </div>
+
+                <div className="bg-blue-50 rounded-2xl p-4 border-2 border-blue-200">
+                  <p className="text-xs text-blue-600 font-bold uppercase tracking-wide mb-1">🆔 Student ID</p>
+                  <p className="text-lg font-black text-gray-400">{studentData['Student ID']}</p>
+                  <p className="text-xs text-gray-500 mt-1">ID cannot be changed</p>
+                </div>
+
+                <div className="bg-yellow-50 rounded-2xl p-4 border-2 border-yellow-200">
+                  <label className="text-xs text-orange-600 font-bold uppercase tracking-wide mb-2 block">📅 Birthday</label>
+                  <input
+                    type="date"
+                    value={tempProfile.dateOfBirth}
+                    onChange={(e) => setTempProfile(p => ({...p, dateOfBirth: e.target.value}))}
+                    className="w-full px-4 py-3 border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-orange-300"
+                  />
+                </div>
+
+                <div className="bg-pink-50 rounded-2xl p-4 border-2 border-pink-200">
+                  <label className="text-xs text-pink-600 font-bold uppercase tracking-wide mb-2 block">📍 Address</label>
+                  <textarea
+                    value={tempProfile.address}
+                    onChange={(e) => setTempProfile(p => ({...p, address: e.target.value}))}
+                    placeholder="Enter your address"
+                    rows="2"
+                    className="w-full px-4 py-3 border-2 border-pink-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-pink-300 resize-none"
+                  />
+                </div>
+
+                <div className="bg-indigo-50 rounded-2xl p-4 border-2 border-indigo-200">
+                  <label className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-2 block">📸 Photo URL</label>
+                  <input
+                    type="text"
+                    value={tempProfile.photoUrl}
+                    onChange={(e) => setTempProfile(p => ({...p, photoUrl: e.target.value}))}
+                    placeholder="https://..."
+                    className="w-full px-4 py-3 border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-300"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Google Drive or Imgur link</p>
+                </div>
+              </div>
+            ) : (
+              /* View Mode */
+              <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-4 border-2 border-purple-200">
                 <p className="text-xs text-purple-600 font-bold uppercase tracking-wide mb-1">👤 Full Name</p>
                 <p className="text-xl font-black text-gray-800">{studentData['First Name']} {studentData['Last Name']}</p>
@@ -1101,6 +1230,7 @@ const App = () => {
                 </div>
               )}
             </div>
+            )}
           </div>
 
           <WeeklyAffirmation />
