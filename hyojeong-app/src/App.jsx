@@ -583,8 +583,8 @@ const App = () => {
       <div className="flex justify-around items-center py-3">
         {[
           { page: 'home', icon: Home, label: 'Home' }, 
-          { page: 'badges', icon: Award, label: 'Badges' }, 
-          { page: 'gratitude', icon: Heart, label: 'Gratitude' }, 
+          { page: 'badges', icon: Award, label: 'Hearts' }, 
+          { page: 'gratitude', icon: Heart, label: 'Journal' }, 
           { page: 'profile', icon: User, label: 'Profile' }
         ].map(({ page, icon: Icon, label }) => (
           <button key={page} onClick={() => setCurrentPage(page)} className={`flex flex-col items-center ${currentPage === page ? 'text-purple-600' : 'text-gray-400'}`}>
@@ -817,7 +817,7 @@ const App = () => {
             <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-yellow-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 font-bold">My Points</p>
+                  <p className="text-sm text-gray-600 font-bold">Heart Seeds</p>
                   <p className="text-3xl font-black text-yellow-600">{points}</p>
                 </div>
                 <Gift className="w-10 h-10 text-yellow-600" />
@@ -825,7 +825,7 @@ const App = () => {
             </div>
             <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-green-200">
               <TrendingUp className="w-8 h-8 text-green-600 mb-2" />
-              <p className="text-sm text-gray-600 font-bold">Grade</p>
+              <p className="text-sm text-gray-600 font-bold">Growth</p>
               <p className="text-3xl font-black text-green-600">{Math.round((studentData['HJ Grade'] || 0) * 100)}%</p>
             </div>
           </div>
@@ -833,12 +833,12 @@ const App = () => {
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-blue-200">
               <Calendar className="w-8 h-8 text-blue-600 mb-2" />
-              <p className="text-sm text-gray-600 font-bold">Attendance</p>
+              <p className="text-sm text-gray-600 font-bold">Presence</p>
               <p className="text-3xl font-black text-blue-600">{calculateAttendance()}%</p>
             </div>
             <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-purple-200">
               <Heart className="w-8 h-8 text-purple-600 mb-2" />
-              <p className="text-sm text-gray-600 font-bold">Journals</p>
+              <p className="text-sm text-gray-600 font-bold">Heart Journals</p>
               <p className="text-3xl font-black text-purple-600">{myGratitudeEntries.length}</p>
             </div>
           </div>
@@ -854,7 +854,7 @@ const App = () => {
             <button onClick={() => setCurrentPage('gratitude')} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Heart className="w-6 h-6" />
-                <span className="font-bold">Gratitude Journal</span>
+                <span className="font-bold">Heart Journal</span>
               </div>
               <ChevronRight className="w-6 h-6" />
             </button>
@@ -940,7 +940,7 @@ const App = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
-          <h1 className="text-3xl font-black text-white mb-4">📝 Gratitude Journal</h1>
+          <h1 className="text-3xl font-black text-white mb-4">💖 Heart Journal</h1>
           
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
@@ -1026,20 +1026,20 @@ const App = () => {
   if (currentPage === 'grades' && studentData) return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
       <div className="p-4">
-        <h1 className="text-3xl font-black text-white mb-4">📊 My Grades</h1>
+        <h1 className="text-3xl font-black text-white mb-4">🌸 My Growth Journey</h1>
         
         <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
           <div className="text-center">
-            <p className="text-sm text-gray-600 font-bold mb-2">Overall Grade</p>
+            <p className="text-sm text-gray-600 font-bold mb-2">Growth Journey</p>
             <div className="text-6xl font-black text-purple-600 mb-2">
               {Math.round((studentData['HJ Grade'] || 0) * 100)}%
             </div>
             <div className="inline-block px-4 py-2 bg-purple-100 rounded-full">
               <p className="text-sm font-bold text-purple-600">
-                {Math.round((studentData['HJ Grade'] || 0) * 100) >= 90 ? '🌟 Excellent!' : 
-                 Math.round((studentData['HJ Grade'] || 0) * 100) >= 80 ? '✨ Great Job!' : 
-                 Math.round((studentData['HJ Grade'] || 0) * 100) >= 70 ? '👍 Good!' : 
-                 '💪 Keep Going!'}
+                {Math.round((studentData['HJ Grade'] || 0) * 100) >= 90 ? '🌟 Shining Brightly!' : 
+                 Math.round((studentData['HJ Grade'] || 0) * 100) >= 80 ? '🌸 Beautifully Growing!' : 
+                 Math.round((studentData['HJ Grade'] || 0) * 100) >= 70 ? '🌱 Growing Well!' : 
+                 '💚 Keep Nurturing!'}
               </p>
             </div>
           </div>
@@ -1049,7 +1049,7 @@ const App = () => {
           <div className="bg-white rounded-2xl shadow-lg p-4 border-4 border-blue-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 font-bold mb-1">📅 Attendance</p>
+                <p className="text-sm text-gray-600 font-bold mb-1">💜 Faithful Presence</p>
                 <p className="text-3xl font-black text-blue-600">{calculateAttendance()}%</p>
                 <p className="text-xs text-gray-500 mt-1">Sessions attended</p>
               </div>
@@ -1060,7 +1060,7 @@ const App = () => {
           <div className="bg-white rounded-2xl shadow-lg p-4 border-4 border-purple-200">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="text-sm text-gray-600 font-bold mb-1">📝 Quiz Scores</p>
+                <p className="text-sm text-gray-600 font-bold mb-1">💡 Heart Knowledge</p>
                 <p className="text-3xl font-black text-purple-600">{Math.round((studentData['HJ Quiz'] || 0) * 100) / 100}</p>
               </div>
               <BookOpen className="w-12 h-12 text-purple-600" />
@@ -1070,9 +1070,9 @@ const App = () => {
           <div className="bg-white rounded-2xl shadow-lg p-4 border-4 border-green-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 font-bold mb-1">🤝 Service Hours</p>
+                <p className="text-sm text-gray-600 font-bold mb-1">💙 Filial Actions</p>
                 <p className="text-3xl font-black text-green-600">{Math.round((studentData['HJ Service'] || 0) * 100) / 100}</p>
-                <p className="text-xs text-gray-500 mt-1">Points earned</p>
+                <p className="text-xs text-gray-500 mt-1">Heart seeds earned</p>
               </div>
               <Award className="w-12 h-12 text-green-600" />
             </div>
@@ -1081,7 +1081,7 @@ const App = () => {
           <div className="bg-white rounded-2xl shadow-lg p-4 border-4 border-orange-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 font-bold mb-1">📈 Progress</p>
+                <p className="text-sm text-gray-600 font-bold mb-1">🌻 Growth Progress</p>
                 <p className="text-3xl font-black text-orange-600">{Math.round((studentData['Percentage'] || 0) * 100)}%</p>
                 <p className="text-xs text-gray-500 mt-1">Tasks completed</p>
               </div>
@@ -1421,7 +1421,7 @@ const App = () => {
           <button onClick={() => setCurrentPage('admin-gratitude')} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Heart className="w-6 h-6" />
-              <span className="font-bold">View Gratitude Journals</span>
+              <span className="font-bold">View Heart Journals</span>
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
@@ -1608,41 +1608,41 @@ const App = () => {
                 </div>
               )}
 
-              {/* Academic Progress */}
+              {/* Hyojeong Growth */}
               <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border-2 border-purple-200">
-                <h3 className="text-lg font-black text-gray-800 mb-3">📚 Academic Progress</h3>
+                <h3 className="text-lg font-black text-gray-800 mb-3">🌸 Hyojeong Growth</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-white rounded-lg p-3">
-                    <p className="text-xs text-gray-600 font-bold mb-1">Overall Grade</p>
+                    <p className="text-xs text-gray-600 font-bold mb-1">Growth Journey</p>
                     <p className="text-3xl font-black text-purple-600">{Math.round((selectedStudentDetail['HJ Grade'] || 0) * 100)}%</p>
                   </div>
                   <div className="bg-white rounded-lg p-3">
                     <Calendar className="w-6 h-6 text-blue-600 mb-1" />
-                    <p className="text-xs text-gray-600 font-bold mb-1">Attendance</p>
+                    <p className="text-xs text-gray-600 font-bold mb-1">Faithful Presence</p>
                     <p className="text-2xl font-black text-blue-600">{calculateAttendance(selectedStudentDetail)}%</p>
                   </div>
                   <div className="bg-white rounded-lg p-3">
                     <BookOpen className="w-6 h-6 text-purple-600 mb-1" />
-                    <p className="text-xs text-gray-600 font-bold mb-1">Quiz Score</p>
+                    <p className="text-xs text-gray-600 font-bold mb-1">Heart Knowledge</p>
                     <p className="text-2xl font-black text-purple-600">{Math.round((selectedStudentDetail['HJ Quiz'] || 0) * 100) / 100}</p>
                   </div>
                   <div className="bg-white rounded-lg p-3">
                     <Award className="w-6 h-6 text-green-600 mb-1" />
-                    <p className="text-xs text-gray-600 font-bold mb-1">Service Hours</p>
+                    <p className="text-xs text-gray-600 font-bold mb-1">Filial Actions</p>
                     <p className="text-2xl font-black text-green-600">{Math.round((selectedStudentDetail['HJ Service'] || 0) * 100) / 100}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Spiritual Growth Progress */}
+              {/* Heart Cultivation */}
               {selectedStudentProgress && (
                 <>
                   <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-4 border-2 border-yellow-200">
-                    <h3 className="text-lg font-black text-gray-800 mb-3">✨ Spiritual Growth</h3>
+                    <h3 className="text-lg font-black text-gray-800 mb-3">🌱 Heart Cultivation</h3>
                     <div className="grid grid-cols-2 gap-3 mb-3">
                       <div className="bg-white rounded-lg p-3">
                         <Gift className="w-6 h-6 text-yellow-600 mb-1" />
-                        <p className="text-xs text-gray-600 font-bold mb-1">Total Points</p>
+                        <p className="text-xs text-gray-600 font-bold mb-1">Heart Seeds</p>
                         <p className="text-3xl font-black text-yellow-600">{selectedStudentProgress.totalPoints || 0}</p>
                       </div>
                       <div className="bg-white rounded-lg p-3">
@@ -1862,7 +1862,7 @@ const App = () => {
           <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-3xl font-black text-white">Gratitude Journals</h1>
+          <h1 className="text-3xl font-black text-white">💖 Heart Journals</h1>
         </div>
         
         <div className="bg-white rounded-2xl shadow-lg p-4 mb-4 border-4 border-white">
