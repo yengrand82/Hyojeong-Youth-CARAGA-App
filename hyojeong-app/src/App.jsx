@@ -50,15 +50,15 @@ const getDailyQuote = () => {
 
 // Achievement Badges
 const BADGES = [
-  { id: 'grateful_heart', name: 'Grateful Heart', icon: '⭐', desc: '5 gratitude entries', type: 'gratitude', count: 5, color: 'from-pink-400 to-rose-400' },
-  { id: 'grateful_soul', name: 'Grateful Soul', icon: '🌟', desc: '10 gratitude entries', type: 'gratitude', count: 10, color: 'from-purple-400 to-pink-400' },
-  { id: 'perfect_attendance', name: 'Perfect Attendance', icon: '📅', desc: '100% attendance', type: 'attendance', percent: 100, color: 'from-blue-400 to-cyan-400' },
-  { id: 'dedicated_learner', name: 'Dedicated', icon: '📚', desc: '90%+ attendance', type: 'attendance', percent: 90, color: 'from-indigo-400 to-blue-400' },
-  { id: 'service_star', name: 'Service Star', icon: '🤝', desc: 'Complete service', type: 'service', points: 1, color: 'from-green-400 to-emerald-400' },
-  { id: 'scholar', name: 'Scholar', icon: '🎓', desc: '90%+ quiz', type: 'quiz', score: 1.8, color: 'from-yellow-400 to-orange-400' },
-  { id: 'rising_star', name: 'Rising Star', icon: '✨', desc: '80%+ grade', type: 'grade', percent: 80, color: 'from-cyan-400 to-teal-400' },
-  { id: 'excellence', name: 'Excellence', icon: '🏆', desc: '90%+ grade', type: 'grade', percent: 90, color: 'from-yellow-400 to-yellow-500' },
-  { id: 'super_achiever', name: 'Super Achiever', icon: '💫', desc: '100 points', type: 'points', count: 100, color: 'from-purple-500 to-indigo-500' }
+  { id: 'grateful_heart', name: 'Grateful Heart', icon: '💛', desc: '5 gratitude entries', type: 'gratitude', count: 5, color: 'from-pink-400 to-rose-400' },
+  { id: 'grateful_soul', name: 'Overflowing Heart', icon: '💖', desc: '10 gratitude entries', type: 'gratitude', count: 10, color: 'from-purple-400 to-pink-400' },
+  { id: 'perfect_attendance', name: 'Faithful Heart', icon: '💜', desc: '100% attendance', type: 'attendance', percent: 100, color: 'from-blue-400 to-cyan-400' },
+  { id: 'dedicated_learner', name: 'Blossoming Spirit', icon: '🌸', desc: '90%+ attendance', type: 'attendance', percent: 90, color: 'from-indigo-400 to-blue-400' },
+  { id: 'service_star', name: 'Serving Heart', icon: '💙', desc: 'Complete service', type: 'service', points: 1, color: 'from-green-400 to-emerald-400' },
+  { id: 'scholar', name: 'Seeking Heart', icon: '🧡', desc: '90%+ quiz', type: 'quiz', score: 1.8, color: 'from-yellow-400 to-orange-400' },
+  { id: 'rising_star', name: 'Growing Heart', icon: '💚', desc: '80%+ grade', type: 'grade', percent: 80, color: 'from-cyan-400 to-teal-400' },
+  { id: 'excellence', name: 'Shining Heart', icon: '✨', desc: '90%+ grade', type: 'grade', percent: 90, color: 'from-yellow-400 to-yellow-500' },
+  { id: 'super_achiever', name: 'First Seed Planted', icon: '🌱', desc: '100 points', type: 'points', count: 100, color: 'from-purple-500 to-indigo-500' }
 ];
 
 const App = () => {
@@ -847,7 +847,7 @@ const App = () => {
             <button onClick={() => setCurrentPage('badges')} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Award className="w-6 h-6" />
-                <span className="font-bold">My Badges ({earnedBadges.length}/{BADGES.length})</span>
+                <span className="font-bold">My Hearts ({earnedBadges.length}/{BADGES.length})</span>
               </div>
               <ChevronRight className="w-6 h-6" />
             </button>
@@ -884,11 +884,11 @@ const App = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
-          <h1 className="text-3xl font-black text-white mb-4">🏅 My Badges</h1>
+          <h1 className="text-3xl font-black text-white mb-4">💖 My Hearts</h1>
           
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
             <div className="text-center">
-              <p className="text-gray-600 font-bold mb-2">Badges Collected</p>
+              <p className="text-gray-600 font-bold mb-2">Hearts Collected</p>
               <p className="text-6xl font-black text-purple-600 mb-2">{earnedBadges.length}/{BADGES.length}</p>
               <div className="w-full bg-gray-200 rounded-full h-4">
                 <div 
@@ -921,7 +921,7 @@ const App = () => {
                     </p>
                     {earned && (
                       <div className="mt-2 bg-white/20 rounded-full px-3 py-1">
-                        <p className="text-xs font-bold text-white">✓ Unlocked!</p>
+                        <p className="text-xs font-bold text-white">✓ Earned!</p>
                       </div>
                     )}
                   </div>
@@ -1564,6 +1564,50 @@ const App = () => {
               </div>
             </div>
             <div className="p-6 space-y-4">
+              {/* Basic Profile Info */}
+              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 border-2 border-indigo-200">
+                <h3 className="text-lg font-black text-gray-800 mb-3">👤 Basic Information</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {selectedStudentDetail['Date of Birth'] && (
+                    <div className="bg-white rounded-lg p-3">
+                      <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-1">📅 Date of Birth</p>
+                      <p className="text-base font-black text-gray-800">{selectedStudentDetail['Date of Birth']}</p>
+                    </div>
+                  )}
+                  {selectedStudentDetail['Age'] && (
+                    <div className="bg-white rounded-lg p-3">
+                      <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-1">🎂 Age</p>
+                      <p className="text-base font-black text-gray-800">{selectedStudentDetail['Age']} years</p>
+                    </div>
+                  )}
+                  {selectedStudentDetail['Category'] && (
+                    <div className="bg-white rounded-lg p-3">
+                      <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-1">⭐ Category</p>
+                      <p className="text-base font-black text-gray-800">{selectedStudentDetail['Category']}</p>
+                    </div>
+                  )}
+                  {selectedStudentDetail['Address'] && (
+                    <div className="col-span-2 bg-white rounded-lg p-3">
+                      <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-1">📍 Address</p>
+                      <p className="text-base font-bold text-gray-800">{selectedStudentDetail['Address']}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Weekly Affirmation */}
+              {selectedStudentProgress && selectedStudentProgress.affirmation && (
+                <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-4 border-2 border-yellow-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-6 h-6 text-orange-600" />
+                    <h3 className="text-lg font-black text-gray-800">Weekly Affirmation</h3>
+                  </div>
+                  <div className="bg-white rounded-lg p-4">
+                    <p className="text-base font-semibold text-gray-700 italic">"{selectedStudentProgress.affirmation}"</p>
+                  </div>
+                </div>
+              )}
+
               {/* Academic Progress */}
               <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border-2 border-purple-200">
                 <h3 className="text-lg font-black text-gray-800 mb-3">📚 Academic Progress</h3>
@@ -1603,13 +1647,13 @@ const App = () => {
                       </div>
                       <div className="bg-white rounded-lg p-3">
                         <Award className="w-6 h-6 text-purple-600 mb-1" />
-                        <p className="text-xs text-gray-600 font-bold mb-1">Badges Earned</p>
+                        <p className="text-xs text-gray-600 font-bold mb-1">Hearts Earned</p>
                         <p className="text-3xl font-black text-purple-600">{selectedStudentProgress.badgesEarned?.length || 0}/{BADGES.length}</p>
                       </div>
                     </div>
                     {selectedStudentProgress.badgesEarned && selectedStudentProgress.badgesEarned.length > 0 && (
                       <div className="bg-white rounded-lg p-3">
-                        <p className="text-xs text-gray-600 font-bold mb-2">Unlocked Badges:</p>
+                        <p className="text-xs text-gray-600 font-bold mb-2">Earned Hearts:</p>
                         <div className="flex flex-wrap gap-2">
                           {selectedStudentProgress.badgesEarned.map(badgeId => {
                             const badge = BADGES.find(b => b.id === badgeId);
