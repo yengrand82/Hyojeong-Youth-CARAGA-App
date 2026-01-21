@@ -583,8 +583,8 @@ const App = () => {
       <div className="flex justify-around items-center py-3">
         {[
           { page: 'home', icon: Home, label: 'Home' }, 
-          { page: 'badges', icon: Award, label: 'Hearts' }, 
-          { page: 'gratitude', icon: Heart, label: 'Journal' }, 
+          { page: 'badges', icon: Award, label: 'Heart Badges' }, 
+          { page: 'gratitude', icon: Heart, label: 'Gratitude Journal' }, 
           { page: 'profile', icon: User, label: 'Profile' }
         ].map(({ page, icon: Icon, label }) => (
           <button key={page} onClick={() => setCurrentPage(page)} className={`flex flex-col items-center ${currentPage === page ? 'text-purple-600' : 'text-gray-400'}`}>
@@ -825,7 +825,7 @@ const App = () => {
             </div>
             <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-green-200">
               <TrendingUp className="w-8 h-8 text-green-600 mb-2" />
-              <p className="text-sm text-gray-600 font-bold">Growth</p>
+              <p className="text-sm text-gray-600 font-bold">Heart Growth</p>
               <p className="text-3xl font-black text-green-600">{Math.round((studentData['HJ Grade'] || 0) * 100)}%</p>
             </div>
           </div>
@@ -833,12 +833,12 @@ const App = () => {
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-blue-200">
               <Calendar className="w-8 h-8 text-blue-600 mb-2" />
-              <p className="text-sm text-gray-600 font-bold">Presence</p>
+              <p className="text-sm text-gray-600 font-bold">Attendance</p>
               <p className="text-3xl font-black text-blue-600">{calculateAttendance()}%</p>
             </div>
             <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-purple-200">
               <Heart className="w-8 h-8 text-purple-600 mb-2" />
-              <p className="text-sm text-gray-600 font-bold">Heart Journals</p>
+              <p className="text-sm text-gray-600 font-bold">Gratitude Journals</p>
               <p className="text-3xl font-black text-purple-600">{myGratitudeEntries.length}</p>
             </div>
           </div>
