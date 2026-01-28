@@ -58,7 +58,8 @@ const BADGES = [
   { id: 'scholar', name: 'Seeking Heart', icon: '🧡', desc: '90%+ quiz', type: 'quiz', score: 1.8, color: 'from-yellow-400 to-orange-400' },
   { id: 'rising_star', name: 'Growing Heart', icon: '💚', desc: '80%+ grade', type: 'grade', percent: 80, color: 'from-cyan-400 to-teal-400' },
   { id: 'excellence', name: 'Shining Heart', icon: '✨', desc: '90%+ grade', type: 'grade', percent: 90, color: 'from-yellow-400 to-yellow-500' },
-  { id: 'super_achiever', name: 'First Seed Planted', icon: '🌱', desc: '100 points', type: 'points', count: 100, color: 'from-purple-500 to-indigo-500' }
+  { id: 'super_achiever', name: 'First Seed Planted', icon: '🌱', desc: '100 points', type: 'points', count: 100, color: 'from-purple-500 to-indigo-500' },
+  { id: 'loving_heart', name: 'Loving Heart', icon: '❤️', desc: 'All 3 goals set', type: 'goals', goalsSet: 3, color: 'from-red-400 to-pink-400' }
 ];
 
 const App = () => {
@@ -574,6 +575,10 @@ const App = () => {
     if (badge.type === 'quiz') return quiz >= badge.score;
     if (badge.type === 'grade') return grade >= badge.percent;
     if (badge.type === 'points') return points >= badge.count;
+    if (badge.type === 'goals') {
+      const goalsSet = [goals.goal1, goals.goal2, goals.goal3].filter(g => g && g.trim()).length;
+      return goalsSet >= badge.goalsSet;
+    }
     
     return false;
   };
@@ -583,8 +588,8 @@ const App = () => {
       <div className="flex justify-around items-center py-3">
         {[
           { page: 'home', icon: Home, label: 'Home' }, 
-          { page: 'badges', icon: Award, label: 'Heart Badges' }, 
-          { page: 'gratitude', icon: Heart, label: 'Gratitude Journal' }, 
+          { page: 'badges', icon: Award, label: 'Hearts' }, 
+          { page: 'gratitude', icon: Heart, label: 'Journal' }, 
           { page: 'profile', icon: User, label: 'Profile' }
         ].map(({ page, icon: Icon, label }) => (
           <button key={page} onClick={() => setCurrentPage(page)} className={`flex flex-col items-center ${currentPage === page ? 'text-purple-600' : 'text-gray-400'}`}>
@@ -825,7 +830,7 @@ const App = () => {
             </div>
             <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-green-200">
               <TrendingUp className="w-8 h-8 text-green-600 mb-2" />
-              <p className="text-sm text-gray-600 font-bold">Heart Growth</p>
+              <p className="text-sm text-gray-600 font-bold">Growth</p>
               <p className="text-3xl font-black text-green-600">{Math.round((studentData['HJ Grade'] || 0) * 100)}%</p>
             </div>
           </div>
@@ -833,12 +838,12 @@ const App = () => {
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-blue-200">
               <Calendar className="w-8 h-8 text-blue-600 mb-2" />
-              <p className="text-sm text-gray-600 font-bold">Attendance</p>
+              <p className="text-sm text-gray-600 font-bold">Presence</p>
               <p className="text-3xl font-black text-blue-600">{calculateAttendance()}%</p>
             </div>
             <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-purple-200">
               <Heart className="w-8 h-8 text-purple-600 mb-2" />
-              <p className="text-sm text-gray-600 font-bold">Gratitude Journals</p>
+              <p className="text-sm text-gray-600 font-bold">Heart Journals</p>
               <p className="text-3xl font-black text-purple-600">{myGratitudeEntries.length}</p>
             </div>
           </div>
