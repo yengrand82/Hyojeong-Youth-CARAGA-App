@@ -553,11 +553,20 @@ const App = () => {
   };
 
   const calculateAttendance = (student = studentData) => {
-    if (!student) return 0;
-    const att = student['HJ Attendance'];
-    if (typeof att === 'number') return Math.round(att * 100);
-    return 0;
-  };
+  if (!student) return 0;
+  
+  // Count sessions attended from sessions array
+  if (student.sessions && Array.isArray(student.sessions)) {
+    const attended = student.sessions.filter(s => s === true).length;
+    const total = student.sessions.length;
+    return Math.round((attended / total) * 100);
+  }
+  
+  // Fallback to old HJ Attendance column if sessions array not available
+  const att = student['HJ Attendance'];
+  if (typeof att === 'number') return Math.round(att * 100);
+  return 0;
+};
 
   const checkIfBadgeEarned = (badge) => {
     if (!studentData) return false;
