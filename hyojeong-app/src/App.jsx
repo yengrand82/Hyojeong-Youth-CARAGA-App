@@ -3,8 +3,7 @@ import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users,
 
 // Google Apps Script Web App URL
 const API_URL = 'https://script.google.com/macros/s/AKfycbypzDlCOSiRvwOceWsOESFpwCO1U5fHAjywlWeHgE20Nl6UFBFsfPODmPUp3Osms1NNnw/exec';
-
-// Inspirational Quotes - True Parents & Bible Verses
+const TOTAL_SESSIONS = 8; // Change this number for each program// Inspirational Quotes - True Parents & Bible Verses
 const QUOTES = [
   // True Parents Quotes
   { quote: "Love is giving and forgetting. Love is investing and then forgetting about it.", author: "True Father" },
@@ -555,14 +554,12 @@ const App = () => {
   const calculateAttendance = (student = studentData) => {
   if (!student) return 0;
   
-  // Count sessions attended from sessions array
   if (student.sessions && Array.isArray(student.sessions)) {
     const attended = student.sessions.filter(s => s === true).length;
-    const total = student.sessions.length;
+    const total = TOTAL_SESSIONS; // Use configured total instead of array length
     return Math.round((attended / total) * 100);
   }
   
-  // Fallback to old HJ Attendance column if sessions array not available
   const att = student['HJ Attendance'];
   if (typeof att === 'number') return Math.round(att * 100);
   return 0;
