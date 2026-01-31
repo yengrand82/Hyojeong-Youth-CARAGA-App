@@ -1075,7 +1075,7 @@ const App = () => {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-sm text-gray-600 font-bold mb-1">💡 Heart Knowledge</p>
-                <p className="text-3xl font-black text-purple-600">{Math.round((studentData['HJ Quiz'] || 0) * 100) / 100}</p>
+                <p className="text-3xl font-black text-purple-600">{Math.round((studentData['HJ Quiz'] || 0) * 100)}</p>
               </div>
               <BookOpen className="w-12 h-12 text-purple-600" />
             </div>
