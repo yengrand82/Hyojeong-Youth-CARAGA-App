@@ -1479,7 +1479,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <Heart className="w-6 h-6 text-pink-500" />
-              <h2 className="text-xl font-black text-gray-800">Write Your Reflection</h2>
+              <h2 className="text-xl font-black text-gray-800">Write Your Weekly Gratitude & Reflection</h2>
             </div>
             
             <div>
