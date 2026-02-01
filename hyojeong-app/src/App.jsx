@@ -571,9 +571,12 @@ const App = () => {
     
     const gratitudeCount = myGratitudeEntries.length;
     const attendance = calculateAttendance();
-    const grade = Math.round((studentData['HJ Grade'] || 0) * 100);
+    
+    // Calculate grade the same way as Growth Journey (average of 4 metrics)
     const quiz = studentData['HJ Quiz'] || 0;
     const service = studentData['HJ Service'] || 0;
+    const gratitudePercent = Math.round((myGratitudeEntries.length / 8) * 100);
+    const grade = Math.round((attendance + quiz + service + gratitudePercent) / 4);
     
     if (badge.type === 'gratitude') return gratitudeCount >= badge.count;
     if (badge.type === 'attendance') return attendance >= badge.percent;
@@ -832,14 +835,6 @@ const App = () => {
             {/* Animated background decoration */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-200 to-emerald-200 rounded-full blur-3xl opacity-30 animate-pulse"></div>
             <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-tr from-teal-200 to-cyan-200 rounded-full blur-3xl opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
-            
-            {/* Cute animated bouncing kid/youth characters */}
-            <div className="absolute left-4 bottom-4 text-6xl animate-bounce-kid" style={{animationDelay: '0s'}}>
-              🧒
-            </div>
-            <div className="absolute right-4 bottom-4 text-6xl animate-bounce-kid" style={{animationDelay: '0.5s'}}>
-              👦
-            </div>
             
             <div className="relative z-10">
               {/* Icon with animation */}
