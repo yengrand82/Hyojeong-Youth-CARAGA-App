@@ -1083,7 +1083,7 @@ const App = () => {
               <div>
                 <p className="text-sm text-gray-600 font-bold mb-1">💙 Filial Actions</p>
                 <p className="text-3xl font-black text-green-600">{Math.round((studentData['HJ Service'] || 0) * 100) / 100}</p>
-                <p className="text-xs text-gray-500 mt-1">Heart seeds earned</p>
+                <p className="text-xs text-gray-500 mt-1">Act of Service Completed</p>
               </div>
               <Award className="w-12 h-12 text-green-600" />
             </div>
