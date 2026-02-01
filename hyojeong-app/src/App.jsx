@@ -807,6 +807,14 @@ const App = () => {
 
   // HOME PAGE - REDESIGNED
   if (currentPage === 'home' && studentData) {
+    // Calculate growth percentage once for consistency
+    const growthPercentage = Math.round((
+      calculateAttendance(studentData) + 
+      (studentData['HJ Quiz'] || 0) + 
+      (studentData['HJ Service'] || 0) + 
+      Math.round((myGratitudeEntries.length / 8) * 100)
+    ) / 4);
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
@@ -840,7 +848,7 @@ const App = () => {
               {/* Animated Growing Plant */}
               <div className="flex justify-center mb-4">
                 <div className="relative" style={{ 
-                  transform: `scale(${0.5 + (Math.round((studentData['HJ Grade'] || 0) * 100) / 100) * 0.5})`,
+                  transform: `scale(${0.5 + (growthPercentage / 100) * 0.5})`,
                   transition: 'transform 1s ease-out'
                 }}>
                   {/* Pot */}
@@ -855,20 +863,20 @@ const App = () => {
                   <div className="relative flex flex-col items-center animate-grow">
                     <div className="w-2 bg-gradient-to-b from-green-600 to-green-700 rounded-t-full shadow-md" 
                          style={{ 
-                           height: `${40 + (Math.round((studentData['HJ Grade'] || 0) * 100) / 2)}px`,
+                           height: `${40 + (growthPercentage / 2)}px`,
                            transition: 'height 1s ease-out'
                          }}>
                     </div>
                     
                     {/* Leaves - appear as plant grows */}
-                    {Math.round((studentData['HJ Grade'] || 0) * 100) > 20 && (
+                    {growthPercentage > 20 && (
                       <>
                         <div className="absolute top-1/4 -left-3 w-6 h-8 bg-gradient-to-br from-green-400 to-green-500 rounded-full transform -rotate-45 animate-leaf-sway" style={{animationDelay: '0s'}}></div>
                         <div className="absolute top-1/4 -right-3 w-6 h-8 bg-gradient-to-br from-green-400 to-green-500 rounded-full transform rotate-45 animate-leaf-sway" style={{animationDelay: '0.3s'}}></div>
                       </>
                     )}
                     
-                    {Math.round((studentData['HJ Grade'] || 0) * 100) > 40 && (
+                    {growthPercentage > 40 && (
                       <>
                         <div className="absolute top-1/2 -left-4 w-7 h-9 bg-gradient-to-br from-green-300 to-green-400 rounded-full transform -rotate-45 animate-leaf-sway" style={{animationDelay: '0.6s'}}></div>
                         <div className="absolute top-1/2 -right-4 w-7 h-9 bg-gradient-to-br from-green-300 to-green-400 rounded-full transform rotate-45 animate-leaf-sway" style={{animationDelay: '0.9s'}}></div>
@@ -876,7 +884,7 @@ const App = () => {
                     )}
                     
                     {/* Flower - appears at 60%+ */}
-                    {Math.round((studentData['HJ Grade'] || 0) * 100) > 60 && (
+                    {growthPercentage > 60 && (
                       <div className="absolute -top-8 animate-bounce-slow">
                         {/* Petals */}
                         <div className="relative w-12 h-12">
@@ -892,7 +900,7 @@ const App = () => {
                     )}
                     
                     {/* Sparkles at 80%+ */}
-                    {Math.round((studentData['HJ Grade'] || 0) * 100) > 80 && (
+                    {growthPercentage > 80 && (
                       <>
                         <div className="absolute -top-12 -left-4 text-2xl animate-sparkle" style={{animationDelay: '0s'}}>✨</div>
                         <div className="absolute -top-10 -right-4 text-xl animate-sparkle" style={{animationDelay: '0.5s'}}>⭐</div>
@@ -911,7 +919,12 @@ const App = () => {
               {/* Main percentage - VERY LARGE */}
               <div className="text-center mb-4">
                 <p className="text-8xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                  {Math.round((studentData['HJ Grade'] || 0) * 100)}%
+                  {Math.round((
+                    calculateAttendance(studentData) + 
+                    (studentData['HJ Quiz'] || 0) + 
+                    (studentData['HJ Service'] || 0) + 
+                    Math.round((myGratitudeEntries.length / 8) * 100)
+                  ) / 4)}%
                 </p>
               </div>
               
@@ -924,7 +937,7 @@ const App = () => {
               <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
                 <div 
                   className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all duration-1000 ease-out relative overflow-hidden"
-                  style={{ width: `${Math.round((studentData['HJ Grade'] || 0) * 100)}%` }}
+                  style={{ width: `${growthPercentage}%` }}
                 >
                   {/* Shimmer effect */}
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-shimmer"></div>
@@ -1189,9 +1202,9 @@ const App = () => {
             </div>
             <div className="inline-block px-4 py-2 bg-purple-100 rounded-full">
               <p className="text-sm font-bold text-purple-600">
-                {Math.round((studentData['HJ Grade'] || 0) * 100) >= 90 ? '🌟 Shining Brightly!' : 
-                 Math.round((studentData['HJ Grade'] || 0) * 100) >= 80 ? '🌸 Beautifully Growing!' : 
-                 Math.round((studentData['HJ Grade'] || 0) * 100) >= 70 ? '🌱 Growing Well!' : 
+                {growthPercentage >= 90 ? '🌟 Shining Brightly!' : 
+                 growthPercentage >= 80 ? '🌸 Beautifully Growing!' : 
+                 growthPercentage >= 70 ? '🌱 Growing Well!' : 
                  '💚 Keep Nurturing!'}
               </p>
             </div>
