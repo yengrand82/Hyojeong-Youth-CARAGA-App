@@ -1319,8 +1319,9 @@ const App = () => {
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <Heart className="w-6 h-6 text-pink-500" />
-              <h2 className="text-xl font-black text-gray-800">Write New Entry</h2>
+              <h2 className="text-xl font-black text-gray-800">Write Your Reflection</h2>
             </div>
+            
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">Session</label>
               <select 
@@ -1334,12 +1335,19 @@ const App = () => {
                 ))}
               </select>
             </div>
+            
+            {/* Show prompt as the label */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">What are you grateful for today?</label>
+              <label className="block text-sm font-bold text-gray-800 mb-2">
+                📝 {weeklyPrompt.en}
+              </label>
+              <label className="block text-xs text-gray-600 italic mb-3">
+                {weeklyPrompt.tl}
+              </label>
               <textarea 
                 value={gratitudeText} 
                 onChange={(e) => setGratitudeText(e.target.value)} 
-                placeholder="Share your gratitude, reflections, or learnings from this session..." 
+                placeholder="Write your reflection here..." 
                 className="w-full h-40 px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300" 
                 disabled={loading}
               />
@@ -1350,7 +1358,7 @@ const App = () => {
               disabled={loading}
               className="w-full px-6 py-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
             >
-              {loading ? 'Submitting...' : '✨ Submit Gratitude'}
+              {loading ? 'Submitting...' : '✨ Submit Reflection'}
             </button>
           </div>
 
