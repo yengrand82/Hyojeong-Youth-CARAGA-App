@@ -1312,21 +1312,21 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             <button onClick={() => setCurrentPage('gratitude')} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Heart className="w-6 h-6" />
-                <span className="font-bold">Heart Journal</span>
+                <span className="font-bold">My Heart Journal</span>
               </div>
               <ChevronRight className="w-6 h-6" />
             </button>
             <button onClick={() => setCurrentPage('grades')} className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <BookOpen className="w-6 h-6" />
-                <span className="font-bold">View My Grades</span>
+                <span className="font-bold">View My HJ Grades</span>
               </div>
               <ChevronRight className="w-6 h-6" />
             </button>
             <button onClick={() => setCurrentPage('profile')} className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <User className="w-6 h-6" />
-                <span className="font-bold">My Profile</span>
+                <span className="font-bold">My HJ Profile</span>
               </div>
               <ChevronRight className="w-6 h-6" />
             </button>
@@ -1414,7 +1414,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
-          <h1 className="text-3xl font-black text-white mb-4">💖 My Hearts</h1>
+          <h1 className="text-3xl font-black text-white mb-4">💖 My Hyojeong Heart Badges</h1>
           
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
             <div className="text-center">
@@ -1656,7 +1656,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
-          <h1 className="text-3xl font-black text-white mb-4 drop-shadow-lg">✨ My Profile ✨</h1>
+          <h1 className="text-3xl font-black text-white mb-4 drop-shadow-lg">✨ My HJ Profile ✨</h1>
           
           {/* Main Profile Card - More Vibrant! */}
           <div className="bg-gradient-to-br from-white to-purple-50 rounded-3xl shadow-2xl p-8 border-4 border-white mb-4">
@@ -1708,9 +1708,9 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   <div className="relative text-center">
                     <div className="text-6xl mb-3 animate-bounce-slow">🏆</div>
                     <h3 className="text-3xl font-black bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 bg-clip-text text-transparent mb-2">
-                      💖 HEART CHAMPION 💖
+                      💖 HYOJEONG HEART CHAMPION 💖
                     </h3>
-                    <p className="text-sm font-bold text-gray-700 mb-1">All 10 Hearts Unlocked!</p>
+                    <p className="text-sm font-bold text-gray-700 mb-1">All 10 Hyojeong Hearts Unlocked!</p>
                     <p className="text-xs text-gray-600 italic">Na-unlock mo na ang lahat ng 10 Puso!</p>
                     
                     {/* All hearts display */}
@@ -1942,7 +1942,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           >
             <div className="flex items-center gap-3">
               <BookOpen className="w-6 h-6" />
-              <span className="font-bold">View My Grades</span>
+              <span className="font-bold">View My Hyojeong Grades</span>
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
@@ -1997,7 +1997,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           <button onClick={() => setCurrentPage('admin-leaderboard')} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Trophy className="w-6 h-6" />
-              <span className="font-bold">View Leaderboards</span>
+              <span className="font-bold">View Hyojeong Youth Leaderboards</span>
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
