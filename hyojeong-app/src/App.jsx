@@ -802,7 +802,7 @@ const App = () => {
     </div>
   );
 
-  // HOME PAGE
+  // HOME PAGE - REDESIGNED
   if (currentPage === 'home' && studentData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
@@ -824,33 +824,58 @@ const App = () => {
 
           <WeeklyAffirmation />
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-yellow-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 font-bold">Heart Seeds</p>
-                  <p className="text-3xl font-black text-yellow-600">{points}</p>
+          {/* PROMINENT GROWTH CARD - REDESIGNED */}
+          <div className="bg-white rounded-3xl shadow-2xl p-8 mb-6 border-4 border-white relative overflow-hidden transform hover:scale-105 transition-all duration-300">
+            {/* Background gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-50 opacity-50"></div>
+            
+            {/* Animated background decoration */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-200 to-emerald-200 rounded-full blur-3xl opacity-30 animate-pulse"></div>
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-tr from-teal-200 to-cyan-200 rounded-full blur-3xl opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
+            
+            {/* Cute animated bouncing kid/youth characters */}
+            <div className="absolute left-4 bottom-4 text-6xl animate-bounce-kid" style={{animationDelay: '0s'}}>
+              🧒
+            </div>
+            <div className="absolute right-4 bottom-4 text-6xl animate-bounce-kid" style={{animationDelay: '0.5s'}}>
+              👦
+            </div>
+            
+            <div className="relative z-10">
+              {/* Icon with animation */}
+              <div className="flex justify-center mb-4">
+                <div className="bg-gradient-to-br from-green-400 to-emerald-500 rounded-3xl p-4 shadow-2xl animate-bounce-slow">
+                  <TrendingUp className="w-12 h-12 text-white" />
                 </div>
-                <Gift className="w-10 h-10 text-yellow-600" />
               </div>
-            </div>
-            <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-green-200">
-              <TrendingUp className="w-8 h-8 text-green-600 mb-2" />
-              <p className="text-sm text-gray-600 font-bold">Growth</p>
-              <p className="text-3xl font-black text-green-600">{Math.round((studentData['HJ Grade'] || 0) * 100)}%</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-blue-200">
-              <Calendar className="w-8 h-8 text-blue-600 mb-2" />
-              <p className="text-sm text-gray-600 font-bold">Presence</p>
-              <p className="text-3xl font-black text-blue-600">{calculateAttendance()}%</p>
-            </div>
-            <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-purple-200">
-              <Heart className="w-8 h-8 text-purple-600 mb-2" />
-              <p className="text-sm text-gray-600 font-bold">Heart Journals</p>
-              <p className="text-3xl font-black text-purple-600">{myGratitudeEntries.length}</p>
+              
+              {/* Label */}
+              <div className="text-center mb-2">
+                <p className="text-sm font-bold text-green-700 uppercase tracking-wider">Your Spiritual Growth</p>
+              </div>
+              
+              {/* Main percentage - VERY LARGE */}
+              <div className="text-center mb-4">
+                <p className="text-8xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                  {Math.round((studentData['HJ Grade'] || 0) * 100)}%
+                </p>
+              </div>
+              
+              {/* Subtitle */}
+              <div className="text-center mb-6">
+                <p className="text-lg font-semibold text-gray-700">Keep up the amazing progress!</p>
+              </div>
+              
+              {/* Progress bar with animation */}
+              <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
+                <div 
+                  className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all duration-1000 ease-out relative overflow-hidden"
+                  style={{ width: `${Math.round((studentData['HJ Grade'] || 0) * 100)}%` }}
+                >
+                  {/* Shimmer effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-shimmer"></div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -885,6 +910,42 @@ const App = () => {
             </button>
           </div>
         </div>
+        
+        {/* Add shimmer animation to CSS */}
+        <style jsx>{`
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+          .animate-shimmer {
+            animation: shimmer 2s infinite;
+          }
+          @keyframes bounce-slow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+          }
+          .animate-bounce-slow {
+            animation: bounce-slow 3s ease-in-out infinite;
+          }
+          @keyframes bounce-kid {
+            0%, 100% { 
+              transform: translateY(0) scale(1);
+            }
+            25% {
+              transform: translateY(-15px) scale(1.1);
+            }
+            50% { 
+              transform: translateY(-25px) scale(1.05) rotate(-5deg);
+            }
+            75% {
+              transform: translateY(-15px) scale(1.1) rotate(5deg);
+            }
+          }
+          .animate-bounce-kid {
+            animation: bounce-kid 2s ease-in-out infinite;
+          }
+        `}</style>
+        
         <NavBar />
       </div>
     );
