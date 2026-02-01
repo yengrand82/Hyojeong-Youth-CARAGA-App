@@ -837,10 +837,69 @@ const App = () => {
             <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-tr from-teal-200 to-cyan-200 rounded-full blur-3xl opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
             
             <div className="relative z-10">
-              {/* Icon with animation */}
+              {/* Animated Growing Plant */}
               <div className="flex justify-center mb-4">
-                <div className="bg-gradient-to-br from-green-400 to-emerald-500 rounded-3xl p-4 shadow-2xl animate-bounce-slow">
-                  <TrendingUp className="w-12 h-12 text-white" />
+                <div className="relative" style={{ 
+                  transform: `scale(${0.5 + (Math.round((studentData['HJ Grade'] || 0) * 100) / 100) * 0.5})`,
+                  transition: 'transform 1s ease-out'
+                }}>
+                  {/* Pot */}
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-20 h-12 bg-gradient-to-b from-orange-400 to-orange-600 rounded-b-2xl shadow-lg" 
+                       style={{ clipPath: 'polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)' }}>
+                  </div>
+                  
+                  {/* Soil */}
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-16 h-3 bg-gradient-to-b from-amber-800 to-amber-900 rounded-t-lg"></div>
+                  
+                  {/* Stem */}
+                  <div className="relative flex flex-col items-center animate-grow">
+                    <div className="w-2 bg-gradient-to-b from-green-600 to-green-700 rounded-t-full shadow-md" 
+                         style={{ 
+                           height: `${40 + (Math.round((studentData['HJ Grade'] || 0) * 100) / 2)}px`,
+                           transition: 'height 1s ease-out'
+                         }}>
+                    </div>
+                    
+                    {/* Leaves - appear as plant grows */}
+                    {Math.round((studentData['HJ Grade'] || 0) * 100) > 20 && (
+                      <>
+                        <div className="absolute top-1/4 -left-3 w-6 h-8 bg-gradient-to-br from-green-400 to-green-500 rounded-full transform -rotate-45 animate-leaf-sway" style={{animationDelay: '0s'}}></div>
+                        <div className="absolute top-1/4 -right-3 w-6 h-8 bg-gradient-to-br from-green-400 to-green-500 rounded-full transform rotate-45 animate-leaf-sway" style={{animationDelay: '0.3s'}}></div>
+                      </>
+                    )}
+                    
+                    {Math.round((studentData['HJ Grade'] || 0) * 100) > 40 && (
+                      <>
+                        <div className="absolute top-1/2 -left-4 w-7 h-9 bg-gradient-to-br from-green-300 to-green-400 rounded-full transform -rotate-45 animate-leaf-sway" style={{animationDelay: '0.6s'}}></div>
+                        <div className="absolute top-1/2 -right-4 w-7 h-9 bg-gradient-to-br from-green-300 to-green-400 rounded-full transform rotate-45 animate-leaf-sway" style={{animationDelay: '0.9s'}}></div>
+                      </>
+                    )}
+                    
+                    {/* Flower - appears at 60%+ */}
+                    {Math.round((studentData['HJ Grade'] || 0) * 100) > 60 && (
+                      <div className="absolute -top-8 animate-bounce-slow">
+                        {/* Petals */}
+                        <div className="relative w-12 h-12">
+                          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-5 bg-gradient-to-b from-pink-300 to-pink-400 rounded-full"></div>
+                          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-5 bg-gradient-to-t from-pink-300 to-pink-400 rounded-full"></div>
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-5 h-4 bg-gradient-to-r from-pink-300 to-pink-400 rounded-full"></div>
+                          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-5 h-4 bg-gradient-to-l from-pink-300 to-pink-400 rounded-full"></div>
+                          
+                          {/* Center */}
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-gradient-to-br from-yellow-300 to-yellow-400 rounded-full shadow-md"></div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Sparkles at 80%+ */}
+                    {Math.round((studentData['HJ Grade'] || 0) * 100) > 80 && (
+                      <>
+                        <div className="absolute -top-12 -left-4 text-2xl animate-sparkle" style={{animationDelay: '0s'}}>✨</div>
+                        <div className="absolute -top-10 -right-4 text-xl animate-sparkle" style={{animationDelay: '0.5s'}}>⭐</div>
+                        <div className="absolute -top-14 right-2 text-lg animate-sparkle" style={{animationDelay: '1s'}}>💫</div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
               
@@ -921,6 +980,28 @@ const App = () => {
           }
           .animate-bounce-slow {
             animation: bounce-slow 3s ease-in-out infinite;
+          }
+          @keyframes leaf-sway {
+            0%, 100% { transform: rotate(-45deg) translateX(0); }
+            50% { transform: rotate(-45deg) translateX(3px); }
+          }
+          .animate-leaf-sway {
+            animation: leaf-sway 2s ease-in-out infinite;
+          }
+          @keyframes grow {
+            0% { transform: scaleY(0); }
+            100% { transform: scaleY(1); }
+          }
+          .animate-grow {
+            animation: grow 1.5s ease-out;
+            transform-origin: bottom;
+          }
+          @keyframes sparkle {
+            0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+            50% { opacity: 1; transform: scale(1) rotate(180deg); }
+          }
+          .animate-sparkle {
+            animation: sparkle 2s ease-in-out infinite;
           }
           @keyframes bounce-kid {
             0%, 100% { 
