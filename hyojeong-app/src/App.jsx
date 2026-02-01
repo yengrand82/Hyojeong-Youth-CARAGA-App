@@ -53,8 +53,8 @@ const BADGES = [
   { id: 'grateful_soul', name: 'Overflowing Heart', icon: '💖', desc: '10 gratitude entries', type: 'gratitude', count: 10, color: 'from-purple-400 to-pink-400' },
   { id: 'perfect_attendance', name: 'Faithful Heart', icon: '💜', desc: '100% attendance', type: 'attendance', percent: 100, color: 'from-blue-400 to-cyan-400' },
   { id: 'dedicated_learner', name: 'Blossoming Spirit', icon: '🌸', desc: '90%+ attendance', type: 'attendance', percent: 90, color: 'from-indigo-400 to-blue-400' },
-  { id: 'service_star', name: 'Serving Heart', icon: '💙', desc: 'Complete service', type: 'service', points: 1, color: 'from-green-400 to-emerald-400' },
-  { id: 'scholar', name: 'Seeking Heart', icon: '🧡', desc: '90%+ quiz', type: 'quiz', score: 1.8, color: 'from-yellow-400 to-orange-400' },
+  { id: 'service_star', name: 'Serving Heart', icon: '💙', desc: 'Complete service', type: 'service', percent: 100, color: 'from-green-400 to-emerald-400' },
+  { id: 'scholar', name: 'Seeking Heart', icon: '🧡', desc: '90%+ quiz', type: 'quiz', percent: 90, color: 'from-yellow-400 to-orange-400' },
   { id: 'rising_star', name: 'Growing Heart', icon: '💚', desc: '80%+ grade', type: 'grade', percent: 80, color: 'from-cyan-400 to-teal-400' },
   { id: 'excellence', name: 'Shining Heart', icon: '✨', desc: '90%+ grade', type: 'grade', percent: 90, color: 'from-yellow-400 to-yellow-500' },
   { id: 'super_achiever', name: 'First Seed Planted', icon: '🌱', desc: '100 points', type: 'points', count: 100, color: 'from-purple-500 to-indigo-500' },
@@ -115,6 +115,14 @@ const App = () => {
   useEffect(() => {
     loadStudents();
   }, []);
+
+  // Update earned badges when student data or entries change
+  useEffect(() => {
+    if (studentData) {
+      const newEarnedBadges = BADGES.filter(badge => checkIfBadgeEarned(badge)).map(b => b.id);
+      setEarnedBadges(newEarnedBadges);
+    }
+  }, [studentData, myGratitudeEntries, points, goals]);
 
   const loadStudents = async () => {
     try {
@@ -580,8 +588,8 @@ const App = () => {
     
     if (badge.type === 'gratitude') return gratitudeCount >= badge.count;
     if (badge.type === 'attendance') return attendance >= badge.percent;
-    if (badge.type === 'service') return service >= badge.points;
-    if (badge.type === 'quiz') return quiz >= badge.score;
+    if (badge.type === 'service') return service >= badge.percent;
+    if (badge.type === 'quiz') return quiz >= badge.percent;
     if (badge.type === 'grade') return grade >= badge.percent;
     if (badge.type === 'points') return points >= badge.count;
     if (badge.type === 'goals') {
