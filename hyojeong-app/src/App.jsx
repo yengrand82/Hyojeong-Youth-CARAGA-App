@@ -630,14 +630,22 @@ const App = () => {
       setError('Please select a session and write your gratitude journal'); 
       return; 
     }
+    
     try {
       setLoading(true);
+      
+      // Check if entry already exists for this session
+      const existingEntry = myGratitudeEntries.find(
+        entry => entry.session === selectedSession && entry.studentId === studentData['Student ID']
+      );
+      
       const submission = { 
         studentId: studentData['Student ID'], 
         studentName: `${studentData['First Name']} ${studentData['Last Name']}`, 
         session: selectedSession, 
         content: gratitudeText, 
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        isUpdate: !!existingEntry // Flag to indicate if this is an update
       };
       
       const response = await fetch(`${API_URL}?action=submitGratitude`, {
@@ -647,8 +655,14 @@ const App = () => {
       
       const data = await response.json();
       if (data.success) {
-        await updateProgress({ addPoints: 10 });
-        alert('✨ Gratitude journal submitted! +10 points earned!'); 
+        // Only award points if it's a NEW entry (not an update)
+        if (!existingEntry) {
+          await updateProgress({ addPoints: 10 });
+          alert('✨ Gratitude journal submitted! +10 points earned!'); 
+        } else {
+          alert('✨ Gratitude journal updated!');
+        }
+        
         setGratitudeText(''); 
         setSelectedSession(''); 
         await loadMyGratitudeEntries(studentData['Student ID']);
@@ -1312,21 +1326,21 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             <button onClick={() => setCurrentPage('gratitude')} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Heart className="w-6 h-6" />
-                <span className="font-bold">My Heart Journal</span>
+                <span className="font-bold">Heart Journal</span>
               </div>
               <ChevronRight className="w-6 h-6" />
             </button>
             <button onClick={() => setCurrentPage('grades')} className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <BookOpen className="w-6 h-6" />
-                <span className="font-bold">View My HJ Grades</span>
+                <span className="font-bold">View My Grades</span>
               </div>
               <ChevronRight className="w-6 h-6" />
             </button>
             <button onClick={() => setCurrentPage('profile')} className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <User className="w-6 h-6" />
-                <span className="font-bold">My HJ Profile</span>
+                <span className="font-bold">My Profile</span>
               </div>
               <ChevronRight className="w-6 h-6" />
             </button>
@@ -1414,7 +1428,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
-          <h1 className="text-3xl font-black text-white mb-4">💖 My Hyojeong Heart Badges</h1>
+          <h1 className="text-3xl font-black text-white mb-4">💖 My Hearts</h1>
           
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
             <div className="text-center">
@@ -1479,21 +1493,42 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <Heart className="w-6 h-6 text-pink-500" />
-              <h2 className="text-xl font-black text-gray-800">Write Your Weekly Gratitude & Reflection</h2>
+              <h2 className="text-xl font-black text-gray-800">Write Your Reflection</h2>
             </div>
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">Session</label>
               <select 
                 value={selectedSession} 
-                onChange={(e) => setSelectedSession(e.target.value)} 
+                onChange={(e) => {
+                  const session = e.target.value;
+                  setSelectedSession(session);
+                  // Auto-fill with existing content if updating
+                  const existingEntry = myGratitudeEntries.find(entry => entry.session === session);
+                  if (existingEntry) {
+                    setGratitudeText(existingEntry.content);
+                  } else {
+                    setGratitudeText('');
+                  }
+                }} 
                 className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl font-semibold focus:outline-none focus:ring-4 focus:ring-purple-300"
               >
                 <option value="">Choose session...</option>
-                {[...Array(20)].map((_, i) => (
-                  <option key={i} value={`Session ${i + 1}`}>Session {i + 1}</option>
-                ))}
+                {[...Array(20)].map((_, i) => {
+                  const sessionName = `Session ${i + 1}`;
+                  const hasEntry = myGratitudeEntries.some(entry => entry.session === sessionName);
+                  return (
+                    <option key={i} value={sessionName}>
+                      {sessionName}{hasEntry ? ' ✓ (Already submitted)' : ''}
+                    </option>
+                  );
+                })}
               </select>
+              {selectedSession && myGratitudeEntries.some(entry => entry.session === selectedSession) && (
+                <p className="text-xs text-orange-600 font-bold mt-2">
+                  ⚠️ You already have an entry for this session. Submitting will UPDATE your previous entry.
+                </p>
+              )}
             </div>
             
             {/* Show prompt as the label */}
@@ -1656,7 +1691,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
-          <h1 className="text-3xl font-black text-white mb-4 drop-shadow-lg">✨ My HJ Profile ✨</h1>
+          <h1 className="text-3xl font-black text-white mb-4 drop-shadow-lg">✨ My Profile ✨</h1>
           
           {/* Main Profile Card - More Vibrant! */}
           <div className="bg-gradient-to-br from-white to-purple-50 rounded-3xl shadow-2xl p-8 border-4 border-white mb-4">
@@ -1708,9 +1743,9 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   <div className="relative text-center">
                     <div className="text-6xl mb-3 animate-bounce-slow">🏆</div>
                     <h3 className="text-3xl font-black bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 bg-clip-text text-transparent mb-2">
-                      💖 HYOJEONG HEART CHAMPION 💖
+                      💖 HEART CHAMPION 💖
                     </h3>
-                    <p className="text-sm font-bold text-gray-700 mb-1">All 10 Hyojeong Hearts Unlocked!</p>
+                    <p className="text-sm font-bold text-gray-700 mb-1">All 10 Hearts Unlocked!</p>
                     <p className="text-xs text-gray-600 italic">Na-unlock mo na ang lahat ng 10 Puso!</p>
                     
                     {/* All hearts display */}
@@ -1942,7 +1977,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           >
             <div className="flex items-center gap-3">
               <BookOpen className="w-6 h-6" />
-              <span className="font-bold">View My Hyojeong Grades</span>
+              <span className="font-bold">View My Grades</span>
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
@@ -1997,7 +2032,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           <button onClick={() => setCurrentPage('admin-leaderboard')} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Trophy className="w-6 h-6" />
-              <span className="font-bold">View Hyojeong Youth Leaderboards</span>
+              <span className="font-bold">View Leaderboards</span>
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
