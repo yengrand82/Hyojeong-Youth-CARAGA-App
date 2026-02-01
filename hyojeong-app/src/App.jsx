@@ -1045,7 +1045,7 @@ const App = () => {
             <div className="text-6xl font-black text-purple-600 mb-2">
               {Math.round((
   calculateAttendance(studentData) + 
-  Math.round((studentData['HJ Quiz'] || 0) * 100) + 
+  (studentData['HJ Quiz'] || 0) + 
   (studentData['HJ Service'] || 0) + 
   Math.round((myGratitudeEntries.length / 8) * 100)
 ) / 4)}%
