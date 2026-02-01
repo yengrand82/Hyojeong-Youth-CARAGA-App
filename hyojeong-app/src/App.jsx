@@ -958,14 +958,14 @@ const App = () => {
             <button onClick={() => setCurrentPage('badges')} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Award className="w-6 h-6" />
-                <span className="font-bold">My Hearts ({earnedBadges.length}/{BADGES.length})</span>
+                <span className="font-bold">My Hyojeong Heart Badges ({earnedBadges.length}/{BADGES.length})</span>
               </div>
               <ChevronRight className="w-6 h-6" />
             </button>
             <button onClick={() => setCurrentPage('gratitude')} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Heart className="w-6 h-6" />
-                <span className="font-bold">Heart Journal</span>
+                <span className="font-bold">Gratitude Journal</span>
               </div>
               <ChevronRight className="w-6 h-6" />
             </button>
@@ -1053,11 +1053,11 @@ const App = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
-          <h1 className="text-3xl font-black text-white mb-4">💖 My Hearts</h1>
+          <h1 className="text-3xl font-black text-white mb-4">💖 My Hyojeong Heart Badges</h1>
           
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
             <div className="text-center">
-              <p className="text-gray-600 font-bold mb-2">Hearts Collected</p>
+              <p className="text-gray-600 font-bold mb-2">Hyojeong Hearts Collected</p>
               <p className="text-6xl font-black text-purple-600 mb-2">{earnedBadges.length}/{BADGES.length}</p>
               <div className="w-full bg-gray-200 rounded-full h-4">
                 <div 
@@ -1109,7 +1109,7 @@ const App = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
-          <h1 className="text-3xl font-black text-white mb-4">💖 Heart Journal</h1>
+          <h1 className="text-3xl font-black text-white mb-4">💖 Gratitude Journal</h1>
           
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
