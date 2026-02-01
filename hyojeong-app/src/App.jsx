@@ -260,6 +260,8 @@ const App = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedAffirmation, setSelectedAffirmation] = useState('');
   const [editingProfile, setEditingProfile] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [hasSeenCelebration, setHasSeenCelebration] = useState(false);
   const [tempProfile, setTempProfile] = useState({
     dateOfBirth: '',
     address: '',
@@ -275,6 +277,14 @@ const App = () => {
     if (studentData) {
       const newEarnedBadges = BADGES.filter(badge => checkIfBadgeEarned(badge)).map(b => b.id);
       setEarnedBadges(newEarnedBadges);
+      
+      // Trigger celebration when all badges are earned for the first time
+      if (newEarnedBadges.length === BADGES.length && !hasSeenCelebration) {
+        setTimeout(() => {
+          setShowCelebration(true);
+          setHasSeenCelebration(true);
+        }, 500);
+      }
     }
   }, [studentData, myGratitudeEntries, points, goals]);
 
@@ -754,6 +764,80 @@ const App = () => {
     return false;
   };
 
+  // CELEBRATION MODAL FOR ALL BADGES UNLOCKED
+  const CelebrationModal = () => {
+    const confettiColors = ['#FF6B9D', '#C44569', '#FFA502', '#FFD32A', '#05C46B', '#0ABDE3', '#5F27CD', '#FF9FF3'];
+    const confettiPieces = Array(50).fill(null);
+    
+    const downloadCertificate = () => {
+      const certificateHTML = `<!DOCTYPE html>
+<html><head><style>
+body{font-family:Arial,sans-serif;text-align:center;padding:50px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%)}
+.certificate{background:white;padding:60px;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-width:800px;margin:0 auto;border:10px solid gold}
+h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32px}p{font-size:20px;line-height:1.8;color:#333}
+.name{font-size:36px;color:#C44569;font-weight:bold;margin:30px 0}.hearts{font-size:48px}
+</style></head><body><div class="certificate">
+<h1>🏆 Certificate of Heart Mastery 🏆</h1><p>This is to certify that</p>
+<div class="name">${studentData['First Name']} ${studentData['Last Name']}</div>
+<p>has successfully unlocked all</p><div class="hearts">💛 💖 💜 🌸 💙 🧡 💚 ✨ ✨ ❤️</div>
+<h2>10 Hearts of Hyojeong Youth Caraga!</h2>
+<p style="margin-top:40px">Presented on ${new Date().toLocaleDateString()}</p>
+<p style="font-style:italic;color:#666;margin-top:30px">"Living for the sake of others is the way to bring peace to the world."<br>- True Parents</p>
+</div></body></html>`;
+      
+      const blob = new Blob([certificateHTML], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Heart_Champion_Certificate_${studentData['Student ID']}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+        {confettiPieces.map((_, i) => (
+          <div key={i} className="fixed w-3 h-3 animate-confetti" style={{
+            left: `${Math.random() * 100}%`, top: '-20px',
+            backgroundColor: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+            animationDelay: `${Math.random() * 2}s`, animationDuration: `${2 + Math.random() * 2}s`
+          }} />
+        ))}
+        <div className="relative bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border-8 border-yellow-400 animate-celebration">
+          <button onClick={() => setShowCelebration(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+            <X className="w-6 h-6" />
+          </button>
+          <div className="text-center mb-6">
+            <div className="inline-block animate-bounce-slow">
+              <div className="text-8xl mb-4">🏆</div>
+            </div>
+            <h2 className="text-4xl font-black bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 bg-clip-text text-transparent mb-2">CONGRATULATIONS!</h2>
+            <p className="text-xl font-bold text-gray-700">Binabati kita!</p>
+          </div>
+          <div className="text-center mb-6">
+            <p className="text-lg font-bold text-gray-800 mb-2">You've Unlocked All 10 Hearts!</p>
+            <p className="text-base text-gray-600">Na-unlock mo na ang lahat ng 10 Puso!</p>
+          </div>
+          <div className="flex justify-center gap-2 mb-6 flex-wrap">
+            {BADGES.map((badge, i) => (
+              <div key={badge.id} className="text-3xl animate-bounce-slow" style={{animationDelay: `${i * 0.1}s`}}>{badge.icon}</div>
+            ))}
+          </div>
+          <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-2xl p-4 border-4 border-yellow-400 mb-6">
+            <div className="text-center">
+              <p className="text-2xl font-black text-transparent bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text mb-1">💖 HEART CHAMPION 💖</p>
+              <p className="text-sm font-bold text-gray-600">You are now a Heart Champion!</p>
+            </div>
+          </div>
+          <button onClick={downloadCertificate} className="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all mb-3">
+            📜 Download Certificate
+          </button>
+          <button onClick={() => setShowCelebration(false)} className="w-full py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-all">Continue</button>
+        </div>
+      </div>
+    );
+  };
+
   const NavBar = () => (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-purple-300 shadow-lg z-50">
       <div className="flex justify-around items-center py-3">
@@ -1089,7 +1173,18 @@ const App = () => {
                     )}
                     
                     {/* Sparkles at 80%+ */}
-                    {growthPercentage > 80 && (
+                    {/* Sparkles at 80%+ OR Rainbow bloom when all badges unlocked */}
+                    {earnedBadges.length === BADGES.length ? (
+                      <>
+                        {/* Rainbow glow for champion */}
+                        <div className="absolute -inset-8 bg-gradient-to-r from-red-400 via-yellow-400 via-green-400 via-blue-400 to-purple-400 rounded-full blur-2xl opacity-40 animate-pulse"></div>
+                        <div className="absolute -top-12 -left-4 text-3xl animate-sparkle" style={{animationDelay: '0s'}}>🌈</div>
+                        <div className="absolute -top-10 -right-4 text-2xl animate-sparkle" style={{animationDelay: '0.3s'}}>⭐</div>
+                        <div className="absolute -top-14 right-2 text-2xl animate-sparkle" style={{animationDelay: '0.6s'}}>💫</div>
+                        <div className="absolute -top-16 left-2 text-3xl animate-sparkle" style={{animationDelay: '0.9s'}}>✨</div>
+                        <div className="absolute -top-8 left-0 text-xl animate-sparkle" style={{animationDelay: '1.2s'}}>🏆</div>
+                      </>
+                    ) : growthPercentage > 80 && (
                       <>
                         <div className="absolute -top-12 -left-4 text-2xl animate-sparkle" style={{animationDelay: '0s'}}>✨</div>
                         <div className="absolute -top-10 -right-4 text-xl animate-sparkle" style={{animationDelay: '0.5s'}}>⭐</div>
@@ -1204,6 +1299,20 @@ const App = () => {
           }
           .animate-sparkle {
             animation: sparkle 2s ease-in-out infinite;
+          }
+          @keyframes confetti {
+            0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+          }
+          .animate-confetti {
+            animation: confetti 3s ease-out forwards;
+          }
+          @keyframes celebration-bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+          }
+          .animate-celebration {
+            animation: celebration-bounce 0.5s ease-in-out 3;
           }
           @keyframes bounce-kid {
             0%, 100% { 
@@ -1517,6 +1626,32 @@ const App = () => {
                 </div>
               </div>
             </div>
+
+            {/* Heart Champion Badge - Shows when all 10 badges unlocked */}
+            {earnedBadges.length === BADGES.length && (
+              <div className="mb-6 animate-bounce-slow">
+                <div className="bg-gradient-to-r from-yellow-100 via-orange-100 to-pink-100 rounded-3xl p-6 border-4 border-yellow-400 shadow-xl relative overflow-hidden">
+                  {/* Animated background */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 via-pink-400 to-purple-400 opacity-20 animate-pulse"></div>
+                  
+                  <div className="relative text-center">
+                    <div className="text-6xl mb-3 animate-bounce-slow">🏆</div>
+                    <h3 className="text-3xl font-black bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 bg-clip-text text-transparent mb-2">
+                      💖 HEART CHAMPION 💖
+                    </h3>
+                    <p className="text-sm font-bold text-gray-700 mb-1">All 10 Hearts Unlocked!</p>
+                    <p className="text-xs text-gray-600 italic">Na-unlock mo na ang lahat ng 10 Puso!</p>
+                    
+                    {/* All hearts display */}
+                    <div className="flex justify-center gap-1 mt-3 flex-wrap">
+                      {BADGES.map(badge => (
+                        <span key={badge.id} className="text-2xl">{badge.icon}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {editingProfile ? (
               /* Editing Mode */
@@ -2339,6 +2474,11 @@ const App = () => {
       </div>
     </div>
   );
+
+  // Show celebration modal if all badges unlocked
+  if (showCelebration) {
+    return <CelebrationModal />;
+  }
 
   return null;
 };
