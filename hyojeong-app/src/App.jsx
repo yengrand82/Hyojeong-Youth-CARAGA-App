@@ -1043,7 +1043,12 @@ const App = () => {
           <div className="text-center">
             <p className="text-sm text-gray-600 font-bold mb-2">Growth Journey</p>
             <div className="text-6xl font-black text-purple-600 mb-2">
-              {Math.round((studentData['HJ Grade'] || 0) * 100)}%
+              {Math.round((
+  calculateAttendance(studentData) + 
+  Math.round((studentData['HJ Quiz'] || 0) * 100) + 
+  (studentData['HJ Service'] || 0) + 
+  Math.round((myGratitudeEntries.length / 8) * 100)
+) / 4)}%
             </div>
             <div className="inline-block px-4 py-2 bg-purple-100 rounded-full">
               <p className="text-sm font-bold text-purple-600">
