@@ -1091,13 +1091,13 @@ const App = () => {
 
          <div className="bg-white rounded-2xl shadow-lg p-4 border-4 border-orange-200">
   <div className="flex items-center justify-between">
-    <div>
-      <p className="text-sm text-gray-600 font-bold mb-1">🌻 Spiritual Growth Progress</p>
-      <p className="text-3xl font-black text-orange-600">{Math.round((earnedBadges.length / BADGES.length) * 100)}%</p>
-      <p className="text-xs text-gray-500 mt-1">Hearts collected</p>
-    </div>
-    <TrendingUp className="w-12 h-12 text-orange-600" />
+  <div>
+    <p className="text-sm text-gray-600 font-bold mb-1">💖 Heart of Gratitude</p>
+    <p className="text-3xl font-black text-pink-600">{Math.round((myGratitudeEntries.length / 8) * 100)}%</p>
+    <p className="text-xs text-gray-500 mt-1">Gratitude entries submitted</p>
   </div>
+  <Heart className="w-12 h-12 text-pink-600" />
+</div>
 </div>
         </div>
       </div>
