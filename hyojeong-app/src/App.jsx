@@ -1296,26 +1296,6 @@ const App = () => {
         <div className="p-4">
           <h1 className="text-3xl font-black text-white mb-4">💖 Heart Journal</h1>
           
-          {/* Weekly Gratitude Prompt */}
-          <div className="bg-gradient-to-br from-pink-100 to-rose-100 rounded-2xl shadow-lg p-6 border-4 border-pink-200 mb-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-6 h-6 text-pink-600" />
-              <h2 className="text-lg font-black text-gray-800">This Week's Reflection</h2>
-            </div>
-            <div className="bg-white rounded-xl p-4 mb-3">
-              <p className="text-gray-800 font-bold text-base mb-2">{weeklyPrompt.en}</p>
-              <p className="text-gray-600 italic text-sm">({weeklyPrompt.tl})</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-pink-600 bg-pink-50 px-3 py-1 rounded-full">
-                {weeklyPrompt.category}
-              </span>
-              <span className="text-xs text-gray-600">
-                {studentData['Age'] < 13 ? '👧 Kids Prompt' : '🌱 Youth Prompt'}
-              </span>
-            </div>
-          </div>
-          
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <Heart className="w-6 h-6 text-pink-500" />
