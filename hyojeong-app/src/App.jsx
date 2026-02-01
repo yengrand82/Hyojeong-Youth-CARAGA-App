@@ -747,7 +747,7 @@ const App = () => {
     // Calculate grade the same way as Growth Journey (average of 4 metrics)
     const quiz = studentData['HJ Quiz'] || 0;
     const service = studentData['HJ Service'] || 0;
-    const gratitudePercent = Math.round((myGratitudeEntries.length / 8) * 100);
+    const gratitudePercent = Math.min(100, Math.round((myGratitudeEntries.length / 8) * 100));
     const grade = Math.round((attendance + quiz + service + gratitudePercent) / 4);
     
     if (badge.type === 'gratitude') return gratitudeCount >= badge.count;
@@ -1085,7 +1085,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
       calculateAttendance(studentData) + 
       (studentData['HJ Quiz'] || 0) + 
       (studentData['HJ Service'] || 0) + 
-      Math.round((myGratitudeEntries.length / 8) * 100)
+      Math.min(100, Math.round((myGratitudeEntries.length / 8) * 100))
     ) / 4);
     
     return (
@@ -1274,7 +1274,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                     calculateAttendance(studentData) + 
                     (studentData['HJ Quiz'] || 0) + 
                     (studentData['HJ Service'] || 0) + 
-                    Math.round((myGratitudeEntries.length / 8) * 100)
+                    Math.min(100, Math.round((myGratitudeEntries.length / 8) * 100))
                   ) / 4)}%
                 </p>
               </div>
@@ -1571,7 +1571,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
       calculateAttendance(studentData) + 
       (studentData['HJ Quiz'] || 0) + 
       (studentData['HJ Service'] || 0) + 
-      Math.round((myGratitudeEntries.length / 8) * 100)
+      Math.min(100, Math.round((myGratitudeEntries.length / 8) * 100))
     ) / 4);
     
     return (
@@ -1587,7 +1587,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
   calculateAttendance(studentData) + 
   (studentData['HJ Quiz'] || 0) + 
   (studentData['HJ Service'] || 0) + 
-  Math.round((myGratitudeEntries.length / 8) * 100)
+  Math.min(100, Math.round((myGratitudeEntries.length / 8) * 100))
 ) / 4)}%
             </div>
             <div className="inline-block px-4 py-2 bg-purple-100 rounded-full">
@@ -1638,7 +1638,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
   <div className="flex items-center justify-between">
   <div>
     <p className="text-sm text-gray-600 font-bold mb-1">💖 Heart of Gratitude</p>
-    <p className="text-3xl font-black text-pink-600">{Math.round((myGratitudeEntries.length / 8) * 100)}%</p>
+    <p className="text-3xl font-black text-pink-600">{Math.min(100, Math.round((myGratitudeEntries.length / 8) * 100))}%</p>
     <p className="text-xs text-gray-500 mt-1">Gratitude entries submitted</p>
   </div>
   <Heart className="w-12 h-12 text-pink-600" />
