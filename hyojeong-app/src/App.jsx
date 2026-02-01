@@ -802,7 +802,7 @@ const App = () => {
     </div>
   );
 
-  // HOME PAGE - REDESIGNED
+  // HOME PAGE
   if (currentPage === 'home' && studentData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
@@ -824,50 +824,33 @@ const App = () => {
 
           <WeeklyAffirmation />
 
-          {/* PROMINENT GROWTH CARD - REDESIGNED */}
-          <div className="bg-white rounded-3xl shadow-2xl p-8 mb-6 border-4 border-white relative overflow-hidden transform hover:scale-105 transition-all duration-300">
-            {/* Background gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-50 opacity-50"></div>
-            
-            {/* Animated background decoration */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-200 to-emerald-200 rounded-full blur-3xl opacity-30 animate-pulse"></div>
-            <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-tr from-teal-200 to-cyan-200 rounded-full blur-3xl opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
-            
-            <div className="relative z-10">
-              {/* Icon with animation */}
-              <div className="flex justify-center mb-4">
-                <div className="bg-gradient-to-br from-green-400 to-emerald-500 rounded-3xl p-4 shadow-2xl animate-bounce-slow">
-                  <TrendingUp className="w-12 h-12 text-white" />
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-yellow-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 font-bold">Heart Seeds</p>
+                  <p className="text-3xl font-black text-yellow-600">{points}</p>
                 </div>
+                <Gift className="w-10 h-10 text-yellow-600" />
               </div>
-              
-              {/* Label */}
-              <div className="text-center mb-2">
-                <p className="text-sm font-bold text-green-700 uppercase tracking-wider">Your Growth</p>
-              </div>
-              
-              {/* Main percentage - VERY LARGE */}
-              <div className="text-center mb-4">
-                <p className="text-8xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                  {Math.round((studentData['HJ Grade'] || 0) * 100)}%
-                </p>
-              </div>
-              
-              {/* Subtitle */}
-              <div className="text-center mb-6">
-                <p className="text-lg font-semibold text-gray-700">Keep up the amazing progress!</p>
-              </div>
-              
-              {/* Progress bar with animation */}
-              <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
-                <div 
-                  className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all duration-1000 ease-out relative overflow-hidden"
-                  style={{ width: `${Math.round((studentData['HJ Grade'] || 0) * 100)}%` }}
-                >
-                  {/* Shimmer effect */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-shimmer"></div>
-                </div>
-              </div>
+            </div>
+            <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-green-200">
+              <TrendingUp className="w-8 h-8 text-green-600 mb-2" />
+              <p className="text-sm text-gray-600 font-bold">Growth</p>
+              <p className="text-3xl font-black text-green-600">{Math.round((studentData['HJ Grade'] || 0) * 100)}%</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-blue-200">
+              <Calendar className="w-8 h-8 text-blue-600 mb-2" />
+              <p className="text-sm text-gray-600 font-bold">Presence</p>
+              <p className="text-3xl font-black text-blue-600">{calculateAttendance()}%</p>
+            </div>
+            <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-purple-200">
+              <Heart className="w-8 h-8 text-purple-600 mb-2" />
+              <p className="text-sm text-gray-600 font-bold">Heart Journals</p>
+              <p className="text-3xl font-black text-purple-600">{myGratitudeEntries.length}</p>
             </div>
           </div>
 
@@ -902,32 +885,1099 @@ const App = () => {
             </button>
           </div>
         </div>
-        
-        {/* Add shimmer animation to CSS */}
-        <style jsx>{`
-          @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-          }
-          .animate-shimmer {
-            animation: shimmer 2s infinite;
-          }
-          @keyframes bounce-slow {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-          }
-          .animate-bounce-slow {
-            animation: bounce-slow 3s ease-in-out infinite;
-          }
-        `}</style>
-        
         <NavBar />
       </div>
     );
   }
 
-  // ... rest of the pages remain unchanged (BADGES, GRATITUDE, GRADES, PROFILE, ADMIN pages)
-  // For brevity, I'm not repeating all the other pages, but they would stay exactly the same as your original code
+  // BADGES PAGE
+  if (currentPage === 'badges' && studentData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+        <div className="p-4">
+          <h1 className="text-3xl font-black text-white mb-4">💖 My Hearts</h1>
+          
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
+            <div className="text-center">
+              <p className="text-gray-600 font-bold mb-2">Hearts Collected</p>
+              <p className="text-6xl font-black text-purple-600 mb-2">{earnedBadges.length}/{BADGES.length}</p>
+              <div className="w-full bg-gray-200 rounded-full h-4">
+                <div 
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 h-4 rounded-full transition-all duration-500"
+                  style={{ width: `${(earnedBadges.length / BADGES.length) * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {BADGES.map((badge) => {
+              const earned = checkIfBadgeEarned(badge);
+              return (
+                <div 
+                  key={badge.id}
+                  className={`rounded-2xl p-6 shadow-lg border-4 ${
+                    earned 
+                      ? `bg-gradient-to-br ${badge.color} border-white` 
+                      : 'bg-gray-100 border-gray-200 opacity-60'
+                  }`}
+                >
+                  <div className="text-center">
+                    <div className="text-6xl mb-3">{badge.icon}</div>
+                    <p className={`text-sm font-black mb-1 ${earned ? 'text-white' : 'text-gray-600'}`}>
+                      {badge.name}
+                    </p>
+                    <p className={`text-xs ${earned ? 'text-white/90' : 'text-gray-500'}`}>
+                      {badge.desc}
+                    </p>
+                    {earned && (
+                      <div className="mt-2 bg-white/20 rounded-full px-3 py-1">
+                        <p className="text-xs font-bold text-white">✓ Earned!</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <NavBar />
+      </div>
+    );
+  }
+
+  // GRATITUDE PAGE
+  if (currentPage === 'gratitude' && studentData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+        <div className="p-4">
+          <h1 className="text-3xl font-black text-white mb-4">💖 Heart Journal</h1>
+          
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Heart className="w-6 h-6 text-pink-500" />
+              <h2 className="text-xl font-black text-gray-800">Write New Entry</h2>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Session</label>
+              <select 
+                value={selectedSession} 
+                onChange={(e) => setSelectedSession(e.target.value)} 
+                className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl font-semibold focus:outline-none focus:ring-4 focus:ring-purple-300"
+              >
+                <option value="">Choose session...</option>
+                {[...Array(20)].map((_, i) => (
+                  <option key={i} value={`Session ${i + 1}`}>Session {i + 1}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">What are you grateful for today?</label>
+              <textarea 
+                value={gratitudeText} 
+                onChange={(e) => setGratitudeText(e.target.value)} 
+                placeholder="Share your gratitude, reflections, or learnings from this session..." 
+                className="w-full h-40 px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300" 
+                disabled={loading}
+              />
+            </div>
+            {error && <div className="p-3 bg-red-50 border-2 border-red-300 rounded-xl text-red-600 text-sm font-semibold">{error}</div>}
+            <button 
+              onClick={handleGratitudeSubmit} 
+              disabled={loading}
+              className="w-full px-6 py-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+            >
+              {loading ? 'Submitting...' : '✨ Submit Gratitude'}
+            </button>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-black text-gray-800">📚 My Previous Entries</h2>
+              <button 
+                onClick={() => loadMyGratitudeEntries(studentData['Student ID'])}
+                className="text-purple-600"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
+            </div>
+            {myGratitudeEntries.length === 0 ? (
+              <div className="text-center py-8">
+                <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 font-bold">No entries yet</p>
+                <p className="text-sm text-gray-400">Start writing your gratitude journal!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {myGratitudeEntries.map((entry, idx) => (
+                  <div key={idx} className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-4 border-2 border-pink-200">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="text-sm font-bold text-purple-600">{entry.session}</p>
+                      <p className="text-xs text-gray-500">{entry.timestamp}</p>
+                    </div>
+                    <p className="text-sm text-gray-700 mb-3">{entry.content}</p>
+                    {entry.adminRemark && (
+                      <div className="bg-blue-50 p-3 rounded-lg border-2 border-blue-200">
+                        <p className="text-xs font-bold text-blue-600 mb-1">💬 Admin's Remark:</p>
+                        <p className="text-sm text-gray-700">{entry.adminRemark}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <NavBar />
+      </div>
+    );
+  }
+
+  // GRADES PAGE
+  if (currentPage === 'grades' && studentData) return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+      <div className="p-4">
+        <h1 className="text-3xl font-black text-white mb-4">🌸 My Growth Journey</h1>
+        
+        <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
+          <div className="text-center">
+            <p className="text-sm text-gray-600 font-bold mb-2">Growth Journey</p>
+            <div className="text-6xl font-black text-purple-600 mb-2">
+              {Math.round((
+  calculateAttendance(studentData) + 
+  (studentData['HJ Quiz'] || 0) + 
+  (studentData['HJ Service'] || 0) + 
+  Math.round((myGratitudeEntries.length / 8) * 100)
+) / 4)}%
+            </div>
+            <div className="inline-block px-4 py-2 bg-purple-100 rounded-full">
+              <p className="text-sm font-bold text-purple-600">
+                {Math.round((studentData['HJ Grade'] || 0) * 100) >= 90 ? '🌟 Shining Brightly!' : 
+                 Math.round((studentData['HJ Grade'] || 0) * 100) >= 80 ? '🌸 Beautifully Growing!' : 
+                 Math.round((studentData['HJ Grade'] || 0) * 100) >= 70 ? '🌱 Growing Well!' : 
+                 '💚 Keep Nurturing!'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="bg-white rounded-2xl shadow-lg p-4 border-4 border-blue-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 font-bold mb-1">💜 Faithful Presence</p>
+                <p className="text-3xl font-black text-blue-600">{calculateAttendance()}%</p>
+                <p className="text-xs text-gray-500 mt-1">Sessions attended</p>
+              </div>
+              <Calendar className="w-12 h-12 text-blue-600" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-4 border-4 border-purple-200">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-sm text-gray-600 font-bold mb-1">💡 Heart Knowledge</p>
+                <p className="text-3xl font-black text-purple-600">{Math.round(studentData['HJ Quiz'] || 0)}%</p>
+              </div>
+              <BookOpen className="w-12 h-12 text-purple-600" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-4 border-4 border-green-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 font-bold mb-1">💙 Filial Actions</p>
+                <p className="text-3xl font-black text-green-600">{Math.round((studentData['HJ Service'] || 0) * 100) / 100}</p>
+                <p className="text-xs text-gray-500 mt-1">Act of Service Completed</p>
+              </div>
+              <Award className="w-12 h-12 text-green-600" />
+            </div>
+          </div>
+
+         <div className="bg-white rounded-2xl shadow-lg p-4 border-4 border-orange-200">
+  <div className="flex items-center justify-between">
+  <div>
+    <p className="text-sm text-gray-600 font-bold mb-1">💖 Heart of Gratitude</p>
+    <p className="text-3xl font-black text-pink-600">{Math.round((myGratitudeEntries.length / 8) * 100)}%</p>
+    <p className="text-xs text-gray-500 mt-1">Gratitude entries submitted</p>
+  </div>
+  <Heart className="w-12 h-12 text-pink-600" />
+</div>
+</div>
+        </div>
+      </div>
+      <NavBar />
+    </div>
+  );
+
+  // PROFILE PAGE
+  if (currentPage === 'profile' && studentData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+        <div className="p-4">
+          <h1 className="text-3xl font-black text-white mb-4 drop-shadow-lg">✨ My Profile ✨</h1>
+          
+          {/* Main Profile Card - More Vibrant! */}
+          <div className="bg-gradient-to-br from-white to-purple-50 rounded-3xl shadow-2xl p-8 border-4 border-white mb-4">
+            {/* Edit Button */}
+            <div className="flex justify-end mb-4">
+              {!editingProfile ? (
+                <button
+                  onClick={handleEditProfile}
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-xl font-bold shadow-lg"
+                >
+                  ✏️ Edit Profile
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditingProfile(false)}
+                    className="bg-gray-200 text-gray-700 px-4 py-2 rounded-xl font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={loading}
+                    className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2 rounded-xl font-bold disabled:opacity-50"
+                  >
+                    {loading ? 'Saving...' : '💾 Save'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Larger Photo with Fun Border */}
+            <div className="flex justify-center mb-6">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 rounded-3xl blur-xl opacity-50"></div>
+                <div className="relative">
+                  <Avatar firstName={studentData['First Name']} lastName={studentData['Last Name']} photoUrl={editingProfile ? tempProfile.photoUrl : studentData['Photo']} size="lg" />
+                </div>
+              </div>
+            </div>
+
+            {editingProfile ? (
+              /* Editing Mode */
+              <div className="space-y-4">
+                <div className="bg-purple-50 rounded-2xl p-4 border-2 border-purple-200">
+                  <p className="text-xs text-purple-600 font-bold uppercase tracking-wide mb-1">👤 Full Name</p>
+                  <p className="text-xl font-black text-gray-400">{studentData['First Name']} {studentData['Last Name']}</p>
+                  <p className="text-xs text-gray-500 mt-1">Name cannot be changed</p>
+                </div>
+
+                <div className="bg-blue-50 rounded-2xl p-4 border-2 border-blue-200">
+                  <p className="text-xs text-blue-600 font-bold uppercase tracking-wide mb-1">🆔 Student ID</p>
+                  <p className="text-lg font-black text-gray-400">{studentData['Student ID']}</p>
+                  <p className="text-xs text-gray-500 mt-1">ID cannot be changed</p>
+                </div>
+
+                <div className="bg-yellow-50 rounded-2xl p-4 border-2 border-yellow-200">
+                  <label className="text-xs text-orange-600 font-bold uppercase tracking-wide mb-2 block">📅 Birthday</label>
+                  <input
+                    type="date"
+                    value={tempProfile.dateOfBirth}
+                    onChange={(e) => setTempProfile(p => ({...p, dateOfBirth: e.target.value}))}
+                    className="w-full px-4 py-3 border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-orange-300"
+                  />
+                </div>
+
+                <div className="bg-pink-50 rounded-2xl p-4 border-2 border-pink-200">
+                  <label className="text-xs text-pink-600 font-bold uppercase tracking-wide mb-2 block">📍 Address</label>
+                  <textarea
+                    value={tempProfile.address}
+                    onChange={(e) => setTempProfile(p => ({...p, address: e.target.value}))}
+                    placeholder="Enter your address"
+                    rows="2"
+                    className="w-full px-4 py-3 border-2 border-pink-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-pink-300 resize-none"
+                  />
+                </div>
+
+                <div className="bg-indigo-50 rounded-2xl p-4 border-2 border-indigo-200">
+                  <label className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-2 block">📸 Photo URL</label>
+                  <input
+                    type="text"
+                    value={tempProfile.photoUrl}
+                    onChange={(e) => setTempProfile(p => ({...p, photoUrl: e.target.value}))}
+                    placeholder="https://..."
+                    className="w-full px-4 py-3 border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-300"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Google Drive or Imgur link</p>
+                </div>
+              </div>
+            ) : (
+              /* View Mode */
+              <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-4 border-2 border-purple-200">
+                <p className="text-xs text-purple-600 font-bold uppercase tracking-wide mb-1">👤 Full Name</p>
+                <p className="text-xl font-black text-gray-800">{studentData['First Name']} {studentData['Last Name']}</p>
+              </div>
+              
+              <div className="bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl p-4 border-2 border-blue-200">
+                <p className="text-xs text-blue-600 font-bold uppercase tracking-wide mb-1">🆔 Student ID</p>
+                <p className="text-lg font-black text-gray-800">{studentData['Student ID']}</p>
+              </div>
+              
+              {studentData['Age'] && (
+                <div className="bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl p-4 border-2 border-green-200">
+                  <p className="text-xs text-green-600 font-bold uppercase tracking-wide mb-1">🎂 Age</p>
+                  <p className="text-lg font-black text-gray-800">{studentData['Age']} years</p>
+                </div>
+              )}
+              
+              {studentData['Date of Birth'] && (
+                <div className="col-span-2 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-2xl p-4 border-2 border-yellow-200">
+                  <p className="text-xs text-orange-600 font-bold uppercase tracking-wide mb-1">📅 Birthday</p>
+                  <p className="text-lg font-black text-gray-800">{studentData['Date of Birth']}</p>
+                </div>
+              )}
+              
+              {studentData['Address'] && (
+                <div className="col-span-2 bg-gradient-to-br from-pink-100 to-rose-100 rounded-2xl p-4 border-2 border-pink-200">
+                  <p className="text-xs text-pink-600 font-bold uppercase tracking-wide mb-1">📍 Address</p>
+                  <p className="text-base font-bold text-gray-800">{studentData['Address']}</p>
+                </div>
+              )}
+              
+              {studentData['Category'] && (
+                <div className="col-span-2 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl p-4 border-2 border-indigo-200">
+                  <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-1">⭐ Category</p>
+                  <p className="text-lg font-black text-gray-800">{studentData['Category']}</p>
+                </div>
+              )}
+            </div>
+            )}
+          </div>
+
+          <WeeklyAffirmation />
+
+          {/* Growth Goals Section */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Target className="w-6 h-6 text-purple-600" />
+                <h2 className="text-xl font-black text-gray-800">Growth Goals</h2>
+              </div>
+              {!editingGoals && (
+                <button 
+                  onClick={() => {
+                    setTempGoals({ goal1: goals.goal1, goal2: goals.goal2, goal3: goals.goal3 });
+                    setEditingGoals(true);
+                  }}
+                  className="text-sm font-bold text-purple-600"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+
+            {editingGoals ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-bold text-gray-700 mb-1 block">Goal 1</label>
+                  <input 
+                    type="text"
+                    value={tempGoals.goal1}
+                    onChange={(e) => setTempGoals(g => ({...g, goal1: e.target.value}))}
+                    placeholder="e.g., Read 5 books this month"
+                    className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-gray-700 mb-1 block">Goal 2</label>
+                  <input 
+                    type="text"
+                    value={tempGoals.goal2}
+                    onChange={(e) => setTempGoals(g => ({...g, goal2: e.target.value}))}
+                    placeholder="e.g., Practice gratitude daily"
+                    className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-gray-700 mb-1 block">Goal 3</label>
+                  <input 
+                    type="text"
+                    value={tempGoals.goal3}
+                    onChange={(e) => setTempGoals(g => ({...g, goal3: e.target.value}))}
+                    placeholder="e.g., Volunteer 10 hours"
+                    className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={handleSaveGoals}
+                    className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl py-3 font-bold"
+                  >
+                    Save Goals (+5 points)
+                  </button>
+                  <button 
+                    onClick={() => setEditingGoals(false)}
+                    className="px-6 bg-gray-200 text-gray-700 rounded-xl py-3 font-bold"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {[1, 2, 3].map(num => {
+                  const goal = goals[`goal${num}`];
+                  const status = goals[`goal${num}Status`];
+                  return (
+                    <div 
+                      key={num}
+                      className={`rounded-xl p-4 border-2 ${
+                        status === 'Completed' ? 'bg-green-50 border-green-300' :
+                        status === 'In Progress' ? 'bg-purple-50 border-purple-300' :
+                        'bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="text-xs font-bold text-gray-500 mb-1">Goal {num}</p>
+                          {goal ? (
+                            <>
+                              <p className="text-sm font-bold text-gray-800 mb-2">{goal}</p>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                                  status === 'Completed' ? 'bg-green-200 text-green-700' :
+                                  status === 'In Progress' ? 'bg-purple-200 text-purple-700' :
+                                  'bg-gray-200 text-gray-600'
+                                }`}>
+                                  {status}
+                                </span>
+                                {status === 'Completed' && <span className="text-xl">🎉</span>}
+                              </div>
+                            </>
+                          ) : (
+                            <p className="text-sm text-gray-400 italic">No goal set yet</p>
+                          )}
+                        </div>
+                        {goal && status === 'In Progress' && (
+                          <button 
+                            onClick={() => handleCompleteGoal(num)}
+                            className="ml-2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-lg hover:bg-green-600"
+                          >
+                            Complete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <button 
+            onClick={() => setCurrentPage('grades')} 
+            className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <BookOpen className="w-6 h-6" />
+              <span className="font-bold">View My Grades</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        </div>
+        <NavBar />
+      </div>
+    );
+  }
+
+  // ADMIN DASHBOARD
+  if (currentPage === 'admin-dashboard' && isAdmin) return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <img 
+              src="https://i.imgur.com/bhXEh9q.png" 
+              alt="Hyojeong Youth Caraga Logo" 
+              className="w-12 h-12 object-contain"
+            />
+            <h1 className="text-3xl font-black text-white">Admin Dashboard</h1>
+          </div>
+          <button onClick={handleLogout} className="text-white font-bold bg-white/20 px-4 py-2 rounded-xl">Logout</button>
+        </div>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-purple-200">
+            <Users className="w-8 h-8 text-purple-600 mb-2" />
+            <p className="text-sm text-gray-600 font-bold">Total Students</p>
+            <p className="text-3xl font-black text-purple-600">{allStudents.length}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-pink-200">
+            <MessageSquare className="w-8 h-8 text-pink-600 mb-2" />
+            <p className="text-sm text-gray-600 font-bold">Gratitude Entries</p>
+            <p className="text-3xl font-black text-pink-600">{allGratitudeEntries.length}</p>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <button onClick={() => setShowAddStudentForm(true)} className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <UserPlus className="w-6 h-6" />
+              <span className="font-bold">Add New Student</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => setCurrentPage('admin-students')} className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Users className="w-6 h-6" />
+              <span className="font-bold">View All Students</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => setCurrentPage('admin-leaderboard')} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Trophy className="w-6 h-6" />
+              <span className="font-bold">View Leaderboards</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => setCurrentPage('admin-gratitude')} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Heart className="w-6 h-6" />
+              <span className="font-bold">View Heart Journals</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        </div>
+      </div>
+
+      {/* Add New Student Modal */}
+      {showAddStudentForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowAddStudentForm(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-black text-gray-800">Add New Student</h2>
+              <button onClick={() => setShowAddStudentForm(false)} className="text-gray-500">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">First Name *</label>
+                <input 
+                  type="text"
+                  value={newStudent.firstName}
+                  onChange={(e) => setNewStudent(s => ({...s, firstName: e.target.value}))}
+                  placeholder="e.g., John"
+                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Last Name *</label>
+                <input 
+                  type="text"
+                  value={newStudent.lastName}
+                  onChange={(e) => setNewStudent(s => ({...s, lastName: e.target.value}))}
+                  placeholder="e.g., Smith"
+                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Date of Birth *</label>
+                <input 
+                  type="date"
+                  value={newStudent.dateOfBirth}
+                  onChange={(e) => handleDateOfBirthChange(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                />
+                <p className="text-xs text-gray-500 mt-1">Age and category will be calculated automatically</p>
+              </div>
+
+              {newStudent.dateOfBirth && (
+                <>
+                  <div className="bg-green-50 p-4 rounded-xl border-2 border-green-200">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-green-600 font-bold uppercase">🎂 Age (Auto)</p>
+                        <p className="text-2xl font-black text-gray-800">{newStudent.age} years</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-green-600 font-bold uppercase">⭐ Category (Auto)</p>
+                        <p className="text-2xl font-black text-gray-800">{newStudent.category}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-green-600 mt-2">
+                      {newStudent.category === 'Kids' ? '🧒 Under 13 years old' : '👦 13 years or older'}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Address</label>
+                <textarea 
+                  value={newStudent.address}
+                  onChange={(e) => setNewStudent(s => ({...s, address: e.target.value}))}
+                  placeholder="e.g., 123 Main Street, Butuan City"
+                  rows="2"
+                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Photo URL (optional)</label>
+                <input 
+                  type="text"
+                  value={newStudent.photoUrl}
+                  onChange={(e) => setNewStudent(s => ({...s, photoUrl: e.target.value}))}
+                  placeholder="https://..."
+                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                />
+                <p className="text-xs text-gray-500 mt-1">Google Drive or Imgur link</p>
+              </div>
+
+              <div className="bg-blue-50 p-3 rounded-xl border-2 border-blue-200">
+                <p className="text-sm text-blue-700 font-bold">
+                  ℹ️ Student ID and Password will be auto-generated
+                </p>
+                <p className="text-xs text-blue-600 mt-1">Example: HJ075 / HJ075-2026</p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={handleAddNewStudent}
+                  disabled={loading || !newStudent.firstName || !newStudent.lastName || !newStudent.dateOfBirth}
+                  className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl py-3 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Adding...' : 'Add Student'}
+                </button>
+                <button 
+                  onClick={() => setShowAddStudentForm(false)}
+                  className="px-6 bg-gray-200 text-gray-700 rounded-xl py-3 font-bold"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // ADMIN STUDENTS LIST
+  if (currentPage === 'admin-students' && isAdmin) return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+      {selectedStudentDetail && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => { setSelectedStudentDetail(null); setSelectedStudentProgress(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto my-4" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-t-2xl relative">
+              <button onClick={() => { setSelectedStudentDetail(null); setSelectedStudentProgress(null); }} className="absolute top-4 right-4 text-white">
+                <X className="w-6 h-6" />
+              </button>
+              <div className="flex items-center gap-4">
+                <Avatar firstName={selectedStudentDetail['First Name']} lastName={selectedStudentDetail['Last Name']} photoUrl={selectedStudentDetail['Photo']} size="lg" />
+                <div className="text-white">
+                  <h2 className="text-3xl font-black">{selectedStudentDetail['First Name']} {selectedStudentDetail['Last Name']}</h2>
+                  <p className="text-xl font-bold opacity-90">{selectedStudentDetail['Student ID']}</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* Basic Profile Info */}
+              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 border-2 border-indigo-200">
+                <h3 className="text-lg font-black text-gray-800 mb-3">👤 Basic Information</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {selectedStudentDetail['Date of Birth'] && (
+                    <div className="bg-white rounded-lg p-3">
+                      <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-1">📅 Date of Birth</p>
+                      <p className="text-base font-black text-gray-800">{selectedStudentDetail['Date of Birth']}</p>
+                    </div>
+                  )}
+                  {selectedStudentDetail['Age'] && (
+                    <div className="bg-white rounded-lg p-3">
+                      <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-1">🎂 Age</p>
+                      <p className="text-base font-black text-gray-800">{selectedStudentDetail['Age']} years</p>
+                    </div>
+                  )}
+                  {selectedStudentDetail['Category'] && (
+                    <div className="bg-white rounded-lg p-3">
+                      <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-1">⭐ Category</p>
+                      <p className="text-base font-black text-gray-800">{selectedStudentDetail['Category']}</p>
+                    </div>
+                  )}
+                  {selectedStudentDetail['Address'] && (
+                    <div className="col-span-2 bg-white rounded-lg p-3">
+                      <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-1">📍 Address</p>
+                      <p className="text-base font-bold text-gray-800">{selectedStudentDetail['Address']}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Weekly Affirmation */}
+              {selectedStudentProgress && selectedStudentProgress.affirmation && (
+                <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-4 border-2 border-yellow-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-6 h-6 text-orange-600" />
+                    <h3 className="text-lg font-black text-gray-800">Weekly Affirmation</h3>
+                  </div>
+                  <div className="bg-white rounded-lg p-4">
+                    <p className="text-base font-semibold text-gray-700 italic">"{selectedStudentProgress.affirmation}"</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Hyojeong Growth */}
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border-2 border-purple-200">
+                <h3 className="text-lg font-black text-gray-800 mb-3">🌸 Hyojeong Growth</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="text-xs text-gray-600 font-bold mb-1">Growth Journey</p>
+                    <p className="text-3xl font-black text-purple-600">{Math.round((selectedStudentDetail['HJ Grade'] || 0) * 100)}%</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3">
+                    <Calendar className="w-6 h-6 text-blue-600 mb-1" />
+                    <p className="text-xs text-gray-600 font-bold mb-1">Faithful Presence</p>
+                    <p className="text-2xl font-black text-blue-600">{calculateAttendance(selectedStudentDetail)}%</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3">
+                    <BookOpen className="w-6 h-6 text-purple-600 mb-1" />
+                    <p className="text-xs text-gray-600 font-bold mb-1">Heart Knowledge</p>
+                    <p className="text-2xl font-black text-purple-600">{Math.round((selectedStudentDetail['HJ Quiz'] || 0) * 100) / 100}</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3">
+                    <Award className="w-6 h-6 text-green-600 mb-1" />
+                    <p className="text-xs text-gray-600 font-bold mb-1">Filial Actions</p>
+                    <p className="text-2xl font-black text-green-600">{Math.round((selectedStudentDetail['HJ Service'] || 0) * 100) / 100}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Heart Cultivation */}
+              {selectedStudentProgress && (
+                <>
+                  <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-4 border-2 border-yellow-200">
+                    <h3 className="text-lg font-black text-gray-800 mb-3">🌱 Heart Cultivation</h3>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="bg-white rounded-lg p-3">
+                        <Gift className="w-6 h-6 text-yellow-600 mb-1" />
+                        <p className="text-xs text-gray-600 font-bold mb-1">Heart Seeds</p>
+                        <p className="text-3xl font-black text-yellow-600">{selectedStudentProgress.totalPoints || 0}</p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3">
+                        <Award className="w-6 h-6 text-purple-600 mb-1" />
+                        <p className="text-xs text-gray-600 font-bold mb-1">Hearts Earned</p>
+                        <p className="text-3xl font-black text-purple-600">{selectedStudentProgress.badgesEarned?.length || 0}/{BADGES.length}</p>
+                      </div>
+                    </div>
+                    {selectedStudentProgress.badgesEarned && selectedStudentProgress.badgesEarned.length > 0 && (
+                      <div className="bg-white rounded-lg p-3">
+                        <p className="text-xs text-gray-600 font-bold mb-2">Earned Hearts:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedStudentProgress.badgesEarned.map(badgeId => {
+                            const badge = BADGES.find(b => b.id === badgeId);
+                            return badge ? (
+                              <div key={badgeId} className="bg-gradient-to-r from-purple-100 to-pink-100 px-3 py-1 rounded-full flex items-center gap-2">
+                                <span className="text-lg">{badge.icon}</span>
+                                <span className="text-xs font-bold text-gray-700">{badge.name}</span>
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Growth Goals */}
+                  <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 border-2 border-blue-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Target className="w-6 h-6 text-blue-600" />
+                      <h3 className="text-lg font-black text-gray-800">Growth Goals</h3>
+                    </div>
+                    <div className="space-y-2">
+                      {[1, 2, 3].map(num => {
+                        const goal = selectedStudentProgress[`goal${num}`];
+                        const status = selectedStudentProgress[`goal${num}Status`];
+                        return (
+                          <div 
+                            key={num}
+                            className={`rounded-lg p-3 ${
+                              status === 'Completed' ? 'bg-green-100' :
+                              status === 'In Progress' ? 'bg-white' :
+                              'bg-gray-50'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="text-xs font-bold text-gray-500 mb-1">Goal {num}</p>
+                                {goal ? (
+                                  <>
+                                    <p className="text-sm font-bold text-gray-800 mb-1">{goal}</p>
+                                    <span className={`text-xs font-bold px-2 py-1 rounded-full inline-block ${
+                                      status === 'Completed' ? 'bg-green-200 text-green-700' :
+                                      status === 'In Progress' ? 'bg-purple-200 text-purple-700' :
+                                      'bg-gray-200 text-gray-600'
+                                    }`}>
+                                      {status}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <p className="text-sm text-gray-400 italic">No goal set</p>
+                                )}
+                              </div>
+                              {status === 'Completed' && <span className="text-xl ml-2">🎉</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="p-4">
+        <div className="flex items-center gap-3 mb-6">
+          <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-3xl font-black text-white">All Students</h1>
+        </div>
+        <div className="space-y-3">
+          {allStudents.map((student, idx) => (
+            <div 
+              key={idx} 
+              onClick={() => {
+                setSelectedStudentDetail(student);
+                loadStudentProgressForAdmin(student['Student ID']);
+              }}
+              className="bg-white rounded-2xl shadow-lg p-4 border-4 border-white cursor-pointer hover:border-purple-300 transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="sm" />
+                <div className="flex-1">
+                  <p className="font-black text-gray-800">{student['First Name']} {student['Last Name']}</p>
+                  <p className="text-sm text-purple-600 font-bold">{student['Student ID']}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-600">{student['Category']}</p>
+                  <p className="text-sm font-bold text-purple-600">{Math.round((student['HJ Grade'] || 0) * 100)}%</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-400" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ADMIN LEADERBOARD
+  if (currentPage === 'admin-leaderboard' && isAdmin) {
+    const kidsLeaderboard = getLeaderboard('Kids');
+    const teensLeaderboard = getLeaderboard('Teens');
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+        <div className="p-4">
+          <div className="flex items-center gap-3 mb-6">
+            <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <h1 className="text-3xl font-black text-white">🏆 Leaderboards</h1>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy className="w-6 h-6 text-yellow-500" />
+              <h2 className="text-2xl font-black text-gray-800">Kids Category</h2>
+            </div>
+            {kidsLeaderboard.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No students in Kids category</p>
+            ) : (
+              <div className="space-y-3">
+                {kidsLeaderboard.map((student, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`flex items-center gap-3 p-3 rounded-xl ${
+                      idx === 0 ? 'bg-yellow-50 border-2 border-yellow-400' :
+                      idx === 1 ? 'bg-gray-50 border-2 border-gray-400' :
+                      idx === 2 ? 'bg-orange-50 border-2 border-orange-400' :
+                      'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
+                      {idx === 0 && <span className="text-3xl">🥇</span>}
+                      {idx === 1 && <span className="text-3xl">🥈</span>}
+                      {idx === 2 && <span className="text-3xl">🥉</span>}
+                      {idx > 2 && <span className="text-xl font-black text-gray-600">#{idx + 1}</span>}
+                    </div>
+                    <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="sm" />
+                    <div className="flex-1">
+                      <p className="font-black text-gray-800">{student['First Name']} {student['Last Name']}</p>
+                      <p className="text-sm text-purple-600 font-bold">{student['Student ID']}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-black text-purple-600">{Math.round((student['HJ Grade'] || 0) * 100)}%</p>
+                      <p className="text-xs text-gray-500">Overall Grade</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white">
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy className="w-6 h-6 text-blue-500" />
+              <h2 className="text-2xl font-black text-gray-800">Teens Category</h2>
+            </div>
+            {teensLeaderboard.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No students in Teens category</p>
+            ) : (
+              <div className="space-y-3">
+                {teensLeaderboard.map((student, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`flex items-center gap-3 p-3 rounded-xl ${
+                      idx === 0 ? 'bg-yellow-50 border-2 border-yellow-400' :
+                      idx === 1 ? 'bg-gray-50 border-2 border-gray-400' :
+                      idx === 2 ? 'bg-orange-50 border-2 border-orange-400' :
+                      'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
+                      {idx === 0 && <span className="text-3xl">🥇</span>}
+                      {idx === 1 && <span className="text-3xl">🥈</span>}
+                      {idx === 2 && <span className="text-3xl">🥉</span>}
+                      {idx > 2 && <span className="text-xl font-black text-gray-600">#{idx + 1}</span>}
+                    </div>
+                    <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="sm" />
+                    <div className="flex-1">
+                      <p className="font-black text-gray-800">{student['First Name']} {student['Last Name']}</p>
+                      <p className="text-sm text-purple-600 font-bold">{student['Student ID']}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-black text-blue-600">{Math.round((student['HJ Grade'] || 0) * 100)}%</p>
+                      <p className="text-xs text-gray-500">Overall Grade</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ADMIN GRATITUDE JOURNALS
+  if (currentPage === 'admin-gratitude' && isAdmin) return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+      <div className="p-4">
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-3xl font-black text-white">💖 Heart Journals</h1>
+        </div>
+        
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4 border-4 border-white">
+          <label className="block text-sm font-bold text-gray-700 mb-2">Filter by Session</label>
+          <div className="flex gap-2">
+            <select 
+              value={selectedSessionFilter} 
+              onChange={(e) => {
+                setSelectedSessionFilter(e.target.value);
+                loadAllGratitudeEntries(e.target.value);
+              }}
+              className="flex-1 px-4 py-3 border-2 border-purple-300 rounded-xl font-semibold"
+            >
+              {[...Array(20)].map((_, i) => (
+                <option key={i} value={`Session ${i + 1}`}>Session {i + 1}</option>
+              ))}
+            </select>
+            <button 
+              onClick={() => loadAllGratitudeEntries(selectedSessionFilter)}
+              className="px-4 py-3 bg-purple-500 text-white rounded-xl font-bold"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <RefreshCw className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600 font-bold">Loading entries...</p>
+          </div>
+        ) : allGratitudeEntries.length === 0 ? (
+          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 font-bold">No gratitude entries for {selectedSessionFilter}</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {allGratitudeEntries.map((entry, idx) => (
+              <div key={idx} className="bg-white rounded-2xl p-4 shadow-lg border-4 border-pink-200">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="font-black text-gray-800">{entry.studentName}</p>
+                    <p className="text-sm text-purple-600 font-bold">{entry.studentId}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">{entry.session}</p>
+                    <p className="text-xs text-gray-400">{entry.timestamp}</p>
+                  </div>
+                </div>
+                <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-3 rounded-xl mb-3">
+                  <p className="text-sm text-gray-700">{entry.content}</p>
+                </div>
+                {entry.adminRemark && (
+                  <div className="bg-blue-50 p-3 rounded-xl mb-2 border-2 border-blue-200">
+                    <p className="text-xs text-blue-600 font-bold mb-1">Your Remark:</p>
+                    <p className="text-sm text-gray-700">{entry.adminRemark}</p>
+                  </div>
+                )}
+                {selectedEntry?.rowIndex === entry.rowIndex ? (
+                  <div className="space-y-2">
+                    <textarea 
+                      value={adminRemark} 
+                      onChange={(e) => setAdminRemark(e.target.value)}
+                      placeholder="Write your remark here..."
+                      className="w-full p-3 border-2 border-purple-300 rounded-xl text-sm"
+                      rows="3"
+                    />
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleAdminRemarkSubmit(entry)}
+                        disabled={loading}
+                        className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl py-2 font-bold text-sm disabled:opacity-50"
+                      >
+                        {loading ? 'Saving...' : 'Save Remark'}
+                      </button>
+                      <button 
+                        onClick={() => { setSelectedEntry(null); setAdminRemark(''); }}
+                        className="px-4 bg-gray-200 text-gray-700 rounded-xl py-2 font-bold text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => { setSelectedEntry(entry); setAdminRemark(entry.adminRemark || ''); }}
+                    className="w-full bg-purple-100 text-purple-600 rounded-xl py-2 font-bold text-sm hover:bg-purple-200"
+                  >
+                    {entry.adminRemark ? 'Edit Remark' : 'Add Remark'}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return null;
 };
