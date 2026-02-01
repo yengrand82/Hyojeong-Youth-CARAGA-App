@@ -1104,18 +1104,81 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             </div>
           </div>
 
+          {/* HEART CHAMPION BANNER - Shows when all 10 badges unlocked */}
+          {earnedBadges.length === BADGES.length && (
+            <div className="mb-4 animate-bounce-slow">
+              <div className="bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-500 rounded-3xl p-1 shadow-2xl">
+                <div className="bg-white rounded-3xl p-6 relative overflow-hidden">
+                  {/* Animated sparkles background */}
+                  <div className="absolute inset-0">
+                    <div className="absolute top-2 left-4 text-2xl animate-sparkle" style={{animationDelay: '0s'}}>✨</div>
+                    <div className="absolute top-4 right-6 text-xl animate-sparkle" style={{animationDelay: '0.3s'}}>⭐</div>
+                    <div className="absolute bottom-3 left-8 text-xl animate-sparkle" style={{animationDelay: '0.6s'}}>💫</div>
+                    <div className="absolute bottom-2 right-4 text-2xl animate-sparkle" style={{animationDelay: '0.9s'}}>🌟</div>
+                  </div>
+                  
+                  <div className="relative text-center">
+                    <div className="flex justify-center mb-3">
+                      <div className="text-6xl animate-bounce-slow">🏆</div>
+                    </div>
+                    <h2 className="text-3xl font-black bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 bg-clip-text text-transparent mb-2">
+                      💖 HEART CHAMPION 💖
+                    </h2>
+                    <p className="text-lg font-bold text-gray-700 mb-1">
+                      You've Unlocked All 10 Hearts!
+                    </p>
+                    <p className="text-sm text-gray-600 italic mb-3">
+                      Na-unlock mo na ang lahat ng 10 Puso!
+                    </p>
+                    
+                    {/* All hearts in a row */}
+                    <div className="flex justify-center gap-2 mb-3">
+                      {BADGES.map((badge, i) => (
+                        <div key={badge.id} className="text-3xl animate-bounce-slow" style={{animationDelay: `${i * 0.1}s`}}>
+                          {badge.icon}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <p className="text-xs font-semibold text-purple-600">
+                      Keep growing your heart! 🌱
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <DailyQuote />
 
           <WeeklyAffirmation />
 
-          {/* PROMINENT GROWTH CARD - REDESIGNED */}
-          <div className="bg-white rounded-3xl shadow-2xl p-8 mb-6 border-4 border-white relative overflow-hidden transform hover:scale-105 transition-all duration-300">
-            {/* Background gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-50 opacity-50"></div>
+          {/* PROMINENT GROWTH CARD - REDESIGNED (Rainbow for Champions!) */}
+          <div className={`rounded-3xl shadow-2xl p-8 mb-6 border-4 relative overflow-hidden transform hover:scale-105 transition-all duration-300 ${
+            earnedBadges.length === BADGES.length 
+              ? 'bg-gradient-to-br from-yellow-50 via-pink-50 to-purple-50 border-yellow-400' 
+              : 'bg-white border-white'
+          }`}>
+            {/* Background gradient overlay - Rainbow for champions */}
+            <div className={`absolute inset-0 opacity-50 ${
+              earnedBadges.length === BADGES.length
+                ? 'bg-gradient-to-br from-yellow-100 via-pink-100 to-purple-100'
+                : 'bg-gradient-to-br from-green-50 to-emerald-50'
+            }`}></div>
             
-            {/* Animated background decoration */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-200 to-emerald-200 rounded-full blur-3xl opacity-30 animate-pulse"></div>
-            <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-tr from-teal-200 to-cyan-200 rounded-full blur-3xl opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
+            {/* Animated background decoration - Extra sparkly for champions */}
+            {earnedBadges.length === BADGES.length ? (
+              <>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-300 to-orange-300 rounded-full blur-3xl opacity-40 animate-pulse"></div>
+                <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-tr from-pink-300 to-purple-300 rounded-full blur-3xl opacity-30 animate-pulse" style={{animationDelay: '1s'}}></div>
+                <div className="absolute top-1/2 left-1/2 w-36 h-36 bg-gradient-to-br from-blue-300 to-cyan-300 rounded-full blur-3xl opacity-25 animate-pulse" style={{animationDelay: '0.5s'}}></div>
+              </>
+            ) : (
+              <>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-200 to-emerald-200 rounded-full blur-3xl opacity-30 animate-pulse"></div>
+                <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-tr from-teal-200 to-cyan-200 rounded-full blur-3xl opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
+              </>
+            )}
             
             <div className="relative z-10">
               {/* Animated Growing Plant */}
@@ -1200,9 +1263,13 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 <p className="text-sm font-bold text-green-700 uppercase tracking-wider">Your Spiritual Growth</p>
               </div>
               
-              {/* Main percentage - VERY LARGE */}
+              {/* Main percentage - VERY LARGE - Rainbow for champions! */}
               <div className="text-center mb-4">
-                <p className="text-8xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                <p className={`text-8xl font-black bg-clip-text text-transparent ${
+                  earnedBadges.length === BADGES.length
+                    ? 'bg-gradient-to-r from-red-600 via-yellow-600 via-green-600 via-blue-600 to-purple-600'
+                    : 'bg-gradient-to-r from-green-600 to-emerald-600'
+                }`}>
                   {Math.round((
                     calculateAttendance(studentData) + 
                     (studentData['HJ Quiz'] || 0) + 
@@ -1217,10 +1284,14 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 <p className="text-lg font-semibold text-gray-700">Keep up the amazing progress!</p>
               </div>
               
-              {/* Progress bar with animation */}
+              {/* Progress bar with animation - Rainbow for champions! */}
               <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
                 <div 
-                  className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all duration-1000 ease-out relative overflow-hidden"
+                  className={`h-full rounded-full transition-all duration-1000 ease-out relative overflow-hidden ${
+                    earnedBadges.length === BADGES.length
+                      ? 'bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500'
+                      : 'bg-gradient-to-r from-green-500 to-emerald-500'
+                  }`}
                   style={{ width: `${growthPercentage}%` }}
                 >
                   {/* Shimmer effect */}
