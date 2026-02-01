@@ -47,6 +47,45 @@ const getDailyQuote = () => {
   return QUOTES[dayOfYear % QUOTES.length];
 };
 
+// Weekly Affirmations organized by categories
+const AFFIRMATIONS = {
+  "Heart (Emotion)": [
+    "My feelings matter, and it is okay to feel them.",
+    "I am learning to be kind to myself, even on hard days.",
+    "I am grateful for small joys that brighten my day.",
+    "I am safe to grow at my own pace.",
+    "I am thankful that I am loved and never alone."
+  ],
+  "Mind (Intellect)": [
+    "I am learning something valuable every day.",
+    "I am open to understanding myself and others better.",
+    "I can think calmly and choose what is good.",
+    "Mistakes help me learn and grow wiser.",
+    "I seek truth with a humble and open heart."
+  ],
+  "Will (Choice & Responsibility)": [
+    "I can choose to do what is right, even when it is not easy.",
+    "Small good efforts I make today truly matter.",
+    "I am growing stronger by trying again.",
+    "I take responsibility for my actions with courage and hope.",
+    "Today, I choose to act with integrity."
+  ],
+  "Love & Identity": [
+    "I am a True Child of Heavenly Parent and True Parents.",
+    "I am loved deeply, just as I am.",
+    "I can show care and respect to the people around me.",
+    "My actions can bring comfort and goodness to others.",
+    "I am learning to live for the sake of others in simple ways."
+  ],
+  "Leadership & Purpose": [
+    "Today, I am a leader through my words and actions.",
+    "I lead by being kind, responsible, and thoughtful.",
+    "I influence others by choosing goodness.",
+    "I am becoming someone others can trust.",
+    "I am thankful for the person I am growing into."
+  ]
+};
+
 // Achievement Badges
 const BADGES = [
   { id: 'grateful_heart', name: 'Grateful Heart', icon: '💛', desc: '5 gratitude entries', type: 'gratitude', count: 5, color: 'from-pink-400 to-rose-400' },
@@ -57,7 +96,7 @@ const BADGES = [
   { id: 'scholar', name: 'Seeking Heart', icon: '🧡', desc: '80%+ quiz', type: 'quiz', percent: 80, color: 'from-yellow-400 to-orange-400' },
   { id: 'rising_star', name: 'Growing Heart', icon: '💚', desc: '80%+ grade', type: 'grade', percent: 80, color: 'from-cyan-400 to-teal-400' },
   { id: 'excellence', name: 'Shining Heart', icon: '✨', desc: '90%+ grade', type: 'grade', percent: 90, color: 'from-yellow-400 to-yellow-500' },
-  { id: 'super_achiever', name: 'First Seed Planted', icon: '🌱', desc: '100 points', type: 'points', count: 100, color: 'from-purple-500 to-indigo-500' },
+  { id: 'affirmation_warrior', name: 'Heart of Purpose', icon: '✨', desc: 'Set weekly affirmation', type: 'affirmation', hasAffirmation: true, color: 'from-yellow-400 to-orange-400' },
   { id: 'loving_heart', name: 'Loving Heart', icon: '❤️', desc: 'All 3 goals set', type: 'goals', goalsSet: 3, color: 'from-red-400 to-pink-400' }
 ];
 
@@ -104,7 +143,8 @@ const App = () => {
   const [tempGoals, setTempGoals] = useState({ goal1: '', goal2: '', goal3: '' });
   const [affirmation, setAffirmation] = useState('');
   const [editingAffirmation, setEditingAffirmation] = useState(false);
-  const [tempAffirmation, setTempAffirmation] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedAffirmation, setSelectedAffirmation] = useState('');
   const [editingProfile, setEditingProfile] = useState(false);
   const [tempProfile, setTempProfile] = useState({
     dateOfBirth: '',
@@ -230,28 +270,28 @@ const App = () => {
   };
 
   const handleSaveAffirmation = async () => {
-    if (!tempAffirmation.trim()) {
-      alert('Please write your affirmation');
+    if (!selectedAffirmation) {
+      alert('Please select an affirmation');
       return;
     }
-    if (tempAffirmation.length > 100) {
-      alert('Please keep your affirmation under 100 characters');
-      return;
-    }
-    await updateProgress({ affirmation: tempAffirmation.trim() });
-    setAffirmation(tempAffirmation.trim());
+    await updateProgress({ affirmation: selectedAffirmation });
+    setAffirmation(selectedAffirmation);
     setEditingAffirmation(false);
+    setSelectedCategory('');
+    setSelectedAffirmation('');
     alert('✨ Affirmation saved!');
   };
 
   const handleEditAffirmation = () => {
-    setTempAffirmation(affirmation);
+    setSelectedCategory('');
+    setSelectedAffirmation(affirmation);
     setEditingAffirmation(true);
   };
 
   const handleCancelAffirmation = () => {
     setEditingAffirmation(false);
-    setTempAffirmation(affirmation);
+    setSelectedCategory('');
+    setSelectedAffirmation('');
   };
 
   const loadStudentProgressForAdmin = async (studId) => {
@@ -591,7 +631,7 @@ const App = () => {
     if (badge.type === 'service') return service >= badge.percent;
     if (badge.type === 'quiz') return quiz >= badge.percent;
     if (badge.type === 'grade') return grade >= badge.percent;
-    if (badge.type === 'points') return points >= badge.count;
+    if (badge.type === 'affirmation') return affirmation && affirmation.trim().length > 0;
     if (badge.type === 'goals') {
       const goalsSet = [goals.goal1, goals.goal2, goals.goal3].filter(g => g && g.trim()).length;
       return goalsSet >= badge.goalsSet;
@@ -633,48 +673,75 @@ const App = () => {
   };
 
   const WeeklyAffirmation = () => {
-    const textareaRef = React.useRef(null);
-
-    React.useEffect(() => {
-      if (editingAffirmation && textareaRef.current) {
-        const len = textareaRef.current.value.length;
-        textareaRef.current.setSelectionRange(len, len);
-        textareaRef.current.focus();
-      }
-    }, [editingAffirmation]);
-
     if (editingAffirmation) {
       return (
         <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-2xl p-6 border-4 border-yellow-200 mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="w-6 h-6 text-orange-600" />
-            <h3 className="text-lg font-black text-gray-800">My Weekly Affirmation</h3>
+            <h3 className="text-lg font-black text-gray-800">Choose Your Weekly Affirmation</h3>
           </div>
-          <textarea
-            ref={textareaRef}
-            value={tempAffirmation}
-            onChange={(e) => setTempAffirmation(e.target.value)}
-            placeholder="I am a Filial Child of Heavenly Parents and True Parents"
-            maxLength={100}
-            className="w-full px-4 py-3 border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-orange-300 mb-3 resize-none"
-            rows="3"
-          />
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">{tempAffirmation.length}/100</span>
-            <div className="flex gap-2">
-              <button
-                onClick={handleCancelAffirmation}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl font-bold"
+          
+          {/* Category Selection */}
+          <div className="mb-3">
+            <label className="block text-sm font-bold text-gray-700 mb-2">1. Select a Category</label>
+            <select
+              value={selectedCategory}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                setSelectedAffirmation('');
+              }}
+              className="w-full px-4 py-3 border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-orange-300 font-semibold"
+            >
+              <option value="">-- Choose a category --</option>
+              {Object.keys(AFFIRMATIONS).map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Affirmation Selection */}
+          {selectedCategory && (
+            <div className="mb-3">
+              <label className="block text-sm font-bold text-gray-700 mb-2">2. Choose Your Affirmation</label>
+              <select
+                value={selectedAffirmation}
+                onChange={(e) => setSelectedAffirmation(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-orange-300 font-semibold"
               >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveAffirmation}
-                className="px-4 py-2 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-xl font-bold"
-              >
-                Save
-              </button>
+                <option value="">-- Select an affirmation --</option>
+                {AFFIRMATIONS[selectedCategory].map((aff, index) => (
+                  <option key={index} value={aff}>{aff}</option>
+                ))}
+              </select>
             </div>
+          )}
+
+          {/* Preview */}
+          {selectedAffirmation && (
+            <div className="mb-3 p-4 bg-white rounded-xl border-2 border-orange-200">
+              <p className="text-sm text-gray-600 font-bold mb-1">Preview:</p>
+              <p className="text-gray-800 font-bold italic">"{selectedAffirmation}"</p>
+            </div>
+          )}
+
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={handleCancelAffirmation}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl font-bold"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveAffirmation}
+              disabled={!selectedAffirmation}
+              className={`px-4 py-2 rounded-xl font-bold ${
+                selectedAffirmation 
+                  ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white' 
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              Save
+            </button>
           </div>
         </div>
       );
@@ -691,13 +758,13 @@ const App = () => {
             onClick={handleEditAffirmation}
             className="text-orange-600 font-bold text-sm"
           >
-            {affirmation ? 'Edit' : 'Set'}
+            {affirmation ? 'Change' : 'Set'}
           </button>
         </div>
         {affirmation ? (
           <p className="text-gray-700 font-bold text-lg italic">"{affirmation}"</p>
         ) : (
-          <p className="text-gray-500 italic">Set your weekly positive affirmation to inspire yourself!</p>
+          <p className="text-gray-500 italic">Choose your weekly affirmation to inspire yourself!</p>
         )}
       </div>
     );
@@ -958,14 +1025,14 @@ const App = () => {
             <button onClick={() => setCurrentPage('badges')} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Award className="w-6 h-6" />
-                <span className="font-bold">My Hyojeong Heart Badges ({earnedBadges.length}/{BADGES.length})</span>
+                <span className="font-bold">My Hearts ({earnedBadges.length}/{BADGES.length})</span>
               </div>
               <ChevronRight className="w-6 h-6" />
             </button>
             <button onClick={() => setCurrentPage('gratitude')} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Heart className="w-6 h-6" />
-                <span className="font-bold">Gratitude Journal</span>
+                <span className="font-bold">Heart Journal</span>
               </div>
               <ChevronRight className="w-6 h-6" />
             </button>
@@ -1053,11 +1120,11 @@ const App = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
-          <h1 className="text-3xl font-black text-white mb-4">💖 My Hyojeong Heart Badges</h1>
+          <h1 className="text-3xl font-black text-white mb-4">💖 My Hearts</h1>
           
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
             <div className="text-center">
-              <p className="text-gray-600 font-bold mb-2">Hyojeong Hearts Collected</p>
+              <p className="text-gray-600 font-bold mb-2">Hearts Collected</p>
               <p className="text-6xl font-black text-purple-600 mb-2">{earnedBadges.length}/{BADGES.length}</p>
               <div className="w-full bg-gray-200 rounded-full h-4">
                 <div 
@@ -1109,7 +1176,7 @@ const App = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
-          <h1 className="text-3xl font-black text-white mb-4">💖 Gratitude Journal</h1>
+          <h1 className="text-3xl font-black text-white mb-4">💖 Heart Journal</h1>
           
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
