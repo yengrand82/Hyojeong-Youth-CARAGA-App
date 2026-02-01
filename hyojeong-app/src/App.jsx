@@ -1184,7 +1184,16 @@ const App = () => {
   }
 
   // GRADES PAGE
-  if (currentPage === 'grades' && studentData) return (
+  if (currentPage === 'grades' && studentData) {
+    // Calculate growth percentage for this page
+    const growthPercentage = Math.round((
+      calculateAttendance(studentData) + 
+      (studentData['HJ Quiz'] || 0) + 
+      (studentData['HJ Service'] || 0) + 
+      Math.round((myGratitudeEntries.length / 8) * 100)
+    ) / 4);
+    
+    return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
       <div className="p-4">
         <h1 className="text-3xl font-black text-white mb-4">🌸 My Growth Journey</h1>
@@ -1237,7 +1246,7 @@ const App = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 font-bold mb-1">💙 Filial Actions</p>
-                <p className="text-3xl font-black text-green-600">{Math.round((studentData['HJ Service'] || 0) * 100) / 100}</p>
+                <p className="text-3xl font-black text-green-600">{studentData['HJ Service'] || 0}%</p>
                 <p className="text-xs text-gray-500 mt-1">Act of Service Completed</p>
               </div>
               <Award className="w-12 h-12 text-green-600" />
@@ -1259,6 +1268,7 @@ const App = () => {
       <NavBar />
     </div>
   );
+  }
 
   // PROFILE PAGE
   if (currentPage === 'profile' && studentData) {
