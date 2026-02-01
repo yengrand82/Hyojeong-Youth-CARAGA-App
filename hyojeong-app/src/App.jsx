@@ -86,6 +86,120 @@ const AFFIRMATIONS = {
   ]
 };
 
+// Weekly Gratitude Prompts (rotates weekly)
+const GRATITUDE_PROMPTS_KIDS = [
+  {
+    en: "What made you smile today? Why did it make you happy?",
+    tl: "Ano ang bagay na nagpasaya sa'yo ngayong araw? Bakit ka nito napangiti?",
+    category: "Emotion"
+  },
+  {
+    en: "Who was kind to you today, and how did it feel?",
+    tl: "Sino ang naging mabait sa'yo ngayon, at ano ang naramdaman mo?",
+    category: "Emotion"
+  },
+  {
+    en: "What is one thing you use every day that you are thankful for?",
+    tl: "Ano ang isang bagay na ginagamit mo araw-araw na ipinagpapasalamat mo?",
+    category: "Intellect"
+  },
+  {
+    en: "What did you learn today that helped you understand the world better?",
+    tl: "Ano ang bagong natutunan mo ngayon na nakatulong sa'yo na mas maintindihan ang mundo?",
+    category: "Intellect"
+  },
+  {
+    en: "What good choice did you make today that you feel thankful for?",
+    tl: "Anong mabuting desisyon ang ginawa mo ngayon na ipinagpapasalamat mo?",
+    category: "Will"
+  },
+  {
+    en: "What is one small thing you tried even though it was hard?",
+    tl: "Ano ang isang bagay na sinubukan mo kahit mahirap, at bakit ka nagpapasalamat doon?",
+    category: "Will"
+  },
+  {
+    en: "Who do you want to say 'thank you' to today?",
+    tl: "Sino ang gusto mong pasalamatan ngayon? Bakit?",
+    category: "Love"
+  },
+  {
+    en: "How did you show love to someone today?",
+    tl: "Paano mo ipinakita ang pagmamahal mo sa iba ngayong araw?",
+    category: "Love"
+  },
+  {
+    en: "If you could thank God for one thing today, what would it be?",
+    tl: "Kung may isang bagay kang gustong ipagpasalamat sa Diyos ngayon, ano iyon?",
+    category: "Whole-heart"
+  },
+  {
+    en: "What is one good thing about yourself that you are grateful for?",
+    tl: "Ano ang isang mabuting bagay tungkol sa sarili mo na ipinagpapasalamat mo?",
+    category: "Whole-heart"
+  }
+];
+
+const GRATITUDE_PROMPTS_TEENS = [
+  {
+    en: "What moment today touched your heart, even in a small way?",
+    tl: "Anong sandali o pangyayari ngayong araw ang tunay na nakaantig sa iyong puso, kahit maliit lang?",
+    category: "Emotion"
+  },
+  {
+    en: "What emotion did you feel strongly today, and what are you thankful it taught you?",
+    tl: "Anong damdamin ang naramdaman mo ngayon, at ano ang ipinagpapasalamat mo na itinuro nito sa'yo?",
+    category: "Emotion"
+  },
+  {
+    en: "What experience recently helped you understand yourself better?",
+    tl: "Anong karanasan kamakailan ang nakatulong sa'yo na mas makilala ang iyong sarili?",
+    category: "Intellect"
+  },
+  {
+    en: "What challenge are you grateful for because it helped you grow?",
+    tl: "Anong pagsubok ang ipinagpapasalamat mo dahil nakatulong ito sa iyong paglago?",
+    category: "Intellect"
+  },
+  {
+    en: "What decision did you make today that you feel proud of?",
+    tl: "Anong desisyon ang ginawa mo ngayon na ipinagmamalaki mo?",
+    category: "Will"
+  },
+  {
+    en: "What habit or effort are you thankful you are trying to build?",
+    tl: "Anong ugali o pagsisikap ang ipinagpapasalamat mo na sinusubukan mong paunlarin?",
+    category: "Will"
+  },
+  {
+    en: "Who influenced you positively this week, and why are you grateful for them?",
+    tl: "Sino ang nagkaroon ng mabuting impluwensya sa'yo ngayong linggo, at bakit mo siya ipinagpapasalamat?",
+    category: "Love"
+  },
+  {
+    en: "How did you live for the sake of others today, even in a small way?",
+    tl: "Paano ka namuhay para sa kapakanan ng iba ngayong araw, kahit sa maliit na paraan?",
+    category: "Love"
+  },
+  {
+    en: "What part of your life do you feel God has been patiently guiding?",
+    tl: "Sa anong bahagi ng iyong buhay mo nararamdaman na ikaw ay dahan-dahang ginagabayan ng Diyos?",
+    category: "Whole-person"
+  },
+  {
+    en: "What kind of person are you becoming that you feel grateful for?",
+    tl: "Anong uri ng tao ang unti-unti mong nagiging ikaw na ipinagpapasalamat mo?",
+    category: "Whole-person"
+  }
+];
+
+// Get weekly prompt based on current week and student age
+const getWeeklyGratitudePrompt = (age, sessionNumber = 1) => {
+  const prompts = age < 13 ? GRATITUDE_PROMPTS_KIDS : GRATITUDE_PROMPTS_TEENS;
+  const promptIndex = (sessionNumber - 1) % prompts.length;
+  return prompts[promptIndex];
+};
+
 // Achievement Badges
 const BADGES = [
   { id: 'grateful_heart', name: 'Grateful Heart', icon: '💛', desc: '5 gratitude entries', type: 'gratitude', count: 5, color: 'from-pink-400 to-rose-400' },
@@ -1173,10 +1287,34 @@ const App = () => {
 
   // GRATITUDE PAGE
   if (currentPage === 'gratitude' && studentData) {
+    // Get age-appropriate prompt based on session number
+    const currentSessionNum = selectedSession ? parseInt(selectedSession.replace('Session ', '')) : 1;
+    const weeklyPrompt = getWeeklyGratitudePrompt(studentData['Age'] || 15, currentSessionNum);
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
           <h1 className="text-3xl font-black text-white mb-4">💖 Heart Journal</h1>
+          
+          {/* Weekly Gratitude Prompt */}
+          <div className="bg-gradient-to-br from-pink-100 to-rose-100 rounded-2xl shadow-lg p-6 border-4 border-pink-200 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-6 h-6 text-pink-600" />
+              <h2 className="text-lg font-black text-gray-800">This Week's Reflection</h2>
+            </div>
+            <div className="bg-white rounded-xl p-4 mb-3">
+              <p className="text-gray-800 font-bold text-base mb-2">{weeklyPrompt.en}</p>
+              <p className="text-gray-600 italic text-sm">({weeklyPrompt.tl})</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-pink-600 bg-pink-50 px-3 py-1 rounded-full">
+                {weeklyPrompt.category}
+              </span>
+              <span className="text-xs text-gray-600">
+                {studentData['Age'] < 13 ? '👧 Kids Prompt' : '🌱 Youth Prompt'}
+              </span>
+            </div>
+          </div>
           
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
