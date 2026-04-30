@@ -1830,7 +1830,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
               {studentData['Date of Birth'] && (
                 <div className="col-span-2 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-2xl p-4 border-2 border-yellow-200">
                   <p className="text-xs text-orange-600 font-bold uppercase tracking-wide mb-1">📅 Birthday</p>
-                  <p className="text-lg font-black text-gray-800">{studentData['Date of Birth']}</p>
+                  <p className="text-lg font-black text-gray-800">{studentData['Date of Birth'] ? new Date(studentData['Date of Birth']).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}</p>
                 </div>
               )}
               
