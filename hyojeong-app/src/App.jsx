@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift, Target, UserPlus } from 'lucide-react';
 
 // Google Apps Script Web App URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbypzDlCOSiRvwOceWsOESFpwCO1U5fHAjywlWeHgE20Nl6UFBFsfPODmPUp3Osms1NNnw/exec';
-const TOTAL_SESSIONS = 8; // Change this number for each program// Inspirational Quotes - True Parents & Bible Verses
+const API_URL = 'https://script.google.com/macros/s/AKfycbwcuuGfJaqFft8Iyc-gYP1z_S9hMlFn14t7f-rEyXiv_YdLWT0EhgAwYMfu2wR-CTHDHw/exec';
+const TOTAL_SESSIONS = 21; // Change this number for each program// Inspirational Quotes - True Parents & Bible Verses
 const QUOTES = [
   // True Parents Quotes
   { quote: "Love is giving and forgetting. Love is investing and then forgetting about it.", author: "True Father" },
