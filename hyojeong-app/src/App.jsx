@@ -1092,254 +1092,502 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     </div>
   );
 
-  // HOME PAGE - DUOLINGO STYLE
+  // HOME PAGE - REDESIGNED
   if (currentPage === 'home' && studentData) {
-    const attendancePct = calculateAttendance(studentData);
-    const servicePct = (() => { const v = studentData['HJ Service'] || 0; return v <= 1 ? Math.round(v * 100) : Math.round(v); })();
-    const quizPct = Math.min(100, Math.round(studentData['HJ Quiz'] || 0));
-    const gratitudePct = Math.min(100, Math.round((myGratitudeEntries.length / 8) * 100));
-    const growthPercentage = Math.round((attendancePct + servicePct + quizPct + gratitudePct) / 4);
-    const xpTotal = Math.round((attendancePct * 5) + (servicePct * 3) + (quizPct * 2) + (gratitudePct * 2) + (earnedBadges.length * 50));
-    const streakCount = myGratitudeEntries.length;
-
-    // Heart level system
-    const heartLevels = [
-      { name: 'Seeking Heart', icon: '🕊️', min: 0, color: '#F59E0B' },
-      { name: 'Faithful Heart', icon: '🙏', min: 26, color: '#10B981' },
-      { name: 'Loving Heart', icon: '💜', min: 51, color: '#8B5CF6' },
-      { name: 'Filial Heart', icon: '👑', min: 76, color: '#EC4899' },
-    ];
-    const currentLevel = heartLevels.filter(l => growthPercentage >= l.min).pop();
-    const nextLevel = heartLevels.find(l => l.min > growthPercentage);
-    const xpToNext = nextLevel ? `${nextLevel.min - growthPercentage}% to ${nextLevel.name}` : 'Max level reached!';
-
+    // Calculate growth percentage once for consistency
+    const growthPercentage = Math.round((
+      calculateAttendance(studentData) + 
+      (studentData['HJ Quiz'] || 0) + 
+      (studentData['HJ Service'] || 0) + 
+      Math.min(100, Math.round((myGratitudeEntries.length / 8) * 100))
+    ) / 4);
+    
     return (
-      <div className="min-h-screen pb-20 bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400">
-        <style jsx>{`
-          @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-          .animate-shimmer { animation: shimmer 2s infinite; }
-          @keyframes bounce-slow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-          .animate-bounce-slow { animation: bounce-slow 3s ease-in-out infinite; }
-          @keyframes sparkle { 0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); } 50% { opacity: 1; transform: scale(1) rotate(180deg); } }
-          .animate-sparkle { animation: sparkle 2s ease-in-out infinite; }
-          .xp-bar-bg { background: #E5E7EB; border-radius: 99px; height: 10px; overflow: hidden; margin-top: 6px; }
-          .xp-bar-fill { height: 100%; border-radius: 99px; transition: width 1.2s ease; }
-          .duo-card { background: white; border-radius: 16px; padding: 16px 20px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-          .pillar-row { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
-          .pillar-icon { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
-        `}</style>
-
-        <div className="p-4 max-w-lg mx-auto">
-
-          {/* Header */}
-          <div className="duo-card" style={{marginBottom: 12}}>
-            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-              <div style={{display:'flex', alignItems:'center', gap:12}}>
+      <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+        <div className="p-4">
+          <div className="bg-white rounded-2xl shadow-lg p-4 mb-4 border-4 border-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
                 <Avatar firstName={studentData['First Name']} lastName={studentData['Last Name']} photoUrl={studentData['Photo']} size="md" />
                 <div>
-                  <p style={{fontWeight:600, fontSize:17, margin:0, color:'#1F2937'}}>{studentData['First Name']} {studentData['Last Name']}</p>
-                  <p style={{fontSize:13, color:'#7C3AED', margin:0, fontWeight:500}}>{studentData['Student ID']} · {studentData['TEAM'] || 'No team'}</p>
+                  <h2 className="text-lg font-black text-gray-800">{studentData['First Name']} {studentData['Last Name']}</h2>
+                  <p className="text-sm text-purple-600 font-bold">{studentData['Student ID']}</p>
                 </div>
               </div>
-              <div style={{textAlign:'center'}}>
-                <div style={{fontSize:26}} className="animate-bounce-slow">🔥</div>
-                <p style={{fontSize:12, fontWeight:600, color:'#E85D04', margin:0}}>{streakCount} entries</p>
-              </div>
+              <button onClick={handleLogout} className="text-sm text-gray-500 font-semibold">Logout</button>
             </div>
           </div>
 
-          {/* Main XP card */}
-          <div className="duo-card" style={{background: currentLevel.color, border:'none', marginBottom:12}}>
-            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10}}>
-              <div>
-                <p style={{fontSize:13, color:'rgba(255,255,255,0.8)', margin:0}}>Growth Journey</p>
-                <p style={{fontSize:38, fontWeight:700, margin:0, color:'white', lineHeight:1.1}}>{growthPercentage}%</p>
-              </div>
-              <div style={{textAlign:'right'}}>
-                <div style={{background:'rgba(255,255,255,0.25)', color:'white', padding:'5px 14px', borderRadius:99, fontSize:13, fontWeight:600, marginBottom:4}}>
-                  {currentLevel.icon} {currentLevel.name}
-                </div>
-                <p style={{fontSize:12, color:'rgba(255,255,255,0.75)', margin:0}}>{xpTotal} XP total</p>
-              </div>
-            </div>
-            <div style={{background:'rgba(255,255,255,0.25)', borderRadius:99, height:10, overflow:'hidden'}}>
-              <div style={{width:`${growthPercentage}%`, height:'100%', background:'white', borderRadius:99, opacity:0.9}}></div>
-            </div>
-            <p style={{fontSize:11, color:'rgba(255,255,255,0.75)', margin:'6px 0 0'}}>{xpToNext}</p>
-          </div>
-
-          {/* Stats row */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12}}>
-            <div className="duo-card" style={{textAlign:'center', margin:0}}>
-              <p style={{fontSize:24, fontWeight:700, color:'#1F2937', margin:0}}>{earnedBadges.length}</p>
-              <p style={{fontSize:12, color:'#6B7280', margin:0}}>🏅 Badges earned</p>
-            </div>
-            <div className="duo-card" style={{textAlign:'center', margin:0}}>
-              <p style={{fontSize:24, fontWeight:700, color:'#1F2937', margin:0}}>{studentData.sessions ? studentData.sessions.filter(s => s === true).length : 0}</p>
-              <p style={{fontSize:12, color:'#6B7280', margin:0}}>📅 Sessions done</p>
-            </div>
-          </div>
-
-          {/* Pillars */}
-          <div className="duo-card">
-            <p style={{fontSize:11, fontWeight:600, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 16px'}}>Your pillars</p>
-
-            <div className="pillar-row">
-              <div className="pillar-icon" style={{background:'#EDE9FE'}}>💜</div>
-              <div style={{flex:1}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <span style={{fontSize:14, fontWeight:600, color:'#1F2937'}}>Faithful Presence</span>
-                  <span style={{fontSize:17, fontWeight:700, color:'#7C3AED'}}>{attendancePct}%</span>
-                </div>
-                <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${attendancePct}%`, background:'#7C3AED'}}></div></div>
-                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{studentData.sessions ? studentData.sessions.filter(s=>s===true).length : 0} of {TOTAL_SESSIONS} sessions attended</p>
-              </div>
-            </div>
-
-            <div className="pillar-row">
-              <div className="pillar-icon" style={{background:'#D1FAE5'}}>💙</div>
-              <div style={{flex:1}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <span style={{fontSize:14, fontWeight:600, color:'#1F2937'}}>Filial Actions</span>
-                  <span style={{fontSize:17, fontWeight:700, color:'#059669'}}>{servicePct}%</span>
-                </div>
-                <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${servicePct}%`, background:'#059669'}}></div></div>
-                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{servicePct === 100 ? 'Service week completed! 🎉' : 'Complete your service week'}</p>
-              </div>
-            </div>
-
-            <div className="pillar-row">
-              <div className="pillar-icon" style={{background:'#FEF3C7'}}>💡</div>
-              <div style={{flex:1}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <span style={{fontSize:14, fontWeight:600, color:'#1F2937'}}>Heart Knowledge</span>
-                  <span style={{fontSize:17, fontWeight:700, color:'#D97706'}}>{quizPct}%</span>
-                </div>
-                <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${quizPct}%`, background:'#D97706'}}></div></div>
-                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>Quiz score average</p>
-              </div>
-            </div>
-
-            <div className="pillar-row" style={{marginBottom:0}}>
-              <div className="pillar-icon" style={{background:'#FFE4E6'}}>💗</div>
-              <div style={{flex:1}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <span style={{fontSize:14, fontWeight:600, color:'#1F2937'}}>Heart of Gratitude</span>
-                  <span style={{fontSize:17, fontWeight:700, color:'#E11D48'}}>{gratitudePct}%</span>
-                </div>
-                <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${gratitudePct}%`, background:'#E11D48'}}></div></div>
-                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{myGratitudeEntries.length} of 8 entries submitted</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Level progression */}
-          <div className="duo-card">
-            <p style={{fontSize:11, fontWeight:600, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 14px'}}>Heart level journey</p>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:6}}>
-              {heartLevels.map((level, idx) => {
-                const isActive = currentLevel.name === level.name;
-                const isPassed = growthPercentage >= level.min;
-                return (
-                  <React.Fragment key={level.name}>
-                    <div style={{textAlign:'center', flex:1}}>
-                      <div style={{width:44, height:44, borderRadius:'50%', background: isPassed ? level.color : '#F3F4F6', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, margin:'0 auto 4px', border: isActive ? `3px solid ${level.color}` : 'none', opacity: isPassed ? 1 : 0.4}}>
-                        {level.icon}
-                      </div>
-                      <p style={{fontSize:10, fontWeight: isActive ? 700 : 400, color: isActive ? level.color : '#9CA3AF', margin:0, lineHeight:1.2}}>{level.name.split(' ')[0]}<br/>{level.name.split(' ')[1]}</p>
+          {/* HEART CHAMPION BANNER - Shows when all 10 badges unlocked */}
+          {earnedBadges.length === BADGES.length && (
+            <div className="mb-4 animate-bounce-slow">
+              <div className="bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-500 rounded-3xl p-1 shadow-2xl">
+                <div className="bg-white rounded-3xl p-6 relative overflow-hidden">
+                  {/* Animated sparkles background */}
+                  <div className="absolute inset-0">
+                    <div className="absolute top-2 left-4 text-2xl animate-sparkle" style={{animationDelay: '0s'}}>✨</div>
+                    <div className="absolute top-4 right-6 text-xl animate-sparkle" style={{animationDelay: '0.3s'}}>⭐</div>
+                    <div className="absolute bottom-3 left-8 text-xl animate-sparkle" style={{animationDelay: '0.6s'}}>💫</div>
+                    <div className="absolute bottom-2 right-4 text-2xl animate-sparkle" style={{animationDelay: '0.9s'}}>🌟</div>
+                  </div>
+                  
+                  <div className="relative text-center">
+                    <div className="flex justify-center mb-3">
+                      <div className="text-6xl animate-bounce-slow">🏆</div>
                     </div>
-                    {idx < heartLevels.length - 1 && (
-                      <div style={{flex:1, height:4, background: growthPercentage >= heartLevels[idx+1].min ? level.color : '#F3F4F6', borderRadius:99}}></div>
+                    <h2 className="text-3xl font-black bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 bg-clip-text text-transparent mb-2">
+                      💖 HEART CHAMPION 💖
+                    </h2>
+                    <p className="text-lg font-bold text-gray-700 mb-1">
+                      You've Unlocked All 10 Hearts!
+                    </p>
+                    <p className="text-sm text-gray-600 italic mb-3">
+                      Na-unlock mo na ang lahat ng 10 Puso!
+                    </p>
+                    
+                    {/* All hearts in a row */}
+                    <div className="flex justify-center gap-2 mb-3">
+                      {BADGES.map((badge, i) => (
+                        <div key={badge.id} className="text-3xl animate-bounce-slow" style={{animationDelay: `${i * 0.1}s`}}>
+                          {badge.icon}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <p className="text-xs font-semibold text-purple-600">
+                      Keep growing your heart! 🌱
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DailyQuote />
+
+          <WeeklyAffirmation />
+
+          {/* PROMINENT GROWTH CARD - REDESIGNED (Rainbow for Champions!) */}
+          <div className={`rounded-3xl shadow-2xl p-8 mb-6 border-4 relative overflow-hidden transform hover:scale-105 transition-all duration-300 ${
+            earnedBadges.length === BADGES.length 
+              ? 'bg-gradient-to-br from-yellow-50 via-pink-50 to-purple-50 border-yellow-400' 
+              : 'bg-white border-white'
+          }`}>
+            {/* Background gradient overlay - Rainbow for champions */}
+            <div className={`absolute inset-0 opacity-50 ${
+              earnedBadges.length === BADGES.length
+                ? 'bg-gradient-to-br from-yellow-100 via-pink-100 to-purple-100'
+                : 'bg-gradient-to-br from-green-50 to-emerald-50'
+            }`}></div>
+            
+            {/* Animated background decoration - Extra sparkly for champions */}
+            {earnedBadges.length === BADGES.length ? (
+              <>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-300 to-orange-300 rounded-full blur-3xl opacity-40 animate-pulse"></div>
+                <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-tr from-pink-300 to-purple-300 rounded-full blur-3xl opacity-30 animate-pulse" style={{animationDelay: '1s'}}></div>
+                <div className="absolute top-1/2 left-1/2 w-36 h-36 bg-gradient-to-br from-blue-300 to-cyan-300 rounded-full blur-3xl opacity-25 animate-pulse" style={{animationDelay: '0.5s'}}></div>
+              </>
+            ) : (
+              <>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-200 to-emerald-200 rounded-full blur-3xl opacity-30 animate-pulse"></div>
+                <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-tr from-teal-200 to-cyan-200 rounded-full blur-3xl opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
+              </>
+            )}
+            
+            <div className="relative z-10">
+              {/* Animated Growing Plant */}
+              <div className="flex justify-center mb-4">
+                <div className="relative" style={{ 
+                  transform: `scale(${0.5 + (growthPercentage / 100) * 0.5})`,
+                  transition: 'transform 1s ease-out'
+                }}>
+                  {/* Pot */}
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-20 h-12 bg-gradient-to-b from-orange-400 to-orange-600 rounded-b-2xl shadow-lg" 
+                       style={{ clipPath: 'polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)' }}>
+                  </div>
+                  
+                  {/* Soil */}
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-16 h-3 bg-gradient-to-b from-amber-800 to-amber-900 rounded-t-lg"></div>
+                  
+                  {/* Stem */}
+                  <div className="relative flex flex-col items-center animate-grow">
+                    <div className="w-2 bg-gradient-to-b from-green-600 to-green-700 rounded-t-full shadow-md" 
+                         style={{ 
+                           height: `${40 + (growthPercentage / 2)}px`,
+                           transition: 'height 1s ease-out'
+                         }}>
+                    </div>
+                    
+                    {/* Leaves - appear as plant grows */}
+                    {growthPercentage > 20 && (
+                      <>
+                        <div className="absolute top-1/4 -left-3 w-6 h-8 bg-gradient-to-br from-green-400 to-green-500 rounded-full transform -rotate-45 animate-leaf-sway" style={{animationDelay: '0s'}}></div>
+                        <div className="absolute top-1/4 -right-3 w-6 h-8 bg-gradient-to-br from-green-400 to-green-500 rounded-full transform rotate-45 animate-leaf-sway" style={{animationDelay: '0.3s'}}></div>
+                      </>
                     )}
-                  </React.Fragment>
-                );
-              })}
+                    
+                    {growthPercentage > 40 && (
+                      <>
+                        <div className="absolute top-1/2 -left-4 w-7 h-9 bg-gradient-to-br from-green-300 to-green-400 rounded-full transform -rotate-45 animate-leaf-sway" style={{animationDelay: '0.6s'}}></div>
+                        <div className="absolute top-1/2 -right-4 w-7 h-9 bg-gradient-to-br from-green-300 to-green-400 rounded-full transform rotate-45 animate-leaf-sway" style={{animationDelay: '0.9s'}}></div>
+                      </>
+                    )}
+                    
+                    {/* Flower - appears at 60%+ */}
+                    {growthPercentage > 60 && (
+                      <div className="absolute -top-8 animate-bounce-slow">
+                        {/* Petals */}
+                        <div className="relative w-12 h-12">
+                          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-5 bg-gradient-to-b from-pink-300 to-pink-400 rounded-full"></div>
+                          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-5 bg-gradient-to-t from-pink-300 to-pink-400 rounded-full"></div>
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-5 h-4 bg-gradient-to-r from-pink-300 to-pink-400 rounded-full"></div>
+                          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-5 h-4 bg-gradient-to-l from-pink-300 to-pink-400 rounded-full"></div>
+                          
+                          {/* Center */}
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-gradient-to-br from-yellow-300 to-yellow-400 rounded-full shadow-md"></div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Sparkles at 80%+ */}
+                    {/* Sparkles at 80%+ OR Rainbow bloom when all badges unlocked */}
+                    {earnedBadges.length === BADGES.length ? (
+                      <>
+                        {/* Rainbow glow for champion */}
+                        <div className="absolute -inset-8 bg-gradient-to-r from-red-400 via-yellow-400 via-green-400 via-blue-400 to-purple-400 rounded-full blur-2xl opacity-40 animate-pulse"></div>
+                        <div className="absolute -top-12 -left-4 text-3xl animate-sparkle" style={{animationDelay: '0s'}}>🌈</div>
+                        <div className="absolute -top-10 -right-4 text-2xl animate-sparkle" style={{animationDelay: '0.3s'}}>⭐</div>
+                        <div className="absolute -top-14 right-2 text-2xl animate-sparkle" style={{animationDelay: '0.6s'}}>💫</div>
+                        <div className="absolute -top-16 left-2 text-3xl animate-sparkle" style={{animationDelay: '0.9s'}}>✨</div>
+                        <div className="absolute -top-8 left-0 text-xl animate-sparkle" style={{animationDelay: '1.2s'}}>🏆</div>
+                      </>
+                    ) : growthPercentage > 80 && (
+                      <>
+                        <div className="absolute -top-12 -left-4 text-2xl animate-sparkle" style={{animationDelay: '0s'}}>✨</div>
+                        <div className="absolute -top-10 -right-4 text-xl animate-sparkle" style={{animationDelay: '0.5s'}}>⭐</div>
+                        <div className="absolute -top-14 right-2 text-lg animate-sparkle" style={{animationDelay: '1s'}}>💫</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Label */}
+              <div className="text-center mb-2">
+                <p className="text-sm font-bold text-green-700 uppercase tracking-wider">Your Spiritual Growth</p>
+              </div>
+              
+              {/* Main percentage - VERY LARGE - Rainbow for champions! */}
+              <div className="text-center mb-4">
+                <p className={`text-8xl font-black bg-clip-text text-transparent ${
+                  earnedBadges.length === BADGES.length
+                    ? 'bg-gradient-to-r from-red-600 via-yellow-600 via-green-600 via-blue-600 to-purple-600'
+                    : 'bg-gradient-to-r from-green-600 to-emerald-600'
+                }`}>
+                  {Math.round((
+                    calculateAttendance(studentData) + 
+                    (studentData['HJ Quiz'] || 0) + 
+                    (studentData['HJ Service'] || 0) + 
+                    Math.min(100, Math.round((myGratitudeEntries.length / 8) * 100))
+                  ) / 4)}%
+                </p>
+              </div>
+              
+              {/* Subtitle */}
+              <div className="text-center mb-6">
+                <p className="text-lg font-semibold text-gray-700">Keep up the amazing progress!</p>
+              </div>
+              
+              {/* Progress bar with animation - Rainbow for champions! */}
+              <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
+                <div 
+                  className={`h-full rounded-full transition-all duration-1000 ease-out relative overflow-hidden ${
+                    earnedBadges.length === BADGES.length
+                      ? 'bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500'
+                      : 'bg-gradient-to-r from-green-500 to-emerald-500'
+                  }`}
+                  style={{ width: `${growthPercentage}%` }}
+                >
+                  {/* Shimmer effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-shimmer"></div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Navigation buttons */}
-          <div style={{display:'flex', flexDirection:'column', gap:10}}>
-            <button onClick={() => setCurrentPage('badges')} style={{background:'#F59E0B', color:'white', border:'none', borderRadius:14, padding:'14px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontWeight:600, fontSize:15}}>
-              <span>🏅 My Hyojeong Heart Badges ({earnedBadges.length}/{BADGES.length})</span>
-              <ChevronRight size={20} />
+          <div className="space-y-3">
+            <button onClick={() => setCurrentPage('badges')} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Award className="w-6 h-6" />
+                <span className="font-bold">My Hyojeong Heart Badges ({earnedBadges.length}/{BADGES.length})</span>
+              </div>
+              <ChevronRight className="w-6 h-6" />
             </button>
-            <button onClick={() => setCurrentPage('gratitude')} style={{background:'#EC4899', color:'white', border:'none', borderRadius:14, padding:'14px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontWeight:600, fontSize:15}}>
-              <span>💗 Gratitude Journal</span>
-              <ChevronRight size={20} />
+            <button onClick={() => setCurrentPage('gratitude')} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Heart className="w-6 h-6" />
+                <span className="font-bold">Gratitude Journal</span>
+              </div>
+              <ChevronRight className="w-6 h-6" />
             </button>
-            <button onClick={() => setCurrentPage('grades')} style={{background:'#7C3AED', color:'white', border:'none', borderRadius:14, padding:'14px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontWeight:600, fontSize:15}}>
-              <span>📖 View My HJ Grades</span>
-              <ChevronRight size={20} />
+            <button onClick={() => setCurrentPage('grades')} className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <BookOpen className="w-6 h-6" />
+                <span className="font-bold">View My HJGrades</span>
+              </div>
+              <ChevronRight className="w-6 h-6" />
             </button>
-            <button onClick={() => setCurrentPage('profile')} style={{background:'#3B82F6', color:'white', border:'none', borderRadius:14, padding:'14px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontWeight:600, fontSize:15}}>
-              <span>👤 My HJ Profile</span>
-              <ChevronRight size={20} />
+            <button onClick={() => setCurrentPage('profile')} className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <User className="w-6 h-6" />
+                <span className="font-bold">My HJ Profile</span>
+              </div>
+              <ChevronRight className="w-6 h-6" />
             </button>
           </div>
-
         </div>
+        
+        {/* Add shimmer animation to CSS */}
+        <style jsx>{`
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+          .animate-shimmer {
+            animation: shimmer 2s infinite;
+          }
+          @keyframes bounce-slow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+          }
+          .animate-bounce-slow {
+            animation: bounce-slow 3s ease-in-out infinite;
+          }
+          @keyframes leaf-sway {
+            0%, 100% { transform: rotate(-45deg) translateX(0); }
+            50% { transform: rotate(-45deg) translateX(3px); }
+          }
+          .animate-leaf-sway {
+            animation: leaf-sway 2s ease-in-out infinite;
+          }
+          @keyframes grow {
+            0% { transform: scaleY(0); }
+            100% { transform: scaleY(1); }
+          }
+          .animate-grow {
+            animation: grow 1.5s ease-out;
+            transform-origin: bottom;
+          }
+          @keyframes sparkle {
+            0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+            50% { opacity: 1; transform: scale(1) rotate(180deg); }
+          }
+          .animate-sparkle {
+            animation: sparkle 2s ease-in-out infinite;
+          }
+          @keyframes confetti {
+            0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+          }
+          .animate-confetti {
+            animation: confetti 3s ease-out forwards;
+          }
+          @keyframes celebration-bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+          }
+          .animate-celebration {
+            animation: celebration-bounce 0.5s ease-in-out 3;
+          }
+          @keyframes bounce-kid {
+            0%, 100% { 
+              transform: translateY(0) scale(1);
+            }
+            25% {
+              transform: translateY(-15px) scale(1.1);
+            }
+            50% { 
+              transform: translateY(-25px) scale(1.05) rotate(-5deg);
+            }
+            75% {
+              transform: translateY(-15px) scale(1.1) rotate(5deg);
+            }
+          }
+          .animate-bounce-kid {
+            animation: bounce-kid 2s ease-in-out infinite;
+          }
+        `}</style>
+        
         <NavBar />
       </div>
     );
   }
 
-    // BADGES PAGE
+  // BADGES PAGE - DUOLINGO ADVENTURE PATH
   if (currentPage === 'badges' && studentData) {
+    const totalEarned = BADGES.filter(b => checkIfBadgeEarned(b)).length;
+    const nextBadge = BADGES.find(b => !checkIfBadgeEarned(b));
+
+    const getBadgeProgress = (badge) => {
+      if (badge.type === 'attendance') return Math.min(100, Math.round((calculateAttendance() / badge.percent) * 100));
+      if (badge.type === 'service') { const s = studentData['HJ Service'] || 0; const sv = s <= 1 ? Math.round(s*100) : Math.round(s); return Math.min(100, Math.round((sv / badge.percent) * 100)); }
+      if (badge.type === 'quiz') return Math.min(100, Math.round(((studentData['HJ Quiz'] || 0) / badge.percent) * 100));
+      if (badge.type === 'grade') return Math.min(100, Math.round(((studentData['HJ Grade'] || 0) / badge.percent) * 100));
+      if (badge.type === 'gratitude') return Math.min(100, Math.round((myGratitudeEntries.length / badge.count) * 100));
+      if (badge.type === 'goals') { const g = [goals.goal1, goals.goal2, goals.goal3].filter(g => g && g.trim()).length; return Math.min(100, Math.round((g / badge.goalsSet) * 100)); }
+      return 0;
+    };
+
+    const badgeXP = { attendance: 100, service: 150, quiz: 120, grade: 200, gratitude: 80, goals: 100 };
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
-        <div className="p-4">
-          <h1 className="text-3xl font-black text-white mb-4">💖 My HJ Hearts</h1>
+        <style jsx>{`
+          @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.4); } 50% { box-shadow: 0 0 0 12px rgba(255,255,255,0); } }
+          .pulse-glow { animation: pulse-glow 2s infinite; }
+          @keyframes bounce-slow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+          .bounce-slow { animation: bounce-slow 2s ease-in-out infinite; }
+          @keyframes sparkle { 0%, 100% { opacity: 0; transform: scale(0); } 50% { opacity: 1; transform: scale(1); } }
+          .sparkle { animation: sparkle 1.5s ease-in-out infinite; }
+        `}</style>
+
+        <div className="p-4 max-w-lg mx-auto">
           
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
-            <div className="text-center">
-              <p className="text-gray-600 font-bold mb-2">Hearts Collected</p>
-              <p className="text-6xl font-black text-purple-600 mb-2">{earnedBadges.length}/{BADGES.length}</p>
-              <div className="w-full bg-gray-200 rounded-full h-4">
-                <div 
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 h-4 rounded-full transition-all duration-500"
-                  style={{ width: `${(earnedBadges.length / BADGES.length) * 100}%` }}
-                />
-              </div>
-            </div>
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-4">
+            <button onClick={() => setCurrentPage('home')} className="text-white text-2xl font-bold">←</button>
+            <h1 className="text-2xl font-black text-white">💖 My HJ Hearts</h1>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {BADGES.map((badge) => {
+          {/* Progress summary card */}
+          <div style={{background:'white', borderRadius:20, padding:'16px 20px', marginBottom:16, boxShadow:'0 4px 16px rgba(0,0,0,0.1)'}}>
+            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10}}>
+              <div>
+                <p style={{fontSize:13, color:'#9CA3AF', margin:0}}>Hearts collected</p>
+                <p style={{fontSize:28, fontWeight:800, color:'#7C3AED', margin:0}}>{totalEarned}<span style={{fontSize:16, color:'#9CA3AF'}}>/{BADGES.length}</span></p>
+              </div>
+              <div style={{fontSize:40}} className="bounce-slow">
+                {totalEarned === BADGES.length ? '🏆' : totalEarned >= 7 ? '💜' : totalEarned >= 4 ? '💛' : '🌱'}
+              </div>
+            </div>
+            <div style={{background:'#F3F4F6', borderRadius:99, height:12, overflow:'hidden'}}>
+              <div style={{width:`${(totalEarned/BADGES.length)*100}%`, height:'100%', background:'linear-gradient(90deg, #7C3AED, #EC4899)', borderRadius:99, transition:'width 1s ease'}}></div>
+            </div>
+            <p style={{fontSize:12, color:'#9CA3AF', margin:'6px 0 0'}}>{BADGES.length - totalEarned} hearts remaining to unlock</p>
+          </div>
+
+          {/* Next badge to earn */}
+          {nextBadge && (
+            <div style={{background:'linear-gradient(135deg, #FEF3C7, #FDE68A)', borderRadius:20, padding:'14px 18px', marginBottom:16, border:'2px dashed #F59E0B', boxShadow:'0 4px 16px rgba(245,158,11,0.2)'}}>
+              <p style={{fontSize:11, fontWeight:700, color:'#92400E', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 8px'}}>⚡ Next to unlock</p>
+              <div style={{display:'flex', alignItems:'center', gap:12}}>
+                <div style={{fontSize:36}} className="pulse-glow">{nextBadge.icon}</div>
+                <div style={{flex:1}}>
+                  <p style={{fontWeight:700, fontSize:15, color:'#92400E', margin:0}}>{nextBadge.name}</p>
+                  <p style={{fontSize:12, color:'#B45309', margin:'2px 0 6px'}}>{nextBadge.desc}</p>
+                  <div style={{background:'rgba(0,0,0,0.1)', borderRadius:99, height:8, overflow:'hidden'}}>
+                    <div style={{width:`${getBadgeProgress(nextBadge)}%`, height:'100%', background:'#F59E0B', borderRadius:99}}></div>
+                  </div>
+                  <p style={{fontSize:11, color:'#B45309', margin:'3px 0 0'}}>{getBadgeProgress(nextBadge)}% complete · +{badgeXP[nextBadge.type] || 100} XP</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Adventure path */}
+          <div style={{position:'relative'}}>
+            {/* Vertical path line */}
+            <div style={{position:'absolute', left:'50%', top:0, bottom:0, width:4, background:'rgba(255,255,255,0.3)', borderRadius:99, transform:'translateX(-50%)', zIndex:0}}></div>
+
+            {BADGES.map((badge, idx) => {
               const earned = checkIfBadgeEarned(badge);
+              const isNext = nextBadge && nextBadge.id === badge.id;
+              const progress = getBadgeProgress(badge);
+              const isLeft = idx % 2 === 0;
+
               return (
-                <div 
-                  key={badge.id}
-                  className={`rounded-2xl p-6 shadow-lg border-4 ${
-                    earned 
-                      ? `bg-gradient-to-br ${badge.color} border-white` 
-                      : 'bg-gray-100 border-gray-200 opacity-60'
-                  }`}
-                >
-                  <div className="text-center">
-                    <div className="text-6xl mb-3">{badge.icon}</div>
-                    <p className={`text-sm font-black mb-1 ${earned ? 'text-white' : 'text-gray-600'}`}>
-                      {badge.name}
-                    </p>
-                    <p className={`text-xs ${earned ? 'text-white/90' : 'text-gray-500'}`}>
-                      {badge.desc}
-                    </p>
-                    {earned && (
-                      <div className="mt-2 bg-white/20 rounded-full px-3 py-1">
-                        <p className="text-xs font-bold text-white">✓ Earned!</p>
+                <div key={badge.id} style={{display:'flex', justifyContent: isLeft ? 'flex-start' : 'flex-end', marginBottom:16, position:'relative', zIndex:1}}>
+                  <div style={{
+                    width:'45%',
+                    background: earned ? 'white' : isNext ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.5)',
+                    borderRadius:20,
+                    padding:'14px 16px',
+                    boxShadow: earned ? '0 8px 24px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.08)',
+                    border: earned ? '3px solid white' : isNext ? '2px dashed #F59E0B' : '2px solid rgba(255,255,255,0.3)',
+                    position:'relative',
+                    opacity: earned || isNext ? 1 : 0.7
+                  }} className={isNext ? 'pulse-glow' : ''}>
+                    
+                    {/* Badge icon */}
+                    <div style={{textAlign:'center', marginBottom:8}}>
+                      <div style={{
+                        fontSize:44,
+                        filter: earned ? 'none' : 'grayscale(60%)',
+                        display:'inline-block'
+                      }} className={earned ? 'bounce-slow' : ''}>
+                        {earned ? badge.icon : '🔒'}
+                      </div>
+                      {earned && (
+                        <div style={{position:'absolute', top:-8, right:-8, background:'#10B981', borderRadius:'50%', width:24, height:24, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, boxShadow:'0 2px 8px rgba(0,0,0,0.2)'}}>✓</div>
+                      )}
+                    </div>
+
+                    {/* Badge info */}
+                    <p style={{fontSize:12, fontWeight:700, color: earned ? '#1F2937' : '#6B7280', margin:'0 0 2px', textAlign:'center'}}>{badge.name}</p>
+                    <p style={{fontSize:10, color: earned ? '#6B7280' : '#9CA3AF', margin:'0 0 6px', textAlign:'center'}}>{badge.desc}</p>
+
+                    {/* Progress bar for unearned */}
+                    {!earned && (
+                      <div style={{background:'#F3F4F6', borderRadius:99, height:6, overflow:'hidden', marginBottom:4}}>
+                        <div style={{width:`${progress}%`, height:'100%', background: isNext ? '#F59E0B' : '#C4B5FD', borderRadius:99}}></div>
                       </div>
                     )}
+
+                    {/* XP reward */}
+                    <div style={{textAlign:'center'}}>
+                      {earned ? (
+                        <span style={{background:'#DCFCE7', color:'#166534', fontSize:11, fontWeight:700, padding:'2px 10px', borderRadius:99}}>+{badgeXP[badge.type] || 100} XP ✓</span>
+                      ) : (
+                        <span style={{background:'#F3F4F6', color:'#9CA3AF', fontSize:11, padding:'2px 10px', borderRadius:99}}>+{badgeXP[badge.type] || 100} XP</span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Path dot connector */}
+                  <div style={{
+                    position:'absolute',
+                    left:'50%',
+                    top:'50%',
+                    transform:'translate(-50%, -50%)',
+                    width: earned ? 20 : 14,
+                    height: earned ? 20 : 14,
+                    borderRadius:'50%',
+                    background: earned ? '#10B981' : isNext ? '#F59E0B' : 'rgba(255,255,255,0.5)',
+                    border:'3px solid white',
+                    boxShadow:'0 2px 8px rgba(0,0,0,0.2)',
+                    zIndex:2
+                  }}></div>
                 </div>
               );
             })}
           </div>
+
+          {/* All earned celebration */}
+          {totalEarned === BADGES.length && (
+            <div style={{background:'white', borderRadius:20, padding:20, textAlign:'center', marginTop:8}}>
+              <div style={{fontSize:48}} className="bounce-slow">🏆</div>
+              <p style={{fontSize:20, fontWeight:800, color:'#7C3AED', margin:'8px 0 4px'}}>Heart Champion!</p>
+              <p style={{fontSize:13, color:'#9CA3AF'}}>You've unlocked all 10 hearts! 🎉</p>
+            </div>
+          )}
+
         </div>
         <NavBar />
       </div>
     );
   }
 
-  // GRATITUDE PAGE
+    // GRATITUDE PAGE
   if (currentPage === 'gratitude' && studentData) {
     // Get age-appropriate prompt based on session number
     const currentSessionNum = selectedSession ? parseInt(selectedSession.replace('Session ', '')) : 1;
