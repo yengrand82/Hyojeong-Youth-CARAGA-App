@@ -1114,7 +1114,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     const xpToNext = nextLevel ? `${nextLevel.min - growthPercentage}% to ${nextLevel.name}` : 'Max level reached!';
 
     return (
-      <div className="min-h-screen pb-20 bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400" style={{background: 'var(--color-background-tertiary)'}}>
+      <div className="min-h-screen pb-20 bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400">
         <style jsx>{`
           @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
           .animate-shimmer { animation: shimmer 2s infinite; }
