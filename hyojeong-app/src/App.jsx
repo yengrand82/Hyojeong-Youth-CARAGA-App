@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift, Target, UserPlus } from 'lucide-react';
 
 // Google Apps Script Web App URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbypzDlCOSiRvwOceWsOESFpwCO1U5fHAjywlWeHgE20Nl6UFBFsfPODmPUp3Osms1NNnw/exec';
-const TOTAL_SESSIONS = 8; // Change this number for each program// Inspirational Quotes - True Parents & Bible Verses
+const API_URL = 'https://script.google.com/macros/s/AKfycbwOR5hWKdVW-pyZ79PAgT_-yqVYeak1X6GkFMTpdgXUss-aX7sqSMgnA7uUujCCqWC3hA/exec';
+const TOTAL_SESSIONS = 21; // Change this number for each program// Inspirational Quotes - True Parents & Bible Verses
 const QUOTES = [
   // True Parents Quotes
   { quote: "Love is giving and forgetting. Love is investing and then forgetting about it.", author: "True Father" },
@@ -1114,7 +1114,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     const xpToNext = nextLevel ? `${nextLevel.min - growthPercentage}% to ${nextLevel.name}` : 'Max level reached!';
 
     return (
-      <div className="min-h-screen pb-20 bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400">
+      <div className="min-h-screen pb-20" style={{background: 'var(--color-background-tertiary)'}}>
         <style jsx>{`
           @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
           .animate-shimmer { animation: shimmer 2s infinite; }
