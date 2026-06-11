@@ -1742,14 +1742,81 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 
     // GRATITUDE PAGE
   if (currentPage === 'gratitude' && studentData) {
-    // Get age-appropriate prompt based on session number
     const currentSessionNum = selectedSession ? parseInt(selectedSession.replace('Session ', '')) : 1;
     const weeklyPrompt = getWeeklyGratitudePrompt(studentData['Age'] || 15, currentSessionNum);
-    
+
+    const today = new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
+    const submittedToday = myGratitudeEntries.some(entry => {
+      if (!entry.timestamp) return false;
+      try { return new Date(entry.timestamp).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' }) === today; }
+      catch(e) { return false; }
+    });
+
+    let streak = 0;
+    let checkDate = new Date(); checkDate.setHours(0,0,0,0);
+    for (let i = 0; i < 30; i++) {
+      const dateStr = checkDate.toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
+      const hasEntry = myGratitudeEntries.some(entry => {
+        if (!entry.timestamp) return false;
+        try { return new Date(entry.timestamp).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' }) === dateStr; }
+        catch(e) { return false; }
+      });
+      if (hasEntry) { streak++; checkDate.setDate(checkDate.getDate() - 1); }
+      else if (i === 0) { checkDate.setDate(checkDate.getDate() - 1); }
+      else { break; }
+    }
+
+    const calendarDays = [];
+    for (let i = 20; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const dateStr = d.toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
+      const hasEntry = myGratitudeEntries.some(entry => {
+        if (!entry.timestamp) return false;
+        try { return new Date(entry.timestamp).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' }) === dateStr; }
+        catch(e) { return false; }
+      });
+      calendarDays.push({ dateStr, hasEntry, isToday: i === 0 });
+    }
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
           <h1 className="text-3xl font-black text-white mb-4">💖 Gratitude Journal</h1>
+
+          <div style={{background:'white',borderRadius:20,padding:'16px 20px',marginBottom:12,boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+              <div>
+                <p style={{fontSize:12,color:'#9CA3AF',margin:0}}>Current streak</p>
+                <p style={{fontSize:28,fontWeight:800,color:'#E85D04',margin:0}}>🔥 {streak} {streak===1?'day':'days'}</p>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <p style={{fontSize:12,color:'#9CA3AF',margin:0}}>Total entries</p>
+                <p style={{fontSize:22,fontWeight:700,color:'#7C3AED',margin:0}}>{myGratitudeEntries.length}</p>
+              </div>
+            </div>
+            <p style={{fontSize:11,fontWeight:600,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.08em',margin:'0 0 8px'}}>Last 21 days</p>
+            <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
+              {calendarDays.map((day,idx) => (
+                <div key={idx} style={{width:28,height:28,borderRadius:6,background:day.hasEntry?'#7C3AED':day.isToday?'#FEF3C7':'#F3F4F6',border:day.isToday?'2px solid #F59E0B':'none',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:day.hasEntry?'white':'#9CA3AF'}}>
+                  {day.hasEntry?'✓':day.isToday?'•':''}
+                </div>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:12,marginTop:8}}>
+              <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#7C3AED'}}></div><span style={{fontSize:11,color:'#9CA3AF'}}>Submitted</span></div>
+              <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#FEF3C7',border:'1px solid #F59E0B'}}></div><span style={{fontSize:11,color:'#9CA3AF'}}>Today</span></div>
+            </div>
+          </div>
+
+          {submittedToday && (
+            <div style={{background:'#FEF3C7',borderRadius:16,padding:'12px 16px',marginBottom:12,border:'2px solid #F59E0B',display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontSize:20}}>⚠️</span>
+              <div>
+                <p style={{fontWeight:700,fontSize:13,color:'#92400E',margin:0}}>Already submitted today!</p>
+                <p style={{fontSize:12,color:'#B45309',margin:0}}>Come back tomorrow to keep your streak going! 🔥</p>
+              </div>
+            </div>
+          )}
           
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
@@ -1811,10 +1878,10 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             {error && <div className="p-3 bg-red-50 border-2 border-red-300 rounded-xl text-red-600 text-sm font-semibold">{error}</div>}
             <button 
               onClick={handleGratitudeSubmit} 
-              disabled={loading}
+              disabled={loading || submittedToday}
               className="w-full px-6 py-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
             >
-              {loading ? 'Submitting...' : '✨ Submit Reflection'}
+              {loading ? 'Submitting...' : submittedToday ? 'Come Back Tomorrow! 🔥' : '✨ Submit Reflection'}
             </button>
           </div>
 
