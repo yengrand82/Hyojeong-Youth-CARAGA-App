@@ -1265,10 +1265,10 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 
           {/* Tabs */}
           <div style={{background:'white', borderRadius:16, padding:6, marginBottom:12, display:'flex', gap:6, boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
-            <button onClick={() => setLeaderboardTab('overall')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: activeTab==='overall' ? '#7C3AED' : 'transparent', color: activeTab==='overall' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
+            <button onClick={() => setLeaderboardTab('overall')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: leaderboardTab==='overall' ? '#7C3AED' : 'transparent', color: leaderboardTab==='overall' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
               🌍 Overall
             </button>
-            <button onClick={() => setLeaderboardTab('team')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: activeTab==='team' ? '#7C3AED' : 'transparent', color: activeTab==='team' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
+            <button onClick={() => setLeaderboardTab('team')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: leaderboardTab==='team' ? '#7C3AED' : 'transparent', color: leaderboardTab==='team' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
               👥 By Team
             </button>
           </div>
