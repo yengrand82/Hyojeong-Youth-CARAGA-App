@@ -668,11 +668,16 @@ const App = () => {
       return;
     }
     
+    setLoading(true);
     setStudentData(student); 
-    setIsAdmin(false); 
+    setIsAdmin(false);
+    // Load all data before showing home page
+    await Promise.all([
+      loadMyGratitudeEntries(student['Student ID']),
+      loadStudentProgress(student['Student ID'])
+    ]);
+    setLoading(false);
     setCurrentPage('home');
-    loadMyGratitudeEntries(student['Student ID']);
-    loadStudentProgress(student['Student ID']);
   };
 
   const handleAdminLogin = () => {
