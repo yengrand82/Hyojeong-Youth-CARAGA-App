@@ -1225,7 +1225,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     if (!allStudents || allStudents.length === 0) return (<div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 flex items-center justify-center"><div style={{background:'white',borderRadius:20,padding:24,textAlign:'center'}}><p style={{fontSize:18,fontWeight:700,color:'#7C3AED'}}>Loading rankings...</p><p style={{color:'#9CA3AF',fontSize:13}}>Please go back and try again</p><button onClick={()=>setCurrentPage('home')} style={{marginTop:12,background:'#7C3AED',color:'white',border:'none',borderRadius:12,padding:'10px 20px',cursor:'pointer',fontWeight:600}}>Go Home</button></div></div>);
     const sorted = [...allStudents]
       .filter(s => s['Student ID'] && s['Student ID'].match(/^HJ\d+$/i))
-      .sort((a, b) => getGrowth(b) - getGrowth(a));
+      .sort((a, b) => getGrade(b) - getGrade(a));
 
     const teamSorted = sorted.filter(s => (s['TEAM']||'').toUpperCase() === leaderboardTeam.toUpperCase());
     const displayList = leaderboardTab === 'overall' ? sorted.slice(0, 20) : teamSorted.slice(0, 20);
@@ -1259,7 +1259,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 </div>
               </div>
               <div style={{textAlign:'right'}}>
-                <p style={{fontSize:22, fontWeight:800, margin:0}}>{getGrowth(studentData)}%</p>
+                <p style={{fontSize:22, fontWeight:800, margin:0}}>{getGrade(studentData)}%</p>
                 <p style={{fontSize:11, opacity:0.8, margin:0}}>HJ Grade</p>
               </div>
             </div>
@@ -1290,7 +1290,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           <div style={{background:'white', borderRadius:20, overflow:'hidden', boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
             {displayList.map((student, idx) => {
               const isMe = student['Student ID'] === studentData['Student ID'];
-              const grade = getGrowth(student);
+              const grade = getGrade(student);
               const isMedal = idx < 3;
 
               return (
