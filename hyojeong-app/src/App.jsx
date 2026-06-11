@@ -925,7 +925,8 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
         {[
           { page: 'home', icon: Home, label: 'Home' }, 
           { page: 'badges', icon: Award, label: 'Hearts' }, 
-          { page: 'gratitude', icon: Heart, label: 'Journal' }, 
+          { page: 'gratitude', icon: Heart, label: 'Journal' },
+          { page: 'leaderboard', icon: Trophy, label: 'Ranks' },
           { page: 'profile', icon: User, label: 'Profile' }
         ].map(({ page, icon: Icon, label }) => (
           <button key={page} onClick={() => setCurrentPage(page)} className={`flex flex-col items-center ${currentPage === page ? 'text-purple-600' : 'text-gray-400'}`}>
@@ -1189,7 +1190,146 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     </div>
   );
 
-  // ADMIN LOGIN
+  // LEADERBOARD PAGE
+  if (currentPage === 'leaderboard' && studentData) {
+    const [activeTab, setActiveTab] = React.useState('overall');
+    const [activeTeam, setActiveTeam] = React.useState('MARC');
+
+    const getXP = (s) => {
+      const att = s.sessions ? Math.round((s.sessions.filter(x=>x===true).length / TOTAL_SESSIONS) * 100) : 0;
+      const svc = (() => { const v = s['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })();
+      const quiz = Math.min(100, Math.round(s['HJ Quiz']||0));
+      const grade = Math.round((s['HJ Grade']||0)*100) || Math.round(parseFloat(s['Percentage'])||0);
+      return Math.round((att*5)+(svc*3)+(quiz*2)+(grade*2));
+    };
+
+    const getGrade = (s) => {
+      const g = parseFloat(s['HJ Grade']) || 0;
+      return g > 1 ? g : Math.round(g * 100);
+    };
+
+    const sorted = [...allStudents]
+      .filter(s => s['Student ID'] && s['Student ID'].match(/^HJ\d+$/i))
+      .sort((a, b) => getGrade(b) - getGrade(a));
+
+    const teamSorted = sorted.filter(s => (s['TEAM']||'').toUpperCase() === activeTeam.toUpperCase());
+    const displayList = activeTab === 'overall' ? sorted.slice(0, 20) : teamSorted.slice(0, 20);
+    const myRank = sorted.findIndex(s => s['Student ID'] === studentData['Student ID']) + 1;
+    const myTeamRank = teamSorted.findIndex(s => s['Student ID'] === studentData['Student ID']) + 1;
+
+    const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
+    const medals = ['🥇', '🥈', '🥉'];
+
+    return (
+      <div className="min-h-screen pb-20 bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400">
+        <div className="p-4 max-w-lg mx-auto">
+
+          {/* Header */}
+          <div style={{background:'white', borderRadius:20, padding:'16px 20px', marginBottom:12, boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
+            <h1 style={{fontSize:22, fontWeight:800, color:'#1F2937', margin:0}}>🏆 Heart Champions</h1>
+            <p style={{fontSize:13, color:'#9CA3AF', margin:'2px 0 0'}}>Ranked by HJ Grade</p>
+          </div>
+
+          {/* My rank card */}
+          <div style={{background:'linear-gradient(135deg,#7C3AED,#EC4899)', borderRadius:20, padding:'14px 18px', marginBottom:12, color:'white'}}>
+            <p style={{fontSize:12, opacity:0.8, margin:0}}>Your rank</p>
+            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:4}}>
+              <div style={{display:'flex', alignItems:'center', gap:12}}>
+                <div style={{width:44, height:44, borderRadius:'50%', background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:800}}>
+                  #{myRank}
+                </div>
+                <div>
+                  <p style={{fontWeight:700, fontSize:16, margin:0}}>{studentData['First Name']} {studentData['Last Name']}</p>
+                  <p style={{fontSize:12, opacity:0.8, margin:0}}>{studentData['TEAM'] || 'No team'} · #{myTeamRank} in team</p>
+                </div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <p style={{fontSize:22, fontWeight:800, margin:0}}>{getGrade(studentData)}%</p>
+                <p style={{fontSize:11, opacity:0.8, margin:0}}>HJ Grade</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div style={{background:'white', borderRadius:16, padding:6, marginBottom:12, display:'flex', gap:6, boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
+            <button onClick={() => setActiveTab('overall')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: activeTab==='overall' ? '#7C3AED' : 'transparent', color: activeTab==='overall' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
+              🌍 Overall
+            </button>
+            <button onClick={() => setActiveTab('team')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: activeTab==='team' ? '#7C3AED' : 'transparent', color: activeTab==='team' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
+              👥 By Team
+            </button>
+          </div>
+
+          {/* Team selector */}
+          {activeTab === 'team' && (
+            <div style={{display:'flex', gap:8, marginBottom:12}}>
+              {['MARC', 'BASSEL', 'KYRRA'].map(team => (
+                <button key={team} onClick={() => setActiveTeam(team)} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: activeTeam===team ? '#EC4899' : 'white', color: activeTeam===team ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer', boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
+                  {team}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Leaderboard list */}
+          <div style={{background:'white', borderRadius:20, overflow:'hidden', boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
+            {displayList.map((student, idx) => {
+              const isMe = student['Student ID'] === studentData['Student ID'];
+              const grade = getGrade(student);
+              const isMedal = idx < 3;
+
+              return (
+                <div key={student['Student ID']} style={{
+                  display:'flex', alignItems:'center', gap:12, padding:'12px 16px',
+                  background: isMe ? '#FDF4FF' : 'white',
+                  borderBottom: idx < displayList.length-1 ? '1px solid #F3F4F6' : 'none',
+                  borderLeft: isMe ? '4px solid #7C3AED' : '4px solid transparent'
+                }}>
+                  {/* Rank */}
+                  <div style={{width:32, textAlign:'center', flexShrink:0}}>
+                    {isMedal ? (
+                      <span style={{fontSize:22}}>{medals[idx]}</span>
+                    ) : (
+                      <span style={{fontSize:14, fontWeight:700, color: isMe ? '#7C3AED' : '#9CA3AF'}}>#{idx+1}</span>
+                    )}
+                  </div>
+
+                  {/* Photo */}
+                  <div style={{width:40, height:40, borderRadius:'50%', overflow:'hidden', flexShrink:0, border: isMedal ? `2px solid ${medalColors[idx]}` : '2px solid #F3F4F6'}}>
+                    {student['Photo'] ? (
+                      <img src={student['Photo']} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} />
+                    ) : (
+                      <div style={{width:'100%', height:'100%', background:'linear-gradient(135deg,#C4B5FD,#F9A8D4)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:700, color:'white'}}>
+                        {(student['First Name']||'?')[0]}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Name */}
+                  <div style={{flex:1, minWidth:0}}>
+                    <p style={{fontWeight: isMe ? 700 : 500, fontSize:14, color: isMe ? '#7C3AED' : '#1F2937', margin:0, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+                      {student['First Name']} {student['Last Name']} {isMe ? '(You)' : ''}
+                    </p>
+                    <p style={{fontSize:11, color:'#9CA3AF', margin:0}}>{student['TEAM'] || 'No team'}</p>
+                  </div>
+
+                  {/* Grade */}
+                  <div style={{textAlign:'right', flexShrink:0}}>
+                    <p style={{fontSize:16, fontWeight:800, color: isMedal ? medalColors[idx] : isMe ? '#7C3AED' : '#1F2937', margin:0}}>{grade}%</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+        </div>
+        <HyojiHelper page="leaderboard" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={0} />
+        <NavBar />
+      </div>
+    );
+  }
+
+    // ADMIN LOGIN
   if (currentPage === 'admin-login') return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -1412,11 +1552,15 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 
         </div>
   
-
-
-
-
       <HyojiHelper page="home" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
+
+      <HyojiHelper page="badges" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
+
+      <HyojiHelper page="gratitude" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
+
+      <HyojiHelper page="grades" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
+
+      <HyojiHelper page="profile" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
       <NavBar />
       </div>
     );
@@ -1581,7 +1725,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           )}
 
         </div>
-        <HyojiHelper page="badges" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={0} />
         <NavBar />
       </div>
     );
@@ -1702,7 +1845,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             )}
           </div>
         </div>
-        <HyojiHelper page="gratitude" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={0} />
         <NavBar />
       </div>
     );
@@ -1790,7 +1932,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 </div>
         </div>
       </div>
-      <HyojiHelper page="grades" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={0} />
       <NavBar />
     </div>
   );
@@ -2092,7 +2233,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             <ChevronRight className="w-6 h-6" />
           </button>
         </div>
-        <HyojiHelper page="profile" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={0} />
         <NavBar />
       </div>
     );
