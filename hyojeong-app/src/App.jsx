@@ -1208,6 +1208,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
       return g > 1 ? g : Math.round(g * 100);
     };
 
+    if (!allStudents || allStudents.length === 0) return (<div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 flex items-center justify-center"><div style={{background:'white',borderRadius:20,padding:24,textAlign:'center'}}><p style={{fontSize:18,fontWeight:700,color:'#7C3AED'}}>Loading rankings...</p><p style={{color:'#9CA3AF',fontSize:13}}>Please go back and try again</p><button onClick={()=>setCurrentPage('home')} style={{marginTop:12,background:'#7C3AED',color:'white',border:'none',borderRadius:12,padding:'10px 20px',cursor:'pointer',fontWeight:600}}>Go Home</button></div></div>);
     const sorted = [...allStudents]
       .filter(s => s['Student ID'] && s['Student ID'].match(/^HJ\d+$/i))
       .sort((a, b) => getGrade(b) - getGrade(a));
@@ -1554,13 +1555,9 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
   
       <HyojiHelper page="home" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
 
-      <HyojiHelper page="badges" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
 
-      <HyojiHelper page="gratitude" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
 
-      <HyojiHelper page="grades" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
 
-      <HyojiHelper page="profile" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
       <NavBar />
       </div>
     );
@@ -1725,6 +1722,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           )}
 
         </div>
+        <HyojiHelper page="badges" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={0} />
         <NavBar />
       </div>
     );
@@ -1845,6 +1843,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             )}
           </div>
         </div>
+        <HyojiHelper page="gratitude" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={0} />
         <NavBar />
       </div>
     );
@@ -1932,6 +1931,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 </div>
         </div>
       </div>
+      <HyojiHelper page="grades" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={0} />
       <NavBar />
     </div>
   );
@@ -2233,6 +2233,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             <ChevronRight className="w-6 h-6" />
           </button>
         </div>
+        <HyojiHelper page="profile" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={0} />
         <NavBar />
       </div>
     );
