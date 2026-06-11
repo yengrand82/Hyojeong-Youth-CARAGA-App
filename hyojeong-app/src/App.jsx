@@ -1216,8 +1216,10 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     };
 
     const getGrade = (s) => {
-      const g = parseFloat(s['HJ Grade']) || 0;
-      return g > 1 ? g : Math.round(g * 100);
+      const att = s.sessions ? Math.round((s.sessions.filter(x=>x===true).length / TOTAL_SESSIONS) * 100) : 0;
+      const svc = (() => { const v = s['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })();
+      const quiz = Math.min(100, Math.round(s['HJ Quiz']||0));
+      return Math.round((att + svc + quiz) / 3);
     };
 
     if (!allStudents || allStudents.length === 0) return (<div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 flex items-center justify-center"><div style={{background:'white',borderRadius:20,padding:24,textAlign:'center'}}><p style={{fontSize:18,fontWeight:700,color:'#7C3AED'}}>Loading rankings...</p><p style={{color:'#9CA3AF',fontSize:13}}>Please go back and try again</p><button onClick={()=>setCurrentPage('home')} style={{marginTop:12,background:'#7C3AED',color:'white',border:'none',borderRadius:12,padding:'10px 20px',cursor:'pointer',fontWeight:600}}>Go Home</button></div></div>);
