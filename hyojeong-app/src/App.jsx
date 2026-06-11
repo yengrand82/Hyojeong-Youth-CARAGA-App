@@ -337,9 +337,7 @@ const App = () => {
     photoUrl: ''
   });
 
-  useEffect(() => {
-    loadStudents();
-  }, []);
+  // Students loaded on login click, not on startup
 
   // Update earned badges when student data or entries change
   useEffect(() => {
