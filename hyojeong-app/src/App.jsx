@@ -329,6 +329,8 @@ const App = () => {
   const [editingProfile, setEditingProfile] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [hasSeenCelebration, setHasSeenCelebration] = useState(false);
+  const [leaderboardTab, setLeaderboardTab] = useState('overall');
+  const [leaderboardTeam, setLeaderboardTeam] = useState('MARC');
   const [tempProfile, setTempProfile] = useState({
     dateOfBirth: '',
     address: '',
@@ -1192,8 +1194,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 
   // LEADERBOARD PAGE
   if (currentPage === 'leaderboard' && studentData) {
-    const [activeTab, setActiveTab] = React.useState('overall');
-    const [activeTeam, setActiveTeam] = React.useState('MARC');
 
     const getXP = (s) => {
       const att = s.sessions ? Math.round((s.sessions.filter(x=>x===true).length / TOTAL_SESSIONS) * 100) : 0;
@@ -1212,8 +1212,8 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
       .filter(s => s['Student ID'] && s['Student ID'].match(/^HJ\d+$/i))
       .sort((a, b) => getGrade(b) - getGrade(a));
 
-    const teamSorted = sorted.filter(s => (s['TEAM']||'').toUpperCase() === activeTeam.toUpperCase());
-    const displayList = activeTab === 'overall' ? sorted.slice(0, 20) : teamSorted.slice(0, 20);
+    const teamSorted = sorted.filter(s => (s['TEAM']||'').toUpperCase() === leaderboardTeam.toUpperCase());
+    const displayList = leaderboardTab === 'overall' ? sorted.slice(0, 20) : teamSorted.slice(0, 20);
     const myRank = sorted.findIndex(s => s['Student ID'] === studentData['Student ID']) + 1;
     const myTeamRank = teamSorted.findIndex(s => s['Student ID'] === studentData['Student ID']) + 1;
 
@@ -1252,19 +1252,19 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 
           {/* Tabs */}
           <div style={{background:'white', borderRadius:16, padding:6, marginBottom:12, display:'flex', gap:6, boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
-            <button onClick={() => setActiveTab('overall')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: activeTab==='overall' ? '#7C3AED' : 'transparent', color: activeTab==='overall' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
+            <button onClick={() => setLeaderboardTab('overall')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: activeTab==='overall' ? '#7C3AED' : 'transparent', color: activeTab==='overall' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
               🌍 Overall
             </button>
-            <button onClick={() => setActiveTab('team')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: activeTab==='team' ? '#7C3AED' : 'transparent', color: activeTab==='team' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
+            <button onClick={() => setLeaderboardTab('team')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: activeTab==='team' ? '#7C3AED' : 'transparent', color: activeTab==='team' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
               👥 By Team
             </button>
           </div>
 
           {/* Team selector */}
-          {activeTab === 'team' && (
+          {leaderboardTab === 'team' && (
             <div style={{display:'flex', gap:8, marginBottom:12}}>
               {['MARC', 'BASSEL', 'KYRRA'].map(team => (
-                <button key={team} onClick={() => setActiveTeam(team)} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: activeTeam===team ? '#EC4899' : 'white', color: activeTeam===team ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer', boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
+                <button key={team} onClick={() => setLeaderboardTeam(team)} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: leaderboardTeam===team ? '#EC4899' : 'white', color: leaderboardTeam===team ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer', boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
                   {team}
                 </button>
               ))}
