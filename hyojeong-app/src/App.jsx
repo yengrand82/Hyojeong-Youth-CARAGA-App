@@ -1783,15 +1783,17 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
         <div className="p-4">
           <h1 className="text-3xl font-black text-white mb-4">💖 Gratitude Journal</h1>
 
-          <div style={{background:'white',borderRadius:20,padding:'16px 20px',marginBottom:12,boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-              <div>
-                <p style={{fontSize:12,color:'#9CA3AF',margin:0}}>Current streak</p>
-                <p style={{fontSize:28,fontWeight:800,color:'#E85D04',margin:0}}>🔥 {streak} {streak===1?'day':'days'}</p>
+          <div style={{background:'white',borderRadius:20,padding:'20px',marginBottom:12,boxShadow:'0 4px 16px rgba(0,0,0,0.1)'}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+              <div style={{background:'linear-gradient(135deg,#FEF3C7,#FDE68A)',borderRadius:16,padding:'16px',textAlign:'center'}}>
+                <p style={{fontSize:13,color:'#92400E',margin:'0 0 4px',fontWeight:600}}>🔥 Current Streak</p>
+                <p style={{fontSize:36,fontWeight:800,color:'#E85D04',margin:0,lineHeight:1}}>{streak}</p>
+                <p style={{fontSize:13,color:'#B45309',margin:'2px 0 0',fontWeight:600}}>{streak===1?'day':'days'}</p>
               </div>
-              <div style={{textAlign:'right'}}>
-                <p style={{fontSize:12,color:'#9CA3AF',margin:0}}>Total entries</p>
-                <p style={{fontSize:22,fontWeight:700,color:'#7C3AED',margin:0}}>{myGratitudeEntries.length}</p>
+              <div style={{background:'linear-gradient(135deg,#EDE9FE,#DDD6FE)',borderRadius:16,padding:'16px',textAlign:'center'}}>
+                <p style={{fontSize:13,color:'#5B21B6',margin:'0 0 4px',fontWeight:600}}>💗 Total Entries</p>
+                <p style={{fontSize:36,fontWeight:800,color:'#7C3AED',margin:0,lineHeight:1}}>{myGratitudeEntries.length}</p>
+                <p style={{fontSize:13,color:'#7C3AED',margin:'2px 0 0',fontWeight:600}}>entries</p>
               </div>
             </div>
             <p style={{fontSize:11,fontWeight:600,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.08em',margin:'0 0 8px'}}>Last 21 days</p>
@@ -1821,7 +1823,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <Heart className="w-6 h-6 text-pink-500" />
-              <h2 className="text-xl font-black text-gray-800">Write Your Reflection</h2>
+              <h2 className="text-xl font-black text-gray-800">Write Your Gratitude</h2>
             </div>
             
             <div>
