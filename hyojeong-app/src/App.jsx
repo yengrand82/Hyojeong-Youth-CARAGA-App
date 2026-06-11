@@ -643,8 +643,18 @@ const App = () => {
       return;
     }
     
+    let students = allStudents;
+    if (!students || students.length === 0) {
+      setLoading(true);
+      try {
+        const response = await fetch(API_URL + '?action=getStudents');
+        const data = await response.json();
+        if (data.success) { students = data.students; setAllStudents(data.students); }
+      } catch (err) { setError('Connection error. Please try again.'); setLoading(false); return; }
+      setLoading(false);
+    }
     const searchId = studentId.trim().toUpperCase();
-    const student = allStudents.find(s => (s['Student ID'] || '').toString().trim().toUpperCase() === searchId);
+    const student = students.find(s => (s['Student ID'] || '').toString().trim().toUpperCase() === searchId);
     
     if (!student) { 
       setError('Student ID not found. Please check and try again.'); 
@@ -658,11 +668,15 @@ const App = () => {
       return;
     }
     
-    setStudentData(student); 
-    setIsAdmin(false); 
+    setLoading(true);
+    setStudentData(student);
+    setIsAdmin(false);
+    await Promise.all([
+      loadMyGratitudeEntries(student['Student ID']),
+      loadStudentProgress(student['Student ID'])
+    ]);
+    setLoading(false);
     setCurrentPage('home');
-    loadMyGratitudeEntries(student['Student ID']);
-    loadStudentProgress(student['Student ID']);
   };
 
   const handleAdminLogin = () => {
