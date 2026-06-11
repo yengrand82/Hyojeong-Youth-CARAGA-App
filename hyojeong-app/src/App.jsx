@@ -643,18 +643,8 @@ const App = () => {
       return;
     }
     
-    let students = allStudents;
-    if (!students || students.length === 0) {
-      setLoading(true);
-      try {
-        const response = await fetch(API_URL + '?action=getStudents');
-        const data = await response.json();
-        if (data.success) { students = data.students; setAllStudents(data.students); }
-      } catch (err) { setError('Connection error. Please try again.'); setLoading(false); return; }
-      setLoading(false);
-    }
     const searchId = studentId.trim().toUpperCase();
-    const student = students.find(s => (s['Student ID'] || '').toString().trim().toUpperCase() === searchId);
+    const student = allStudents.find(s => (s['Student ID'] || '').toString().trim().toUpperCase() === searchId);
     
     if (!student) { 
       setError('Student ID not found. Please check and try again.'); 
@@ -668,15 +658,11 @@ const App = () => {
       return;
     }
     
-    setLoading(true);
-    setStudentData(student);
-    setIsAdmin(false);
-    await Promise.all([
-      loadMyGratitudeEntries(student['Student ID']),
-      loadStudentProgress(student['Student ID'])
-    ]);
-    setLoading(false);
+    setStudentData(student); 
+    setIsAdmin(false); 
     setCurrentPage('home');
+    loadMyGratitudeEntries(student['Student ID']);
+    loadStudentProgress(student['Student ID']);
   };
 
   const handleAdminLogin = () => {
@@ -1265,10 +1251,10 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 
           {/* Tabs */}
           <div style={{background:'white', borderRadius:16, padding:6, marginBottom:12, display:'flex', gap:6, boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
-            <button onClick={() => setLeaderboardTab('overall')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: leaderboardTab==='overall' ? '#7C3AED' : 'transparent', color: leaderboardTab==='overall' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
+            <button onClick={() => setLeaderboardTab('overall')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: activeTab==='overall' ? '#7C3AED' : 'transparent', color: activeTab==='overall' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
               🌍 Overall
             </button>
-            <button onClick={() => setLeaderboardTab('team')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: leaderboardTab==='team' ? '#7C3AED' : 'transparent', color: leaderboardTab==='team' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
+            <button onClick={() => setLeaderboardTab('team')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: activeTab==='team' ? '#7C3AED' : 'transparent', color: activeTab==='team' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
               👥 By Team
             </button>
           </div>
@@ -1742,88 +1728,19 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 
     // GRATITUDE PAGE
   if (currentPage === 'gratitude' && studentData) {
+    // Get age-appropriate prompt based on session number
     const currentSessionNum = selectedSession ? parseInt(selectedSession.replace('Session ', '')) : 1;
     const weeklyPrompt = getWeeklyGratitudePrompt(studentData['Age'] || 15, currentSessionNum);
-
-    const today = new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
-    const submittedToday = myGratitudeEntries.some(entry => {
-      if (!entry.timestamp) return false;
-      try { return new Date(entry.timestamp).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' }) === today; }
-      catch(e) { return false; }
-    });
-
-    let streak = 0;
-    let checkDate = new Date(); checkDate.setHours(0,0,0,0);
-    for (let i = 0; i < 30; i++) {
-      const dateStr = checkDate.toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
-      const hasEntry = myGratitudeEntries.some(entry => {
-        if (!entry.timestamp) return false;
-        try { return new Date(entry.timestamp).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' }) === dateStr; }
-        catch(e) { return false; }
-      });
-      if (hasEntry) { streak++; checkDate.setDate(checkDate.getDate() - 1); }
-      else if (i === 0) { checkDate.setDate(checkDate.getDate() - 1); }
-      else { break; }
-    }
-
-    const calendarDays = [];
-    for (let i = 20; i >= 0; i--) {
-      const d = new Date(); d.setDate(d.getDate() - i);
-      const dateStr = d.toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
-      const hasEntry = myGratitudeEntries.some(entry => {
-        if (!entry.timestamp) return false;
-        try { return new Date(entry.timestamp).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' }) === dateStr; }
-        catch(e) { return false; }
-      });
-      calendarDays.push({ dateStr, hasEntry, isToday: i === 0 });
-    }
-
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
         <div className="p-4">
           <h1 className="text-3xl font-black text-white mb-4">💖 Gratitude Journal</h1>
-
-          <div style={{background:'white',borderRadius:20,padding:'20px',marginBottom:12,boxShadow:'0 4px 16px rgba(0,0,0,0.1)'}}>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
-              <div style={{background:'linear-gradient(135deg,#FEF3C7,#FDE68A)',borderRadius:16,padding:'16px',textAlign:'center'}}>
-                <p style={{fontSize:13,color:'#92400E',margin:'0 0 4px',fontWeight:600}}>🔥 Current Streak</p>
-                <p style={{fontSize:36,fontWeight:800,color:'#E85D04',margin:0,lineHeight:1}}>{streak}</p>
-                <p style={{fontSize:13,color:'#B45309',margin:'2px 0 0',fontWeight:600}}>{streak===1?'day':'days'}</p>
-              </div>
-              <div style={{background:'linear-gradient(135deg,#EDE9FE,#DDD6FE)',borderRadius:16,padding:'16px',textAlign:'center'}}>
-                <p style={{fontSize:13,color:'#5B21B6',margin:'0 0 4px',fontWeight:600}}>💗 Total Entries</p>
-                <p style={{fontSize:36,fontWeight:800,color:'#7C3AED',margin:0,lineHeight:1}}>{myGratitudeEntries.length}</p>
-                <p style={{fontSize:13,color:'#7C3AED',margin:'2px 0 0',fontWeight:600}}>entries</p>
-              </div>
-            </div>
-            <p style={{fontSize:11,fontWeight:600,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.08em',margin:'0 0 8px'}}>Last 21 days</p>
-            <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
-              {calendarDays.map((day,idx) => (
-                <div key={idx} style={{width:28,height:28,borderRadius:6,background:day.hasEntry?'#7C3AED':day.isToday?'#FEF3C7':'#F3F4F6',border:day.isToday?'2px solid #F59E0B':'none',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:day.hasEntry?'white':'#9CA3AF'}}>
-                  {day.hasEntry?'✓':day.isToday?'•':''}
-                </div>
-              ))}
-            </div>
-            <div style={{display:'flex',gap:12,marginTop:8}}>
-              <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#7C3AED'}}></div><span style={{fontSize:11,color:'#9CA3AF'}}>Submitted</span></div>
-              <div style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:12,height:12,borderRadius:3,background:'#FEF3C7',border:'1px solid #F59E0B'}}></div><span style={{fontSize:11,color:'#9CA3AF'}}>Today</span></div>
-            </div>
-          </div>
-
-          {submittedToday && (
-            <div style={{background:'#FEF3C7',borderRadius:16,padding:'12px 16px',marginBottom:12,border:'2px solid #F59E0B',display:'flex',alignItems:'center',gap:10}}>
-              <span style={{fontSize:20}}>⚠️</span>
-              <div>
-                <p style={{fontWeight:700,fontSize:13,color:'#92400E',margin:0}}>Already submitted today!</p>
-                <p style={{fontSize:12,color:'#B45309',margin:0}}>Come back tomorrow to keep your streak going! 🔥</p>
-              </div>
-            </div>
-          )}
           
           <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white space-y-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <Heart className="w-6 h-6 text-pink-500" />
-              <h2 className="text-xl font-black text-gray-800">Write Your Gratitude</h2>
+              <h2 className="text-xl font-black text-gray-800">Write Your Reflection</h2>
             </div>
             
             <div>
@@ -1880,10 +1797,10 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             {error && <div className="p-3 bg-red-50 border-2 border-red-300 rounded-xl text-red-600 text-sm font-semibold">{error}</div>}
             <button 
               onClick={handleGratitudeSubmit} 
-              disabled={loading || submittedToday}
+              disabled={loading}
               className="w-full px-6 py-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
             >
-              {loading ? 'Submitting...' : submittedToday ? 'Come Back Tomorrow! 🔥' : '✨ Submit Reflection'}
+              {loading ? 'Submitting...' : '✨ Submit Reflection'}
             </button>
           </div>
 
