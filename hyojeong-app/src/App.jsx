@@ -628,7 +628,7 @@ const App = () => {
       .slice(0, 10);
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
     if (!studentId.trim()) { 
       setError('Please enter your Student ID'); 
@@ -643,8 +643,18 @@ const App = () => {
       return;
     }
     
+    let students = allStudents;
+    if (!students || students.length === 0) {
+      setLoading(true);
+      try {
+        const response = await fetch(API_URL + '?action=getStudents');
+        const data = await response.json();
+        if (data.success) { students = data.students; setAllStudents(data.students); }
+      } catch (err) { setError('Connection error. Please try again.'); setLoading(false); return; }
+      setLoading(false);
+    }
     const searchId = studentId.trim().toUpperCase();
-    const student = allStudents.find(s => (s['Student ID'] || '').toString().trim().toUpperCase() === searchId);
+    const student = students.find(s => (s['Student ID'] || '').toString().trim().toUpperCase() === searchId);
     
     if (!student) { 
       setError('Student ID not found. Please check and try again.'); 
