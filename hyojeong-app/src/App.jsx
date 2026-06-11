@@ -214,6 +214,73 @@ const BADGES = [
   { id: 'loving_heart', name: 'Loving Heart', icon: '❤️', desc: 'All 3 goals set', type: 'goals', goalsSet: 3, color: 'from-red-400 to-pink-400' }
 ];
 
+
+// Hyoji floating helper component
+const HyojiHelper = ({ page, studentData, earnedBadges, BADGES, growthPercentage }) => {
+  const [open, setOpen] = React.useState(false);
+  const [bounce, setBounce] = React.useState(false);
+
+  React.useEffect(() => {
+    setBounce(true);
+    const t = setTimeout(() => setBounce(false), 1000);
+    return () => clearTimeout(t);
+  }, [page]);
+
+  const tips = {
+    home: growthPercentage >= 76 ? "You're almost a Filial Heart! Keep it up! 👑" :
+          growthPercentage >= 51 ? "You're a Loving Heart! Push for Filial Heart! 💜" :
+          growthPercentage >= 26 ? "You're a Faithful Heart! Keep growing! 🙏" :
+          "Welcome! Complete sessions to grow your heart! 🕊️",
+    badges: earnedBadges.length === BADGES.length ? "You earned ALL badges! You're a Heart Champion! 🏆" :
+            `${BADGES.length - earnedBadges.length} more badges to unlock! Keep going! 💪`,
+    gratitude: "Writing gratitude every session earns +80 XP! ✍️",
+    grades: growthPercentage >= 75 ? "Amazing grades! You're shining bright! ⭐" :
+            "Keep attending sessions to boost your score! 📈",
+    profile: "Complete your profile so your team knows you! 😊",
+  };
+
+  const tip = tips[page] || "Keep growing your heart! 💜";
+
+  return (
+    <div style={{position:'fixed', bottom:80, right:16, zIndex:999}}>
+      {open && (
+        <div style={{background:'white', borderRadius:'16px 16px 4px 16px', padding:'12px 16px', marginBottom:8, boxShadow:'0 4px 20px rgba(0,0,0,0.15)', maxWidth:200, animation:'hyojiTipFade 0.3s ease-out'}}>
+          <p style={{margin:0, fontSize:13, fontWeight:600, color:'#db2777', marginBottom:4}}>Hyoji says:</p>
+          <p style={{margin:0, fontSize:12, color:'#4B5563', lineHeight:1.4}}>{tip}</p>
+        </div>
+      )}
+      <button
+        onClick={() => setOpen(!open)}
+        style={{width:56, height:56, borderRadius:'50%', border:'none', background:'linear-gradient(135deg,#f9a8d4,#ec4899)', cursor:'pointer', boxShadow:'0 4px 16px rgba(236,72,153,0.4)', display:'flex', alignItems:'center', justifyContent:'center', animation: bounce ? 'hyojiBtnBounce 0.5s ease-out' : 'hyojiBtnFloat 3s ease-in-out infinite', padding:0}}
+      >
+        <svg width="36" height="40" viewBox="0 0 120 130">
+          <defs>
+            <radialGradient id="hbtn" cx="50%" cy="40%" r="60%">
+              <stop offset="0%" stopColor="#fce7f3"/>
+              <stop offset="100%" stopColor="#f9a8d4"/>
+            </radialGradient>
+          </defs>
+          <path d="M60 100 C20 75 10 50 15 35 C20 20 35 15 48 22 C52 24 56 28 60 32 C64 28 68 24 72 22 C85 15 100 20 105 35 C110 50 100 75 60 100Z" fill="url(#hbtn)" stroke="#db2777" strokeWidth="2"/>
+          <ellipse cx="42" cy="52" rx="7" ry="8" fill="white"/>
+          <ellipse cx="43" cy="53" rx="4" ry="4.5" fill="#1F2937"/>
+          <ellipse cx="44.5" cy="51.5" rx="1.5" ry="1.5" fill="white"/>
+          <ellipse cx="78" cy="52" rx="7" ry="8" fill="white"/>
+          <ellipse cx="79" cy="53" rx="4" ry="4.5" fill="#1F2937"/>
+          <ellipse cx="80.5" cy="51.5" rx="1.5" ry="1.5" fill="white"/>
+          <ellipse cx="35" cy="64" rx="5" ry="3.5" fill="#fde68a" opacity="0.9"/>
+          <ellipse cx="85" cy="64" rx="5" ry="3.5" fill="#fde68a" opacity="0.9"/>
+          <path d="M52 70 Q60 78 68 70" stroke="#9d174d" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+        </svg>
+      </button>
+      <style>{`
+        @keyframes hyojiBtnFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+        @keyframes hyojiBtnBounce { 0%{transform:scale(1)} 30%{transform:scale(1.2)} 60%{transform:scale(0.95)} 100%{transform:scale(1)} }
+        @keyframes hyojiTipFade { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+      `}</style>
+    </div>
+  );
+};
+
 const App = () => {
   const [currentPage, setCurrentPage] = useState('login');
   const [studentId, setStudentId] = useState('');
@@ -1016,9 +1083,82 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           
           <h2 className="text-2xl font-black text-gray-800 mb-6 text-center relative z-10">Welcome Back!</h2>
           {loading ? (
-            <div className="text-center py-8">
-              <RefreshCw className="w-8 h-8 text-purple-600 animate-spin mx-auto mb-2" />
-              <p className="text-gray-600">Loading students...</p>
+            <div style={{minHeight:'320px', background:'linear-gradient(135deg,#c084fc 0%,#f9a8d4 50%,#93c5fd 100%)', borderRadius:20, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 20px', margin:'8px 0'}}>
+              <style>{`
+                @keyframes hyojiBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+                @keyframes hyojiPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+                @keyframes hyojiBlink { 0%,90%,100%{transform:scaleY(1)} 95%{transform:scaleY(0.1)} }
+                @keyframes hyojiDot1 { 0%,80%,100%{opacity:0.3;transform:scale(0.8)} 40%{opacity:1;transform:scale(1.2)} }
+                @keyframes hyojiDot2 { 0%,80%,100%{opacity:0.3;transform:scale(0.8)} 40%{opacity:1;transform:scale(1.2)} }
+                @keyframes hyojiDot3 { 0%,80%,100%{opacity:0.3;transform:scale(0.8)} 40%{opacity:1;transform:scale(1.2)} }
+                @keyframes hyojiSparkle { 0%,100%{opacity:0;transform:scale(0) rotate(0deg)} 50%{opacity:1;transform:scale(1) rotate(180deg)} }
+                @keyframes hyojiWave { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(20deg)} 75%{transform:rotate(-10deg)} }
+                .hyoji-mascot { animation: hyojiBounce 1.2s ease-in-out infinite; }
+                .hyoji-body { animation: hyojiPulse 1.2s ease-in-out infinite; }
+                .hyoji-eye { animation: hyojiBlink 3s ease-in-out infinite; transform-origin: center; }
+                .hyoji-sp1 { animation: hyojiSparkle 2s ease-in-out infinite 0s; }
+                .hyoji-sp2 { animation: hyojiSparkle 2s ease-in-out infinite 0.6s; }
+                .hyoji-sp3 { animation: hyojiSparkle 2s ease-in-out infinite 1.2s; }
+                .hyoji-d1 { animation: hyojiDot1 1.4s ease-in-out infinite 0s; }
+                .hyoji-d2 { animation: hyojiDot2 1.4s ease-in-out infinite 0.2s; }
+                .hyoji-d3 { animation: hyojiDot3 1.4s ease-in-out infinite 0.4s; }
+                .hyoji-wave { animation: hyojiWave 1s ease-in-out infinite; transform-origin: bottom center; display:inline-block; }
+              `}</style>
+
+              <div style={{position:'relative', marginBottom:8}}>
+                <div style={{background:'white', borderRadius:'20px 20px 20px 4px', padding:'10px 16px', marginBottom:8, boxShadow:'0 2px 12px rgba(0,0,0,0.1)'}}>
+                  <p style={{margin:0, fontSize:14, fontWeight:700, color:'#db2777'}}>Hi! I'm Hyoji <span className="hyoji-wave">👋</span></p>
+                  <p style={{margin:'2px 0 0', fontSize:12, color:'#9CA3AF'}}>Loading your heart journey...</p>
+                </div>
+
+                <div className="hyoji-mascot" style={{position:'relative'}}>
+                  <div className="hyoji-sp1" style={{position:'absolute', top:-20, left:-10, fontSize:18}}>✨</div>
+                  <div className="hyoji-sp2" style={{position:'absolute', top:-15, right:-8, fontSize:14}}>⭐</div>
+                  <div className="hyoji-sp3" style={{position:'absolute', bottom:10, right:-20, fontSize:12}}>💫</div>
+
+                  <svg width="120" height="130" viewBox="0 0 120 130">
+                    <defs>
+                      <radialGradient id="hbg" cx="50%" cy="40%" r="60%">
+                        <stop offset="0%" stopColor="#f9a8d4"/>
+                        <stop offset="100%" stopColor="#ec4899"/>
+                      </radialGradient>
+                      <radialGradient id="hck" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stopColor="#fde68a"/>
+                        <stop offset="100%" stopColor="#f59e0b"/>
+                      </radialGradient>
+                    </defs>
+                    <g className="hyoji-body">
+                      <path d="M60 100 C20 75 10 50 15 35 C20 20 35 15 48 22 C52 24 56 28 60 32 C64 28 68 24 72 22 C85 15 100 20 105 35 C110 50 100 75 60 100Z" fill="url(#hbg)" stroke="#db2777" strokeWidth="1.5"/>
+                      <path d="M60 95 C25 72 16 50 20 37 C24 24 37 20 49 26 C53 28 57 31 60 35 C63 31 67 28 71 26 C83 20 96 24 100 37 C104 50 95 72 60 95Z" fill="#fbcfe8" opacity="0.4"/>
+                    </g>
+                    <g className="hyoji-eye" style={{transformOrigin:'42px 52px'}}>
+                      <ellipse cx="42" cy="52" rx="7" ry="8" fill="white"/>
+                      <ellipse cx="43" cy="53" rx="4" ry="4.5" fill="#1F2937"/>
+                      <ellipse cx="44.5" cy="51.5" rx="1.5" ry="1.5" fill="white"/>
+                    </g>
+                    <g className="hyoji-eye" style={{transformOrigin:'78px 52px'}}>
+                      <ellipse cx="78" cy="52" rx="7" ry="8" fill="white"/>
+                      <ellipse cx="79" cy="53" rx="4" ry="4.5" fill="#1F2937"/>
+                      <ellipse cx="80.5" cy="51.5" rx="1.5" ry="1.5" fill="white"/>
+                    </g>
+                    <ellipse cx="35" cy="64" rx="6" ry="4" fill="url(#hck)" opacity="0.8"/>
+                    <ellipse cx="85" cy="64" rx="6" ry="4" fill="url(#hck)" opacity="0.8"/>
+                    <path d="M52 70 Q60 78 68 70" stroke="#9d174d" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+                    <ellipse cx="35" cy="88" rx="10" ry="6" fill="#ec4899" opacity="0.6" transform="rotate(-20,35,88)"/>
+                    <ellipse cx="85" cy="88" rx="10" ry="6" fill="#ec4899" opacity="0.6" transform="rotate(20,85,88)"/>
+                    <path d="M50 105 Q60 115 70 105" stroke="#db2777" strokeWidth="3" fill="none" strokeLinecap="round"/>
+                    <ellipse cx="50" cy="108" rx="5" ry="4" fill="#fce7f3"/>
+                    <ellipse cx="70" cy="108" rx="5" ry="4" fill="#fce7f3"/>
+                  </svg>
+                </div>
+              </div>
+
+              <p style={{fontSize:13, color:'rgba(255,255,255,0.9)', margin:'8px 0 16px', fontStyle:'italic', textAlign:'center'}}>"Love is giving and forgetting." — True Father</p>
+              <div style={{display:'flex', gap:10, alignItems:'center'}}>
+                <div className="hyoji-d1" style={{width:12, height:12, borderRadius:'50%', background:'white'}}></div>
+                <div className="hyoji-d2" style={{width:12, height:12, borderRadius:'50%', background:'white', opacity:0.8}}></div>
+                <div className="hyoji-d3" style={{width:12, height:12, borderRadius:'50%', background:'white', opacity:0.6}}></div>
+              </div>
             </div>
           ) : (
             <>
@@ -1271,7 +1411,17 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           </div>
 
         </div>
-        <NavBar />
+  
+      <HyojiHelper page="home" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
+
+      <HyojiHelper page="badges" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
+
+      <HyojiHelper page="gratitude" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
+
+      <HyojiHelper page="grades" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
+
+      <HyojiHelper page="profile" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
+      <NavBar />
       </div>
     );
   }
