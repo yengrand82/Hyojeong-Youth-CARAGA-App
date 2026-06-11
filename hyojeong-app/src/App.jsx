@@ -337,7 +337,9 @@ const App = () => {
     photoUrl: ''
   });
 
-  // Students loaded on login click, not on startup
+  useEffect(() => {
+    loadStudents();
+  }, []);
 
   // Update earned badges when student data or entries change
   useEffect(() => {
@@ -628,7 +630,7 @@ const App = () => {
       .slice(0, 10);
   };
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
     setError('');
     if (!studentId.trim()) { 
       setError('Please enter your Student ID'); 
@@ -643,18 +645,8 @@ const App = () => {
       return;
     }
     
-    let students = allStudents;
-    if (!students || students.length === 0) {
-      setLoading(true);
-      try {
-        const response = await fetch(API_URL + '?action=getStudents');
-        const data = await response.json();
-        if (data.success) { students = data.students; setAllStudents(data.students); }
-      } catch (err) { setError('Connection error. Please try again.'); setLoading(false); return; }
-      setLoading(false);
-    }
     const searchId = studentId.trim().toUpperCase();
-    const student = students.find(s => (s['Student ID'] || '').toString().trim().toUpperCase() === searchId);
+    const student = allStudents.find(s => (s['Student ID'] || '').toString().trim().toUpperCase() === searchId);
     
     if (!student) { 
       setError('Student ID not found. Please check and try again.'); 
@@ -668,16 +660,11 @@ const App = () => {
       return;
     }
     
-    setLoading(true);
     setStudentData(student); 
-    setIsAdmin(false);
-    // Load all data before showing home page
-    await Promise.all([
-      loadMyGratitudeEntries(student['Student ID']),
-      loadStudentProgress(student['Student ID'])
-    ]);
-    setLoading(false);
+    setIsAdmin(false); 
     setCurrentPage('home');
+    loadMyGratitudeEntries(student['Student ID']);
+    loadStudentProgress(student['Student ID']);
   };
 
   const handleAdminLogin = () => {
