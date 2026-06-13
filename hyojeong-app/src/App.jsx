@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift, Target, UserPlus } from 'lucide-react';
+import { supabase } from './supabaseClient';
 
 // Google Apps Script Web App URL
 const API_URL = 'https://script.google.com/macros/s/AKfycbwOR5hWKdVW-pyZ79PAgT_-yqVYeak1X6GkFMTpdgXUss-aX7sqSMgnA7uUujCCqWC3hA/exec';
@@ -355,14 +356,31 @@ const App = () => {
     }
   }, [studentData, myGratitudeEntries, points, goals]);
 
-  const loadStudents = async () => {
+ const loadStudents = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}?action=getStudents`);
-      const data = await response.json();
-      if (data.success) {
-        setAllStudents(data.students);
+      // Fetch students from Supabase
+      const { data: rows, error } = await supabase
+        .from('students')
+        .select('*');
+      if (error) {
+        console.error('Supabase error loading students:', error);
+        return;
       }
+      // Translate Supabase columns -> field names the app expects
+      const translated = (rows || []).map(r => ({
+        'Student ID': r.student_id,
+        'Password': r.password,
+        'First Name': r.first_name,
+        'Last Name': r.last_name,
+        'Photo': r.photo_url,
+        'Date of Birth': r.date_of_birth,
+        'Age': r.age,
+        'Category': r.category,
+        'TEAM': r.team_id,
+        'HJ Service': r.hj_service_points,
+      }));
+      setAllStudents(translated);
     } catch (err) {
       console.error('Error loading students:', err);
     } finally {
@@ -1437,10 +1455,13 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   <p style={{fontSize:13, color:'#7C3AED', margin:0, fontWeight:500}}>{studentData['Student ID']} · {studentData['TEAM'] || 'No team'}</p>
                 </div>
               </div>
-              <div style={{textAlign:'center'}}>
-                <div style={{fontSize:26}} className="animate-bounce-slow">🔥</div>
-                <p style={{fontSize:12, fontWeight:600, color:'#E85D04', margin:0}}>{streakCount} entries</p>
-              </div>
+              <div style={{display:'flex', alignItems:'center', gap:10}}>
+                          <div style={{textAlign:'center'}}>
+                            <div style={{fontSize:26}} className="animate-bounce-slow">🔥</div>
+                            <p style={{fontSize:12, fontWeight:600, color:'#E85D04', margin:0}}>{streakCount} entries</p>
+                          </div>
+                          <button onClick={handleLogout} style={{fontSize:12, fontWeight:600, color:'#7C3AED', background:'#F3E8FF', border:'none', padding:'8px 12px', borderRadius:12, cursor:'pointer'}}>Logout</button>
+                        </div>
             </div>
           </div>
 
