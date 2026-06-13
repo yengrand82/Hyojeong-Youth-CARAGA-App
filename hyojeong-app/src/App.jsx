@@ -390,11 +390,23 @@ const App = () => {
 
   const loadMyGratitudeEntries = async (studId) => {
     try {
-      const response = await fetch(`${API_URL}?action=getMyGratitudeEntries&studentId=${studId}`);
-      const data = await response.json();
-      if (data.success) {
-        setMyGratitudeEntries(data.entries);
+      const { data: rows, error } = await supabase
+        .from('gratitude')
+        .select('*')
+        .eq('student_id', studId);
+      if (error) {
+        console.error('Supabase error loading gratitude:', error);
+        return;
       }
+      // Translate Supabase rows -> field names the app expects
+      const translated = (rows || []).map(r => ({
+        studentId: r.student_id,
+        session: `Session ${r.session_number}`,
+        content: r.entry_text,
+        timestamp: r.date_submitted,
+        adminRemark: r.admin_remark
+      }));
+      setMyGratitudeEntries(translated);
     } catch (err) {
       console.error('Error:', err);
     }
@@ -432,12 +444,9 @@ const App = () => {
   };
 
   const updateProgress = async (updates) => {
+    // Points/badges/goals saving is temporarily disabled during Supabase migration.
+    // Local display still updates; persistence will be rewired to Supabase later.
     try {
-      await fetch(`${API_URL}?action=updateProgress`, {
-        method: 'POST',
-        body: JSON.stringify({ studentId: studentData['Student ID'], ...updates })
-      });
-      
       if (updates.addPoints) {
         setPoints(p => p + updates.addPoints);
       }
@@ -589,32 +598,31 @@ const App = () => {
   const handleSaveProfile = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}?action=updateStudentInfo`, {
-        method: 'POST',
-        body: JSON.stringify({
-          studentId: studentData['Student ID'],
-          dateOfBirth: tempProfile.dateOfBirth,
+      // Save profile fields to Supabase
+      const { error } = await supabase
+        .from('students')
+        .update({
+          date_of_birth: tempProfile.dateOfBirth || null,
           address: tempProfile.address,
-          photoUrl: tempProfile.photoUrl
+          photo_url: tempProfile.photoUrl
         })
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        // Update local student data
-        setStudentData(prev => ({
-          ...prev,
-          'Date of Birth': tempProfile.dateOfBirth,
-          'Address': tempProfile.address,
-          'Photo': tempProfile.photoUrl,
-          'Age': data.age,
-          'Category': data.category
-        }));
-        setEditingProfile(false);
-        alert('✅ Profile updated successfully!');
-      } else {
-        alert('Failed to update profile: ' + data.error);
+        .eq('student_id', studentData['Student ID']);
+
+      if (error) {
+        console.error('Supabase error updating profile:', error);
+        alert('Failed to update profile: ' + error.message);
+        return;
       }
+
+      // Update local display
+      setStudentData(prev => ({
+        ...prev,
+        'Date of Birth': tempProfile.dateOfBirth,
+        'Address': tempProfile.address,
+        'Photo': tempProfile.photoUrl
+      }));
+      setEditingProfile(false);
+      alert('✅ Profile updated successfully!');
     } catch (err) {
       console.error('Error updating profile:', err);
       alert('Failed to update profile. Please try again.');
@@ -747,12 +755,37 @@ const App = () => {
         isUpdate: !!existingEntry // Flag to indicate if this is an update
       };
       
-      const response = await fetch(`${API_URL}?action=submitGratitude`, {
-        method: 'POST',
-        body: JSON.stringify(submission)
-      });
-      
-      const data = await response.json();
+     // Save gratitude to Supabase — check the DATABASE for an existing row, not the in-memory list
+      const sessionNum = parseInt(String(selectedSession).replace(/\D/g, ''), 10);
+      let saveError = null;
+
+      const { data: existingRows } = await supabase
+        .from('gratitude')
+        .select('id')
+        .eq('student_id', studentData['Student ID'])
+        .eq('session_number', sessionNum);
+
+      const reallyExists = existingRows && existingRows.length > 0;
+
+      if (reallyExists) {
+        const { error } = await supabase
+          .from('gratitude')
+          .update({ entry_text: gratitudeText })
+          .eq('student_id', studentData['Student ID'])
+          .eq('session_number', sessionNum);
+        saveError = error;
+      } else {
+        const { error } = await supabase
+          .from('gratitude')
+          .insert({
+            student_id: studentData['Student ID'],
+            session_number: sessionNum,
+            entry_text: gratitudeText
+          });
+        saveError = error;
+      }
+
+      const data = { success: !saveError, error: saveError?.message };
       if (data.success) {
         // Only award points if it's a NEW entry (not an update)
         if (!existingEntry) {
