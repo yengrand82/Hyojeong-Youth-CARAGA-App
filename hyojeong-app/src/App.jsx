@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift, Target, UserPlus } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
-// Google Apps Script Web App URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbwOR5hWKdVW-pyZ79PAgT_-yqVYeak1X6GkFMTpdgXUss-aX7sqSMgnA7uUujCCqWC3hA/exec';
-const TOTAL_SESSIONS = 21; // Change this number for each program// Inspirational Quotes - True Parents & Bible Verses
+const TOTAL_SESSIONS = 21; // Change this number for each program
+
+// Inspirational Quotes - True Parents & Bible Verses
 const QUOTES = [
   // True Parents Quotes
   { quote: "Love is giving and forgetting. Love is investing and then forgetting about it.", author: "True Father" },
@@ -379,6 +379,11 @@ const App = () => {
         'Category': r.category,
         'TEAM': r.team_id,
         'HJ Service': r.hj_service_points,
+        'HJ Grade': r.hj_grade,
+        'HJ Attendance': r.hj_attendance,
+        'HJ Service Pct': r.hj_service_pct,
+        'HJ Quiz': r.hj_quiz,
+        'Percentage': r.percentage,
       }));
       setAllStudents(translated);
     } catch (err) {
@@ -414,26 +419,33 @@ const App = () => {
 
   const loadStudentProgress = async (studId) => {
     try {
-      const response = await fetch(`${API_URL}?action=getStudentProgress&studentId=${studId}`);
-      const data = await response.json();
-      if (data.success && data.progress) {
-        setPoints(data.progress.totalPoints || 0);
-        setEarnedBadges(data.progress.badgesEarned || []);
-        setAffirmation(data.progress.affirmation || '');
-        setGoals({
-          goal1: data.progress.goal1 || '',
-          goal2: data.progress.goal2 || '',
-          goal3: data.progress.goal3 || '',
-          goal1Status: data.progress.goal1Status || 'Not Set',
-          goal2Status: data.progress.goal2Status || 'Not Set',
-          goal3Status: data.progress.goal3Status || 'Not Set'
-        });
-      } else {
+      const { data: row, error } = await supabase
+        .from('students')
+        .select('total_points, affirmation, goal1, goal1_status, goal2, goal2_status, goal3, goal3_status')
+        .eq('student_id', studId)
+        .single();
+
+      if (error || !row) {
+        if (error) console.error('Supabase error loading progress:', error);
         setPoints(0);
         setEarnedBadges([]);
         setAffirmation('');
         setGoals({ goal1: '', goal2: '', goal3: '', goal1Status: 'Not Set', goal2Status: 'Not Set', goal3Status: 'Not Set' });
+        return;
       }
+
+      setPoints(row.total_points || 0);
+      // Badges are derived from activity elsewhere, so start empty here.
+      setEarnedBadges([]);
+      setAffirmation(row.affirmation || '');
+      setGoals({
+        goal1: row.goal1 || '',
+        goal2: row.goal2 || '',
+        goal3: row.goal3 || '',
+        goal1Status: row.goal1_status || 'Not Set',
+        goal2Status: row.goal2_status || 'Not Set',
+        goal3Status: row.goal3_status || 'Not Set'
+      });
     } catch (err) {
       console.error('Error loading progress:', err);
       setPoints(0);
@@ -444,11 +456,51 @@ const App = () => {
   };
 
   const updateProgress = async (updates) => {
-    // Points/badges/goals saving is temporarily disabled during Supabase migration.
-    // Local display still updates; persistence will be rewired to Supabase later.
     try {
+      const studId = studentData && studentData['Student ID'];
+      if (!studId) {
+        console.error('No logged-in student to save progress for');
+        return;
+      }
+
+      // Map incoming camelCase fields to the students table columns.
+      const colMap = {
+        affirmation: 'affirmation',
+        goal1: 'goal1',
+        goal2: 'goal2',
+        goal3: 'goal3',
+        goal1Status: 'goal1_status',
+        goal2Status: 'goal2_status',
+        goal3Status: 'goal3_status'
+      };
+
+      const payload = {};
+      Object.keys(colMap).forEach(key => {
+        if (updates[key] !== undefined) payload[colMap[key]] = updates[key];
+      });
+
+      // Points are additive: read current, add, write back.
+      let newPoints = points;
       if (updates.addPoints) {
-        setPoints(p => p + updates.addPoints);
+        newPoints = points + updates.addPoints;
+        payload.total_points = newPoints;
+      }
+
+      if (Object.keys(payload).length > 0) {
+        const { error } = await supabase
+          .from('students')
+          .update(payload)
+          .eq('student_id', studId);
+        if (error) {
+          console.error('Supabase error saving progress:', error);
+          alert('Failed to save: ' + error.message);
+          return;
+        }
+      }
+
+      // Update local points display after a successful write.
+      if (updates.addPoints) {
+        setPoints(newPoints);
       }
     } catch (err) {
       console.error('Error updating progress:', err);
@@ -514,13 +566,30 @@ const App = () => {
 
   const loadStudentProgressForAdmin = async (studId) => {
     try {
-      const response = await fetch(`${API_URL}?action=getStudentProgress&studentId=${studId}`);
-      const data = await response.json();
-      if (data.success && data.progress) {
-        setSelectedStudentProgress(data.progress);
-      } else {
+      const { data: row, error } = await supabase
+        .from('students')
+        .select('total_points, affirmation, goal1, goal1_status, goal2, goal2_status, goal3, goal3_status')
+        .eq('student_id', studId)
+        .single();
+
+      if (error || !row) {
+        if (error) console.error('Supabase error loading student progress:', error);
         setSelectedStudentProgress(null);
+        return;
       }
+
+      // Shape the row into the field names the admin view expects.
+      setSelectedStudentProgress({
+        totalPoints: row.total_points || 0,
+        badgesEarned: [],
+        affirmation: row.affirmation || '',
+        goal1: row.goal1 || '',
+        goal2: row.goal2 || '',
+        goal3: row.goal3 || '',
+        goal1Status: row.goal1_status || 'Not Set',
+        goal2Status: row.goal2_status || 'Not Set',
+        goal3Status: row.goal3_status || 'Not Set'
+      });
     } catch (err) {
       console.error('Error loading student progress:', err);
       setSelectedStudentProgress(null);
@@ -532,23 +601,64 @@ const App = () => {
       alert('Please enter first name and last name');
       return;
     }
-    
+    if (!newStudent.dateOfBirth) {
+      alert('Please enter date of birth');
+      return;
+    }
+
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}?action=addNewStudent`, {
-        method: 'POST',
-        body: JSON.stringify(newStudent)
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        alert(`✅ Student added successfully!\n\nStudent ID: ${data.studentId}\nPassword: ${data.password}\n\n⚠️ Please save this password! The student will need it to log in.`);
-        setNewStudent({ firstName: '', lastName: '', dateOfBirth: '', age: '', address: '', category: '', photoUrl: '' });
-        setShowAddStudentForm(false);
-        await loadStudents(); // Refresh student list
-      } else {
-        alert('Failed to add student: ' + data.error);
+
+      // 1. Generate the next Student ID by looking at existing IDs.
+      //    Assumes IDs look like "HJ001", "HJ002", ... Adjust PREFIX if yours differs.
+      const PREFIX = 'HJ';
+      const { data: existing, error: fetchErr } = await supabase
+        .from('students')
+        .select('student_id')
+        .like('student_id', `${PREFIX}%`);
+
+      if (fetchErr) {
+        console.error('Supabase error reading existing IDs:', fetchErr);
+        alert('Failed to generate Student ID: ' + fetchErr.message);
+        return;
       }
+
+      let maxNum = 0;
+      (existing || []).forEach(r => {
+        const n = parseInt(String(r.student_id).replace(PREFIX, ''), 10);
+        if (!isNaN(n) && n > maxNum) maxNum = n;
+      });
+      const studentId = `${PREFIX}${String(maxNum + 1).padStart(3, '0')}`;
+
+      // 2. Generate a simple login password.
+      const password = Math.random().toString(36).slice(-6).toUpperCase();
+
+      // 3. Insert the new student.
+      const { error: insertErr } = await supabase
+        .from('students')
+        .insert({
+          student_id: studentId,
+          password: password,
+          first_name: newStudent.firstName.trim(),
+          last_name: newStudent.lastName.trim(),
+          date_of_birth: newStudent.dateOfBirth || null,
+          age: newStudent.age ? parseInt(newStudent.age, 10) : null,
+          address: newStudent.address || null,
+          category: newStudent.category || null,
+          photo_url: newStudent.photoUrl || null,
+          hj_service_points: 0
+        });
+
+      if (insertErr) {
+        console.error('Supabase error adding student:', insertErr);
+        alert('Failed to add student: ' + insertErr.message);
+        return;
+      }
+
+      alert(`✅ Student added successfully!\n\nStudent ID: ${studentId}\nPassword: ${password}\n\n⚠️ Please save this password! The student will need it to log in.`);
+      setNewStudent({ firstName: '', lastName: '', dateOfBirth: '', age: '', address: '', category: '', photoUrl: '' });
+      setShowAddStudentForm(false);
+      await loadStudents(); // Refresh student list
     } catch (err) {
       console.error('Error adding student:', err);
       alert('Failed to add student. Please try again.');
@@ -635,13 +745,56 @@ const App = () => {
     try {
       setLoading(true);
       const sessionToLoad = session || 'Session 1';
-      const response = await fetch(`${API_URL}?action=getGratitudeEntries&session=${sessionToLoad}`);
-      const data = await response.json();
-      if (data.success) {
-        setAllGratitudeEntries(data.entries);
+      const sessionNum = parseInt(String(sessionToLoad).replace(/\D/g, ''), 10);
+
+      // Load all gratitude entries for this session from Supabase.
+      const { data: rows, error } = await supabase
+        .from('gratitude')
+        .select('*')
+        .eq('session_number', sessionNum);
+
+      if (error) {
+        console.error('Supabase error loading gratitude entries:', error);
+        setAllGratitudeEntries([]);
+        return;
       }
+
+      // Build a lookup of student names. Prefer already-loaded students,
+      // but fetch from Supabase if they aren't in memory yet so names
+      // always display instead of falling back to IDs.
+      let studentList = allStudents;
+      if (!studentList || studentList.length === 0) {
+        const { data: sRows } = await supabase
+          .from('students')
+          .select('student_id, first_name, last_name');
+        studentList = (sRows || []).map(s => ({
+          'Student ID': s.student_id,
+          'First Name': s.first_name,
+          'Last Name': s.last_name
+        }));
+      }
+      const nameById = {};
+      (studentList || []).forEach(s => {
+        nameById[s['Student ID']] = `${s['First Name'] || ''} ${s['Last Name'] || ''}`.trim();
+      });
+
+      // Translate Supabase rows -> the shape the admin panel expects.
+      // We carry student_id + session_number as the entry's identity so a
+      // remark can be written back to the correct row.
+      const translated = (rows || []).map(r => ({
+        studentId: r.student_id,
+        studentName: nameById[r.student_id] || r.student_id,
+        session: `Session ${r.session_number}`,
+        sessionNumber: r.session_number,
+        content: r.entry_text,
+        timestamp: r.date_submitted,
+        adminRemark: r.admin_remark
+      }));
+
+      setAllGratitudeEntries(translated);
     } catch (err) {
       console.error('Error:', err);
+      setAllGratitudeEntries([]);
     } finally {
       setLoading(false);
     }
@@ -673,10 +826,38 @@ const App = () => {
     if (!students || students.length === 0) {
       setLoading(true);
       try {
-        const response = await fetch(API_URL + '?action=getStudents');
-        const data = await response.json();
-        if (data.success) { students = data.students; setAllStudents(data.students); }
-      } catch (err) { setError('Connection error. Please try again.'); setLoading(false); return; }
+        const { data: rows, error } = await supabase
+          .from('students')
+          .select('*');
+        if (error) {
+          console.error('Supabase error loading students at login:', error);
+          setError('Connection error. Please try again.');
+          setLoading(false);
+          return;
+        }
+        students = (rows || []).map(r => ({
+          'Student ID': r.student_id,
+          'Password': r.password,
+          'First Name': r.first_name,
+          'Last Name': r.last_name,
+          'Photo': r.photo_url,
+          'Date of Birth': r.date_of_birth,
+          'Age': r.age,
+          'Category': r.category,
+          'TEAM': r.team_id,
+          'HJ Service': r.hj_service_points,
+          'HJ Grade': r.hj_grade,
+          'HJ Attendance': r.hj_attendance,
+          'HJ Service Pct': r.hj_service_pct,
+          'HJ Quiz': r.hj_quiz,
+          'Percentage': r.percentage,
+        }));
+        setAllStudents(students);
+      } catch (err) {
+        setError('Connection error. Please try again.');
+        setLoading(false);
+        return;
+      }
       setLoading(false);
     }
     const searchId = studentId.trim().toUpperCase();
@@ -710,6 +891,7 @@ const App = () => {
       setIsAdmin(true); 
       setCurrentPage('admin-dashboard'); 
       setSelectedSessionFilter('Session 1');
+      loadStudents();
       loadAllGratitudeEntries('Session 1');
     } else { 
       setError('Incorrect admin password'); 
@@ -817,26 +999,25 @@ const App = () => {
     }
     try {
       setLoading(true);
-      const remarkData = {
-        session: entry.session,
-        rowIndex: entry.rowIndex,
-        remark: adminRemark
-      };
-      
-      const response = await fetch(`${API_URL}?action=addRemark`, {
-        method: 'POST',
-        body: JSON.stringify(remarkData)
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        alert('✅ Remark saved!');
-        setAdminRemark('');
-        setSelectedEntry(null);
-        loadAllGratitudeEntries(selectedSessionFilter);
-      } else {
-        alert('Failed to save remark: ' + data.error);
+
+      // Update the remark on the row matching this student + session.
+      // (One entry per student per session, so this targets exactly one row.)
+      const { error } = await supabase
+        .from('gratitude')
+        .update({ admin_remark: adminRemark })
+        .eq('student_id', entry.studentId)
+        .eq('session_number', entry.sessionNumber);
+
+      if (error) {
+        console.error('Supabase error saving remark:', error);
+        alert('Failed to save remark: ' + error.message);
+        return;
       }
+
+      alert('✅ Remark saved!');
+      setAdminRemark('');
+      setSelectedEntry(null);
+      loadAllGratitudeEntries(selectedSessionFilter);
     } catch (err) {
       console.error('Error saving remark:', err);
       alert('Failed to save remark');
@@ -1262,18 +1443,13 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
       const att = s.sessions ? Math.round((s.sessions.filter(x=>x===true).length / TOTAL_SESSIONS) * 100) : 0;
       const svc = (() => { const v = s['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })();
       const quiz = Math.min(100, Math.round(s['HJ Quiz']||0));
-      const grade = Math.round((s['HJ Grade']||0)*100) || Math.round(parseFloat(s['Percentage'])||0);
+      const grade = Math.round(parseFloat(s['HJ Grade'])||0) || Math.round(parseFloat(s['Percentage'])||0);
       return Math.round((att*5)+(svc*3)+(quiz*2)+(grade*2));
     };
 
     const getGrade = (s) => {
-      const att = parseFloat(s['HJ Attendance'])||0;
-      const attPct = att > 1 ? att : Math.round(att * 100);
-      const svc = (() => { const v = s['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })();
-      const quiz = Math.min(100, Math.round(s['HJ Quiz']||0));
-      const pct = parseFloat(s['Percentage'])||0;
-      const gratPct = pct > 1 ? Math.round(pct) : Math.round(pct * 100);
-      return Math.round((attPct + svc + quiz + gratPct) / 4);
+      // Use the stored HJ Grade (a percentage like 90.45) imported from the program records.
+      return Math.round(parseFloat(s['HJ Grade']) || 0);
     };
 
     if (!allStudents || allStudents.length === 0) return (<div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 flex items-center justify-center"><div style={{background:'white',borderRadius:20,padding:24,textAlign:'center'}}><p style={{fontSize:18,fontWeight:700,color:'#7C3AED'}}>Loading rankings...</p><p style={{color:'#9CA3AF',fontSize:13}}>Please go back and try again</p><button onClick={()=>setCurrentPage('home')} style={{marginTop:12,background:'#7C3AED',color:'white',border:'none',borderRadius:12,padding:'10px 20px',cursor:'pointer',fontWeight:600}}>Go Home</button></div></div>);
@@ -2555,7 +2731,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-white rounded-lg p-3">
                     <p className="text-xs text-gray-600 font-bold mb-1">Growth Journey</p>
-                    <p className="text-3xl font-black text-purple-600">{Math.round((selectedStudentDetail['HJ Grade'] || 0) * 100)}%</p>
+                    <p className="text-3xl font-black text-purple-600">{Math.round(parseFloat(selectedStudentDetail['HJ Grade']) || 0)}%</p>
                   </div>
                   <div className="bg-white rounded-lg p-3">
                     <Calendar className="w-6 h-6 text-blue-600 mb-1" />
@@ -2685,7 +2861,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-600">{student['Category']}</p>
-                  <p className="text-sm font-bold text-purple-600">{Math.round((student['HJ Grade'] || 0) * 100)}%</p>
+                  <p className="text-sm font-bold text-purple-600">{Math.round(parseFloat(student['HJ Grade']) || 0)}%</p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-400" />
               </div>
@@ -2742,7 +2918,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                       <p className="text-sm text-purple-600 font-bold">{student['Student ID']}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-black text-purple-600">{Math.round((student['HJ Grade'] || 0) * 100)}%</p>
+                      <p className="text-2xl font-black text-purple-600">{Math.round(parseFloat(student['HJ Grade']) || 0)}%</p>
                       <p className="text-xs text-gray-500">Overall Grade</p>
                     </div>
                   </div>
@@ -2782,7 +2958,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                       <p className="text-sm text-purple-600 font-bold">{student['Student ID']}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-black text-blue-600">{Math.round((student['HJ Grade'] || 0) * 100)}%</p>
+                      <p className="text-2xl font-black text-blue-600">{Math.round(parseFloat(student['HJ Grade']) || 0)}%</p>
                       <p className="text-xs text-gray-500">Overall Grade</p>
                     </div>
                   </div>
@@ -2863,7 +3039,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                     <p className="text-sm text-gray-700">{entry.adminRemark}</p>
                   </div>
                 )}
-                {selectedEntry?.rowIndex === entry.rowIndex ? (
+                {selectedEntry?.studentId === entry.studentId && selectedEntry?.sessionNumber === entry.sessionNumber ? (
                   <div className="space-y-2">
                     <textarea 
                       value={adminRemark} 
