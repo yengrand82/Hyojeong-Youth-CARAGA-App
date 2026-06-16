@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift, Target, UserPlus } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
-const TOTAL_SESSIONS = 21; // Change this number for each program
+const TOTAL_SESSIONS = 21; // Meeting sessions (attendance) per program
+const TOTAL_GRATITUDE_SESSIONS = 20; // Gratitude journals per program. Feb-May 2026 = 20; set to 21 for next program.
 
 // Inspirational Quotes - True Parents & Bible Verses
 const QUOTES = [
@@ -377,7 +378,7 @@ const App = () => {
         'Date of Birth': r.date_of_birth,
         'Age': r.age,
         'Category': r.category,
-        'TEAM': r.team_id,
+        'TEAM': r.team || r.team_id,
         'HJ Service': r.hj_service_points,
         'HJ Grade': r.hj_grade,
         'HJ Attendance': r.hj_attendance,
@@ -844,7 +845,7 @@ const App = () => {
           'Date of Birth': r.date_of_birth,
           'Age': r.age,
           'Category': r.category,
-          'TEAM': r.team_id,
+          'TEAM': r.team || r.team_id,
           'HJ Service': r.hj_service_points,
           'HJ Grade': r.hj_grade,
           'HJ Attendance': r.hj_attendance,
@@ -1052,17 +1053,66 @@ const App = () => {
 
   const calculateAttendance = (student = studentData) => {
   if (!student) return 0;
-  
-  if (student.sessions && Array.isArray(student.sessions)) {
-    const attended = student.sessions.filter(s => s === true).length;
-    const total = TOTAL_SESSIONS; // Use configured total instead of array length
-    return Math.round((attended / total) * 100);
-  }
-  
+
+  // Prefer the stored HJ Attendance percentage (reliable post-migration).
   const att = student['HJ Attendance'];
-  if (typeof att === 'number') return Math.round(att * 100);
+  if (att !== undefined && att !== null && att !== '') {
+    const n = parseFloat(att);
+    if (!isNaN(n)) {
+      // Stored as a percentage (e.g. 95.24); older data used a 0–1 decimal.
+      return n > 1 ? Math.round(n) : Math.round(n * 100);
+    }
+  }
+
+  // Fallback: count from the per-session marks if present.
+  if (student.sessions && Array.isArray(student.sessions) && student.sessions.length > 0) {
+    const attended = student.sessions.filter(s => s === true).length;
+    return Math.round((attended / TOTAL_SESSIONS) * 100);
+  }
   return 0;
 };
+
+  // Number of sessions attended, derived from the stored percentage when the
+  // per-session array isn't available (post-migration).
+  const attendedSessions = (student = studentData) => {
+    if (student && student.sessions && Array.isArray(student.sessions) && student.sessions.length > 0) {
+      return student.sessions.filter(s => s === true).length;
+    }
+    return Math.round((calculateAttendance(student) / 100) * TOTAL_SESSIONS);
+  };
+
+  // Compute which badges a SELECTED student (admin view) has earned,
+  // from their stored scores + progress. Mirrors checkIfBadgeEarned but for
+  // any student, not just the logged-in one.
+  const computeBadgesForStudent = (detail, progress, gratitudeCount = 0) => {
+    if (!detail) return [];
+    const attendance = (() => {
+      const a = parseFloat(detail['HJ Attendance']);
+      if (isNaN(a)) return 0;
+      return a > 1 ? Math.round(a) : Math.round(a * 100);
+    })();
+    const service = parseFloat(detail['HJ Service Pct']) || 0;
+    const quiz = parseFloat(detail['HJ Quiz']) || 0;
+    const grade = parseFloat(detail['HJ Grade']) || 0;
+    const affirmation = progress && progress.affirmation ? String(progress.affirmation).trim() : '';
+    const goalsSet = progress
+      ? [progress.goal1, progress.goal2, progress.goal3].filter(g => g && String(g).trim()).length
+      : 0;
+
+    const earned = [];
+    BADGES.forEach(badge => {
+      let ok = false;
+      if (badge.type === 'gratitude') ok = gratitudeCount >= badge.count;
+      else if (badge.type === 'attendance') ok = attendance >= badge.percent;
+      else if (badge.type === 'service') ok = service >= badge.percent;
+      else if (badge.type === 'quiz') ok = quiz >= badge.percent;
+      else if (badge.type === 'grade') ok = grade >= badge.percent;
+      else if (badge.type === 'affirmation') ok = affirmation.length > 0;
+      else if (badge.type === 'goals') ok = goalsSet >= badge.goalsSet;
+      if (ok) earned.push(badge.id);
+    });
+    return earned;
+  };
 
   const checkIfBadgeEarned = (badge) => {
     if (!studentData) return false;
@@ -1074,7 +1124,7 @@ const App = () => {
     // Calculate grade the same way as Growth Journey (average of 4 metrics)
     const quiz = studentData['HJ Quiz'] || 0;
     const service = studentData['HJ Service'] || 0;
-    const gratitudePercent = Math.min(100, Math.round((myGratitudeEntries.length / 8) * 100));
+    const gratitudePercent = Math.min(100, Math.round((myGratitudeEntries.length / TOTAL_GRATITUDE_SESSIONS) * 100));
     const grade = Math.round((attendance + quiz + service + gratitudePercent) / 4);
     
     if (badge.type === 'gratitude') return gratitudeCount >= badge.count;
@@ -1440,9 +1490,9 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
   if (currentPage === 'leaderboard' && studentData) {
 
     const getXP = (s) => {
-      const att = s.sessions ? Math.round((s.sessions.filter(x=>x===true).length / TOTAL_SESSIONS) * 100) : 0;
-      const svc = (() => { const v = s['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })();
-      const quiz = Math.min(100, Math.round(s['HJ Quiz']||0));
+      const att = calculateAttendance(s);
+      const svc = parseFloat(s['HJ Service Pct']) || 0;
+      const quiz = Math.min(100, Math.round(parseFloat(s['HJ Quiz'])||0));
       const grade = Math.round(parseFloat(s['HJ Grade'])||0) || Math.round(parseFloat(s['Percentage'])||0);
       return Math.round((att*5)+(svc*3)+(quiz*2)+(grade*2));
     };
@@ -1460,7 +1510,8 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     const teamSorted = sorted.filter(s => (s['TEAM']||'').toUpperCase() === leaderboardTeam.toUpperCase());
     const displayList = leaderboardTab === 'overall' ? sorted.slice(0, 20) : teamSorted.slice(0, 20);
     const myRank = sorted.findIndex(s => s['Student ID'] === studentData['Student ID']) + 1;
-    const myTeamRank = teamSorted.findIndex(s => s['Student ID'] === studentData['Student ID']) + 1;
+    const myTeamSorted = sorted.filter(s => (s['TEAM']||'').toUpperCase() === (studentData['TEAM']||'').toUpperCase());
+    const myTeamRank = myTeamSorted.findIndex(s => s['Student ID'] === studentData['Student ID']) + 1;
 
     const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
     const medals = ['🥇', '🥈', '🥉'];
@@ -1620,9 +1671,9 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
   // HOME PAGE - DUOLINGO STYLE
   if (currentPage === 'home' && studentData) {
     const attendancePct = calculateAttendance(studentData);
-    const servicePct = (() => { const v = studentData['HJ Service'] || 0; return v <= 1 ? Math.round(v * 100) : Math.round(v); })();
+    const servicePct = Math.min(100, Math.round(parseFloat(studentData['HJ Service Pct']) || 0));
     const quizPct = Math.min(100, Math.round(studentData['HJ Quiz'] || 0));
-    const gratitudePct = Math.min(100, Math.round((myGratitudeEntries.length / 8) * 100));
+    const gratitudePct = Math.min(100, Math.round((myGratitudeEntries.length / TOTAL_GRATITUDE_SESSIONS) * 100));
     const growthPercentage = Math.round((attendancePct + servicePct + quizPct + gratitudePct) / 4);
     const xpTotal = Math.round((attendancePct * 5) + (servicePct * 3) + (quizPct * 2) + (gratitudePct * 2) + (earnedBadges.length * 50));
     const streakCount = myGratitudeEntries.length;
@@ -1699,7 +1750,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
               <p style={{fontSize:12, color:'#6B7280', margin:0}}>🏅 Badges earned</p>
             </div>
             <div className="duo-card" style={{textAlign:'center', margin:0}}>
-              <p style={{fontSize:24, fontWeight:700, color:'#1F2937', margin:0}}>{studentData.sessions ? studentData.sessions.filter(s => s === true).length : 0}</p>
+              <p style={{fontSize:24, fontWeight:700, color:'#1F2937', margin:0}}>{attendedSessions(studentData)}</p>
               <p style={{fontSize:12, color:'#6B7280', margin:0}}>📅 Sessions done</p>
             </div>
           </div>
@@ -1715,7 +1766,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   <span style={{fontSize:17, fontWeight:700, color:'#7C3AED'}}>{attendancePct}%</span>
                 </div>
                 <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${attendancePct}%`, background:'#7C3AED'}}></div></div>
-                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{studentData.sessions ? studentData.sessions.filter(s=>s===true).length : 0} of {TOTAL_SESSIONS} sessions attended</p>
+                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{attendedSessions(studentData)} of {TOTAL_SESSIONS} sessions attended</p>
               </div>
             </div>
 
@@ -1751,7 +1802,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   <span style={{fontSize:17, fontWeight:700, color:'#E11D48'}}>{gratitudePct}%</span>
                 </div>
                 <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${gratitudePct}%`, background:'#E11D48'}}></div></div>
-                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{myGratitudeEntries.length} of 8 entries submitted</p>
+                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{myGratitudeEntries.length} of {TOTAL_GRATITUDE_SESSIONS} entries submitted</p>
               </div>
             </div>
           </div>
@@ -1800,7 +1851,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 
         </div>
   
-      <HyojiHelper page="home" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/8)*100)))/4)} />
+      <HyojiHelper page="home" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/TOTAL_GRATITUDE_SESSIONS)*100)))/4)} />
 
 
 
@@ -2101,9 +2152,9 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     // Calculate growth percentage for this page
     const growthPercentage = Math.round((
       calculateAttendance(studentData) + 
-      (studentData['HJ Quiz'] || 0) + 
-      (studentData['HJ Service'] || 0) + 
-      Math.min(100, Math.round((myGratitudeEntries.length / 8) * 100))
+      Math.min(100, Math.round(parseFloat(studentData['HJ Quiz']) || 0)) + 
+      (parseFloat(studentData['HJ Service Pct']) || 0) + 
+      Math.min(100, Math.round((myGratitudeEntries.length / TOTAL_GRATITUDE_SESSIONS) * 100))
     ) / 4);
     
     return (
@@ -2117,9 +2168,9 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             <div className="text-6xl font-black text-purple-600 mb-2">
               {Math.round((
   calculateAttendance(studentData) + 
-  (studentData['HJ Quiz'] || 0) + 
-  (studentData['HJ Service'] || 0) + 
-  Math.min(100, Math.round((myGratitudeEntries.length / 8) * 100))
+  Math.min(100, Math.round(parseFloat(studentData['HJ Quiz']) || 0)) + 
+  (parseFloat(studentData['HJ Service Pct']) || 0) + 
+  Math.min(100, Math.round((myGratitudeEntries.length / TOTAL_GRATITUDE_SESSIONS) * 100))
 ) / 4)}%
             </div>
             <div className="inline-block px-4 py-2 bg-purple-100 rounded-full">
@@ -2159,7 +2210,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 font-bold mb-1">💙 Filial Actions</p>
-                <p className="text-3xl font-black text-green-600">{studentData['HJ Service'] || 0}%</p>
+                <p className="text-3xl font-black text-green-600">{Math.round(parseFloat(studentData['HJ Service Pct']) || 0)}%</p>
                 <p className="text-xs text-gray-500 mt-1">Act of Service Completed</p>
               </div>
               <Award className="w-12 h-12 text-green-600" />
@@ -2170,7 +2221,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
   <div className="flex items-center justify-between">
   <div>
     <p className="text-sm text-gray-600 font-bold mb-1">💖 Heart of Gratitude</p>
-    <p className="text-3xl font-black text-pink-600">{Math.min(100, Math.round((myGratitudeEntries.length / 8) * 100))}%</p>
+    <p className="text-3xl font-black text-pink-600">{Math.min(100, Math.round((myGratitudeEntries.length / TOTAL_GRATITUDE_SESSIONS) * 100))}%</p>
     <p className="text-xs text-gray-500 mt-1">Gratitude entries submitted</p>
   </div>
   <Heart className="w-12 h-12 text-pink-600" />
@@ -2741,18 +2792,20 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   <div className="bg-white rounded-lg p-3">
                     <BookOpen className="w-6 h-6 text-purple-600 mb-1" />
                     <p className="text-xs text-gray-600 font-bold mb-1">Heart Knowledge</p>
-                    <p className="text-2xl font-black text-purple-600">{Math.round((selectedStudentDetail['HJ Quiz'] || 0) * 100) / 100}</p>
+                    <p className="text-2xl font-black text-purple-600">{Math.round(parseFloat(selectedStudentDetail['HJ Quiz']) || 0)}%</p>
                   </div>
                   <div className="bg-white rounded-lg p-3">
                     <Award className="w-6 h-6 text-green-600 mb-1" />
                     <p className="text-xs text-gray-600 font-bold mb-1">Filial Actions</p>
-                    <p className="text-2xl font-black text-green-600">{Math.round((selectedStudentDetail['HJ Service'] || 0) * 100) / 100}</p>
+                    <p className="text-2xl font-black text-green-600">{Math.round(parseFloat(selectedStudentDetail['HJ Service Pct']) || 0)}%</p>
                   </div>
                 </div>
               </div>
 
               {/* Heart Cultivation */}
-              {selectedStudentProgress && (
+              {selectedStudentProgress && (() => {
+                const computedBadges = computeBadgesForStudent(selectedStudentDetail, selectedStudentProgress);
+                return (
                 <>
                   <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-4 border-2 border-yellow-200">
                     <h3 className="text-lg font-black text-gray-800 mb-3">🌱 Heart Cultivation</h3>
@@ -2765,14 +2818,14 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                       <div className="bg-white rounded-lg p-3">
                         <Award className="w-6 h-6 text-purple-600 mb-1" />
                         <p className="text-xs text-gray-600 font-bold mb-1">Hearts Earned</p>
-                        <p className="text-3xl font-black text-purple-600">{selectedStudentProgress.badgesEarned?.length || 0}/{BADGES.length}</p>
+                        <p className="text-3xl font-black text-purple-600">{computedBadges.length}/{BADGES.length}</p>
                       </div>
                     </div>
-                    {selectedStudentProgress.badgesEarned && selectedStudentProgress.badgesEarned.length > 0 && (
+                    {computedBadges.length > 0 && (
                       <div className="bg-white rounded-lg p-3">
                         <p className="text-xs text-gray-600 font-bold mb-2">Earned Hearts:</p>
                         <div className="flex flex-wrap gap-2">
-                          {selectedStudentProgress.badgesEarned.map(badgeId => {
+                          {computedBadges.map(badgeId => {
                             const badge = BADGES.find(b => b.id === badgeId);
                             return badge ? (
                               <div key={badgeId} className="bg-gradient-to-r from-purple-100 to-pink-100 px-3 py-1 rounded-full flex items-center gap-2">
@@ -2831,7 +2884,8 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                     </div>
                   </div>
                 </>
-              )}
+                );
+              })()}
             </div>
           </div>
         </div>
