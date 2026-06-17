@@ -348,7 +348,8 @@ const App = () => {
     total_sessions: TOTAL_SESSIONS,
     total_gratitude_sessions: TOTAL_GRATITUDE_SESSIONS,
     session_dates: [],
-    teams: []
+    teams: [],
+    heart_messages: []
   });
   const [tempProfile, setTempProfile] = useState({
     dateOfBirth: '',
@@ -375,7 +376,8 @@ const App = () => {
           total_sessions: data.total_sessions || TOTAL_SESSIONS,
           total_gratitude_sessions: data.total_gratitude_sessions || TOTAL_GRATITUDE_SESSIONS,
           session_dates: Array.isArray(data.session_dates) ? data.session_dates : [],
-          teams: Array.isArray(data.teams) ? data.teams : []
+          teams: Array.isArray(data.teams) ? data.teams : [],
+          heart_messages: Array.isArray(data.heart_messages) ? data.heart_messages : []
         });
       }
     } catch (err) { console.error('Settings load error:', err); }
@@ -401,6 +403,7 @@ const App = () => {
         total_gratitude_sessions: parseInt(next.total_gratitude_sessions, 10) || TOTAL_GRATITUDE_SESSIONS,
         session_dates: next.session_dates || [],
         teams: next.teams || [],
+        heart_messages: next.heart_messages || [],
         updated_at: new Date().toISOString()
       };
       const { error } = await supabase
@@ -2055,6 +2058,21 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     const nextLevel = heartLevels.find(l => l.min > growthPercentage);
     const xpToNext = nextLevel ? `${nextLevel.min - growthPercentage}% to ${nextLevel.name}` : 'Max level reached!';
 
+    // Daily heart message from True Parents' teachings.
+    // Admin-managed quotes (from Program Setup) are used when available;
+    // otherwise these gentle theme-based defaults show until quotes are added.
+    const defaultHeartMessages = [
+      { text: 'True love is living for the sake of others. The person who lives for others will prosper.', theme: 'True Love' },
+      { text: 'Loving God and loving humankind are not two separate things — they are one.', theme: 'One Heart' },
+      { text: 'A filial child is one who attends their parents with a loving heart, in all seasons of life.', theme: 'Filial Heart' },
+      { text: 'Begin each day with gratitude, and your heart will grow closer to Heaven.', theme: 'Gratitude' },
+    ];
+    const adminMessages = (programSettings.heart_messages || []).filter(m => m && m.text && m.text.trim());
+    const heartMessages = adminMessages.length > 0 ? adminMessages : defaultHeartMessages;
+    // Rotate by day of year so it changes daily but is the same for everyone that day.
+    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+    const todaysMessage = heartMessages[dayOfYear % heartMessages.length];
+
     return (
       <div className="min-h-screen pb-20 bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400">
         <style jsx>{`
@@ -2090,6 +2108,16 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                           <button onClick={handleLogout} style={{fontSize:12, fontWeight:600, color:'#7C3AED', background:'#F3E8FF', border:'none', padding:'8px 12px', borderRadius:12, cursor:'pointer'}}>Logout</button>
                         </div>
             </div>
+          </div>
+
+          {/* Daily heart message from True Parents */}
+          <div style={{background:'linear-gradient(135deg, #FCE7F3 0%, #FBCFE8 50%, #FEF3C7 100%)', borderRadius:16, padding:'18px 20px', marginBottom:12, boxShadow:'0 2px 8px rgba(0,0,0,0.06)', position:'relative', overflow:'hidden'}}>
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
+              <span style={{fontSize:18}}>💝</span>
+              <p style={{fontSize:11, fontWeight:700, color:'#BE185D', textTransform:'uppercase', letterSpacing:'0.08em', margin:0}}>A word for your heart today</p>
+            </div>
+            <p style={{fontSize:15, fontWeight:600, color:'#831843', lineHeight:1.5, margin:'0 0 8px', fontStyle:'italic'}}>"{todaysMessage.text}"</p>
+            <p style={{fontSize:12, color:'#9D174D', margin:0, fontWeight:600}}>— True Parents · {todaysMessage.theme}</p>
           </div>
 
           <div className="duo-card" style={{background: currentLevel.color, border:'none', marginBottom:12}}>
@@ -3485,7 +3513,8 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
       total_sessions: programSettings.total_sessions,
       total_gratitude_sessions: programSettings.total_gratitude_sessions,
       session_dates: [...(programSettings.session_dates || [])],
-      teams: (programSettings.teams || []).map(t => ({ ...t }))
+      teams: (programSettings.teams || []).map(t => ({ ...t })),
+      heart_messages: (programSettings.heart_messages || []).map(m => ({ ...m }))
     };
     if (!setupForm) setTimeout(() => setSetupForm(f), 0);
 
@@ -3503,6 +3532,11 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     };
     const addTeam = () => upd({ teams: [...f.teams, { name: '', lead_name: '', lead_pin: '' }] });
     const removeTeam = (i) => upd({ teams: f.teams.filter((_, idx) => idx !== i) });
+
+    const msgs = f.heart_messages || [];
+    const setMsg = (i, patch) => upd({ heart_messages: msgs.map((m, idx) => idx === i ? { ...m, ...patch } : m) });
+    const addMsg = () => upd({ heart_messages: [...msgs, { text: '', theme: '' }] });
+    const removeMsg = (i) => upd({ heart_messages: msgs.filter((_, idx) => idx !== i) });
 
     return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-400 via-purple-300 to-pink-300 pb-32">
@@ -3595,6 +3629,37 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           </div>
           <button onClick={addTeam} className="w-full mt-3 py-2 text-purple-600 font-bold border-2 border-dashed border-purple-200 rounded-xl">
             + Add team
+          </button>
+        </div>
+
+        {/* Daily Heart Messages (True Parents quotes) */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">💝 Daily heart messages</p>
+          <p className="text-xs text-gray-500 mb-3">True Parents' quotes shown to students each day. One rotates daily. Add the exact wording you trust.</p>
+          <div className="space-y-3">
+            {msgs.map((m, i) => (
+              <div key={i} className="border-2 border-pink-100 rounded-xl p-3 bg-pink-50/30">
+                <div className="flex items-start gap-2">
+                  <span className="text-sm font-bold text-pink-400 mt-2">{i + 1}.</span>
+                  <div className="flex-1">
+                    <textarea value={m.text || ''} onChange={e => setMsg(i, { text: e.target.value })}
+                      placeholder="Enter the quote exactly as spoken or written..." rows={3}
+                      className="w-full p-2 border-2 border-pink-200 rounded-lg text-gray-700 text-sm mb-2" />
+                    <input value={m.theme || ''} onChange={e => setMsg(i, { theme: e.target.value })}
+                      placeholder="Theme or source (e.g. True Love, CSG p.123)" className="w-full p-2 border-2 border-gray-200 rounded-lg text-gray-600 text-sm" />
+                  </div>
+                  <button onClick={() => removeMsg(i)} className="w-9 h-9 bg-red-50 text-red-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {msgs.length === 0 && (
+              <p className="text-sm text-gray-400 italic text-center py-2">No quotes yet. Until you add some, gentle default messages are shown.</p>
+            )}
+          </div>
+          <button onClick={addMsg} className="w-full mt-3 py-2 text-pink-600 font-bold border-2 border-dashed border-pink-200 rounded-xl">
+            + Add heart message
           </button>
         </div>
       </div>
