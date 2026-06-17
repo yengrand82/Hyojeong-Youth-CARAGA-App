@@ -300,6 +300,10 @@ const App = () => {
   const [allStudents, setAllStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedSessionFilter, setSelectedSessionFilter] = useState('');
+  const [attendanceSession, setAttendanceSession] = useState(1);
+  const [attendanceMarks, setAttendanceMarks] = useState({}); // { studentId: {attendance, hj_shirt, gratitude} }
+  const [attendanceTeamFilter, setAttendanceTeamFilter] = useState('ALL');
+  const [savingAttendance, setSavingAttendance] = useState(false);
   const [selectedStudentDetail, setSelectedStudentDetail] = useState(null);
   const [selectedStudentProgress, setSelectedStudentProgress] = useState(null);
   const [showAddStudentForm, setShowAddStudentForm] = useState(false);
@@ -333,6 +337,16 @@ const App = () => {
   const [hasSeenCelebration, setHasSeenCelebration] = useState(false);
   const [leaderboardTab, setLeaderboardTab] = useState('overall');
   const [leaderboardTeam, setLeaderboardTeam] = useState('MARC');
+  const [setupForm, setSetupForm] = useState(null); // editable copy of program settings
+  // Program settings (loaded from program_settings table; fall back to constants)
+  const [programSettings, setProgramSettings] = useState({
+    program_name: 'Hyojeong Youth CARAGA',
+    start_date: '', end_date: '',
+    total_sessions: TOTAL_SESSIONS,
+    total_gratitude_sessions: TOTAL_GRATITUDE_SESSIONS,
+    session_dates: [],
+    teams: []
+  });
   const [tempProfile, setTempProfile] = useState({
     dateOfBirth: '',
     address: '',
@@ -340,6 +354,63 @@ const App = () => {
   });
 
   // Students loaded on login click only
+
+  // Load program settings once on mount.
+  const loadProgramSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('program_settings')
+        .select('*')
+        .eq('id', 1)
+        .single();
+      if (error) { console.error('Settings load error:', error); return; }
+      if (data) {
+        setProgramSettings({
+          program_name: data.program_name || 'Hyojeong Youth CARAGA',
+          start_date: data.start_date || '',
+          end_date: data.end_date || '',
+          total_sessions: data.total_sessions || TOTAL_SESSIONS,
+          total_gratitude_sessions: data.total_gratitude_sessions || TOTAL_GRATITUDE_SESSIONS,
+          session_dates: Array.isArray(data.session_dates) ? data.session_dates : [],
+          teams: Array.isArray(data.teams) ? data.teams : []
+        });
+      }
+    } catch (err) { console.error('Settings load error:', err); }
+  };
+
+  useEffect(() => { loadProgramSettings(); }, []);
+
+  // Resolved counts the whole app uses (settings override the constants).
+  const sessionCount = programSettings.total_sessions || TOTAL_SESSIONS;
+  const gratitudeCount = programSettings.total_gratitude_sessions || TOTAL_GRATITUDE_SESSIONS;
+  const sessionDates = programSettings.session_dates || [];
+  const dateForSession = (n) => (sessionDates[n - 1] || '');
+
+  // Save program settings back to the single settings row.
+  const saveProgramSettings = async (next) => {
+    try {
+      const payload = {
+        id: 1,
+        program_name: next.program_name,
+        start_date: next.start_date,
+        end_date: next.end_date,
+        total_sessions: parseInt(next.total_sessions, 10) || TOTAL_SESSIONS,
+        total_gratitude_sessions: parseInt(next.total_gratitude_sessions, 10) || TOTAL_GRATITUDE_SESSIONS,
+        session_dates: next.session_dates || [],
+        teams: next.teams || [],
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await supabase
+        .from('program_settings')
+        .upsert(payload, { onConflict: 'id' });
+      if (error) { alert('Failed to save settings: ' + error.message); return; }
+      setProgramSettings(payload);
+      alert('✅ Program settings saved!');
+    } catch (err) {
+      console.error('Save settings error:', err);
+      alert('Failed to save settings.');
+    }
+  };
 
   // Update earned badges when student data or entries change
   useEffect(() => {
@@ -383,6 +454,7 @@ const App = () => {
         'HJ Grade': r.hj_grade,
         'HJ Attendance': r.hj_attendance,
         'HJ Service Pct': r.hj_service_pct,
+        'HJ Shirt Pct': r.hj_shirt_pct,
         'HJ Quiz': r.hj_quiz,
         'Percentage': r.percentage,
       }));
@@ -742,6 +814,155 @@ const App = () => {
     }
   };
 
+  // Load existing attendance marks for a session into editable state.
+  const loadAttendanceMarks = async (sessionNum) => {
+    try {
+      setLoading(true);
+      const { data: rows, error } = await supabase
+        .from('attendance_marks')
+        .select('*')
+        .eq('session_number', sessionNum);
+      if (error) {
+        console.error('Error loading attendance marks:', error);
+        setAttendanceMarks({});
+        return;
+      }
+      const marks = {};
+      (rows || []).forEach(r => {
+        marks[r.student_id] = {
+          attendance: !!r.attendance,
+          hj_shirt: !!r.hj_shirt,
+          gratitude: !!r.gratitude
+        };
+      });
+      setAttendanceMarks(marks);
+    } catch (err) {
+      console.error('Error:', err);
+      setAttendanceMarks({});
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Toggle a single mark for a student in local state.
+  const toggleMark = (studentId, field) => {
+    setAttendanceMarks(prev => {
+      const cur = prev[studentId] || { attendance: false, hj_shirt: false, gratitude: false };
+      return { ...prev, [studentId]: { ...cur, [field]: !cur[field] } };
+    });
+  };
+
+  // Save all marks for the current session to Supabase (upsert per student).
+  // Recompute every student's HJ Grade from the new 5-factor formula.
+  // Attendance 40% + Service 20% + Gratitude 20% + One Heart One Shirt 10% + Quiz 10%.
+  // Attendance & shirt come from attendance_marks; gratitude from real entries
+  // (falling back to the attendance gratitude checkbox); service & quiz from students.
+  const recomputeAllGrades = async () => {
+    try {
+      // Pull everything we need in three queries.
+      const [studentsRes, marksRes, gratRes] = await Promise.all([
+        supabase.from('students').select('student_id, service_week_score, quiz_score'),
+        supabase.from('attendance_marks').select('student_id, session_number, attendance, hj_shirt, gratitude'),
+        supabase.from('gratitude').select('student_id, session_number')
+      ]);
+
+      if (studentsRes.error || marksRes.error) {
+        console.error('Recompute load error:', studentsRes.error || marksRes.error);
+        return;
+      }
+
+      const students = studentsRes.data || [];
+      const marks = marksRes.data || [];
+      const gratEntries = gratRes.data || [];
+
+      // Tally attendance & shirt marks, and checkbox-gratitude, per student.
+      const tally = {}; // sid -> {att, shirt, gratChk}
+      marks.forEach(m => {
+        const t = tally[m.student_id] || { att: 0, shirt: 0, gratChk: 0 };
+        if (m.attendance) t.att += 1;
+        if (m.hj_shirt) t.shirt += 1;
+        if (m.gratitude) t.gratChk += 1;
+        tally[m.student_id] = t;
+      });
+
+      // Count distinct gratitude sessions with a real entry, per student.
+      const gratReal = {}; // sid -> Set of sessions
+      gratEntries.forEach(g => {
+        if (!gratReal[g.student_id]) gratReal[g.student_id] = new Set();
+        gratReal[g.student_id].add(g.session_number);
+      });
+
+      // Build one UPDATE per student.
+      const updates = students.map(s => {
+        const sid = s.student_id;
+        const t = tally[sid] || { att: 0, shirt: 0, gratChk: 0 };
+        const attPct = Math.min(100, (t.att / sessionCount) * 100);
+        const shirtPct = Math.min(100, (t.shirt / sessionCount) * 100);
+        // Gratitude: prefer real entries; fall back to checkbox count if no entries exist.
+        const realCount = gratReal[sid] ? gratReal[sid].size : 0;
+        const gratCount = realCount > 0 ? realCount : t.gratChk;
+        const gratPct = Math.min(100, (gratCount / gratitudeCount) * 100);
+        const svcPct = Math.min(100, Number(s.service_week_score || 0) / 50 * 100);
+        const quizPct = Math.min(100, Number(s.quiz_score || 0));
+
+        const grade = Math.round(
+          (attPct * 0.4 + svcPct * 0.2 + gratPct * 0.2 + shirtPct * 0.1 + quizPct * 0.1) * 100
+        ) / 100;
+
+        return supabase.from('students').update({
+          hj_grade: grade,
+          hj_attendance: Math.round(attPct * 100) / 100,
+          hj_shirt_pct: Math.round(shirtPct * 100) / 100,
+          hj_service_pct: Math.round(svcPct * 100) / 100,
+          hj_quiz: Math.round(quizPct * 100) / 100,
+          percentage: Math.round(attPct * 100) / 100
+        }).eq('student_id', sid);
+      });
+
+      await Promise.all(updates);
+      // Refresh the in-app roster so new grades show immediately.
+      if (typeof loadStudents === 'function') await loadStudents();
+    } catch (err) {
+      console.error('Recompute error:', err);
+    }
+  };
+
+  const saveAttendanceMarks = async () => {
+    try {
+      setSavingAttendance(true);
+      const sessionNum = attendanceSession;
+      const records = Object.keys(attendanceMarks).map(sid => ({
+        student_id: sid,
+        session_number: sessionNum,
+        attendance: attendanceMarks[sid].attendance,
+        hj_shirt: attendanceMarks[sid].hj_shirt,
+        gratitude: attendanceMarks[sid].gratitude,
+        marked_by: isAdmin ? 'admin' : (studentData ? studentData['Student ID'] : 'unknown'),
+        updated_at: new Date().toISOString()
+      }));
+      if (records.length === 0) {
+        alert('No marks to save. Tap students to mark them first.');
+        return;
+      }
+      const { error } = await supabase
+        .from('attendance_marks')
+        .upsert(records, { onConflict: 'student_id,session_number' });
+      if (error) {
+        console.error('Error saving attendance:', error);
+        alert('Failed to save: ' + error.message);
+        return;
+      }
+      // Recompute grades from the updated marks, then confirm.
+      await recomputeAllGrades();
+      alert(`✅ Saved Session ${sessionNum} and updated grades! (${records.length} students)`);
+    } catch (err) {
+      console.error('Error saving attendance:', err);
+      alert('Failed to save attendance.');
+    } finally {
+      setSavingAttendance(false);
+    }
+  };
+
   const loadAllGratitudeEntries = async (session) => {
     try {
       setLoading(true);
@@ -850,6 +1071,7 @@ const App = () => {
           'HJ Grade': r.hj_grade,
           'HJ Attendance': r.hj_attendance,
           'HJ Service Pct': r.hj_service_pct,
+        'HJ Shirt Pct': r.hj_shirt_pct,
           'HJ Quiz': r.hj_quiz,
           'Percentage': r.percentage,
         }));
@@ -1067,7 +1289,7 @@ const App = () => {
   // Fallback: count from the per-session marks if present.
   if (student.sessions && Array.isArray(student.sessions) && student.sessions.length > 0) {
     const attended = student.sessions.filter(s => s === true).length;
-    return Math.round((attended / TOTAL_SESSIONS) * 100);
+    return Math.round((attended / sessionCount) * 100);
   }
   return 0;
 };
@@ -1078,7 +1300,7 @@ const App = () => {
     if (student && student.sessions && Array.isArray(student.sessions) && student.sessions.length > 0) {
       return student.sessions.filter(s => s === true).length;
     }
-    return Math.round((calculateAttendance(student) / 100) * TOTAL_SESSIONS);
+    return Math.round((calculateAttendance(student) / 100) * sessionCount);
   };
 
   // Compute which badges a SELECTED student (admin view) has earned,
@@ -1124,7 +1346,7 @@ const App = () => {
     // Calculate grade the same way as Growth Journey (average of 4 metrics)
     const quiz = studentData['HJ Quiz'] || 0;
     const service = studentData['HJ Service'] || 0;
-    const gratitudePercent = Math.min(100, Math.round((myGratitudeEntries.length / TOTAL_GRATITUDE_SESSIONS) * 100));
+    const gratitudePercent = Math.min(100, Math.round((myGratitudeEntries.length / gratitudeCount) * 100));
     const grade = Math.round((attendance + quiz + service + gratitudePercent) / 4);
     
     if (badge.type === 'gratitude') return gratitudeCount >= badge.count;
@@ -1673,7 +1895,8 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     const attendancePct = calculateAttendance(studentData);
     const servicePct = Math.min(100, Math.round(parseFloat(studentData['HJ Service Pct']) || 0));
     const quizPct = Math.min(100, Math.round(studentData['HJ Quiz'] || 0));
-    const gratitudePct = Math.min(100, Math.round((myGratitudeEntries.length / TOTAL_GRATITUDE_SESSIONS) * 100));
+    const gratitudePct = Math.min(100, Math.round((myGratitudeEntries.length / gratitudeCount) * 100));
+    const shirtPct = Math.min(100, Math.round(parseFloat(studentData['HJ Shirt Pct']) || 0));
     const growthPercentage = Math.round((attendancePct + servicePct + quizPct + gratitudePct) / 4);
     const xpTotal = Math.round((attendancePct * 5) + (servicePct * 3) + (quizPct * 2) + (gratitudePct * 2) + (earnedBadges.length * 50));
     const streakCount = myGratitudeEntries.length;
@@ -1766,7 +1989,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   <span style={{fontSize:17, fontWeight:700, color:'#7C3AED'}}>{attendancePct}%</span>
                 </div>
                 <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${attendancePct}%`, background:'#7C3AED'}}></div></div>
-                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{attendedSessions(studentData)} of {TOTAL_SESSIONS} sessions attended</p>
+                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{attendedSessions(studentData)} of {sessionCount} sessions attended</p>
               </div>
             </div>
 
@@ -1779,6 +2002,18 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 </div>
                 <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${servicePct}%`, background:'#059669'}}></div></div>
                 <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{servicePct === 100 ? 'Service week completed! 🎉' : 'Complete your service week'}</p>
+              </div>
+            </div>
+
+            <div className="pillar-row">
+              <div className="pillar-icon" style={{background:'#CCFBF1'}}>🫂</div>
+              <div style={{flex:1}}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                  <span style={{fontSize:14, fontWeight:600, color:'#1F2937'}}>One Heart, One Shirt</span>
+                  <span style={{fontSize:17, fontWeight:700, color:'#0D9488'}}>{shirtPct}%</span>
+                </div>
+                <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${shirtPct}%`, background:'#0D9488'}}></div></div>
+                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{shirtPct === 100 ? 'Wearing the Heart of Hyojeong every time! 🫂' : 'Wear your HJ shirt to every session'}</p>
               </div>
             </div>
 
@@ -1802,7 +2037,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   <span style={{fontSize:17, fontWeight:700, color:'#E11D48'}}>{gratitudePct}%</span>
                 </div>
                 <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${gratitudePct}%`, background:'#E11D48'}}></div></div>
-                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{myGratitudeEntries.length} of {TOTAL_GRATITUDE_SESSIONS} entries submitted</p>
+                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{myGratitudeEntries.length} of {gratitudeCount} entries submitted</p>
               </div>
             </div>
           </div>
@@ -1851,7 +2086,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 
         </div>
   
-      <HyojiHelper page="home" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/TOTAL_GRATITUDE_SESSIONS)*100)))/4)} />
+      <HyojiHelper page="home" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={Math.round((calculateAttendance(studentData) + (()=>{ const v = studentData['HJ Service']||0; return v<=1?Math.round(v*100):Math.round(v); })() + Math.min(100,Math.round(studentData['HJ Quiz']||0)) + Math.min(100,Math.round((myGratitudeEntries.length/gratitudeCount)*100)))/4)} />
 
 
 
@@ -2154,7 +2389,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
       calculateAttendance(studentData) + 
       Math.min(100, Math.round(parseFloat(studentData['HJ Quiz']) || 0)) + 
       (parseFloat(studentData['HJ Service Pct']) || 0) + 
-      Math.min(100, Math.round((myGratitudeEntries.length / TOTAL_GRATITUDE_SESSIONS) * 100))
+      Math.min(100, Math.round((myGratitudeEntries.length / gratitudeCount) * 100))
     ) / 4);
     
     return (
@@ -2170,7 +2405,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
   calculateAttendance(studentData) + 
   Math.min(100, Math.round(parseFloat(studentData['HJ Quiz']) || 0)) + 
   (parseFloat(studentData['HJ Service Pct']) || 0) + 
-  Math.min(100, Math.round((myGratitudeEntries.length / TOTAL_GRATITUDE_SESSIONS) * 100))
+  Math.min(100, Math.round((myGratitudeEntries.length / gratitudeCount) * 100))
 ) / 4)}%
             </div>
             <div className="inline-block px-4 py-2 bg-purple-100 rounded-full">
@@ -2221,7 +2456,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
   <div className="flex items-center justify-between">
   <div>
     <p className="text-sm text-gray-600 font-bold mb-1">💖 Heart of Gratitude</p>
-    <p className="text-3xl font-black text-pink-600">{Math.min(100, Math.round((myGratitudeEntries.length / TOTAL_GRATITUDE_SESSIONS) * 100))}%</p>
+    <p className="text-3xl font-black text-pink-600">{Math.min(100, Math.round((myGratitudeEntries.length / gratitudeCount) * 100))}%</p>
     <p className="text-xs text-gray-500 mt-1">Gratitude entries submitted</p>
   </div>
   <Heart className="w-12 h-12 text-pink-600" />
@@ -2586,6 +2821,20 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
+          <button onClick={() => { setSetupForm(null); setCurrentPage('admin-setup'); }} className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Target className="w-6 h-6" />
+              <span className="font-bold">Program Setup</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => { setCurrentPage('admin-attendance'); setAttendanceSession(1); loadAttendanceMarks(1); }} className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Calendar className="w-6 h-6" />
+              <span className="font-bold">Mark Attendance</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
           <button onClick={() => setCurrentPage('admin-gratitude')} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Heart className="w-6 h-6" />
@@ -2898,7 +3147,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           <h1 className="text-3xl font-black text-white">All Students</h1>
         </div>
         <div className="space-y-3">
-          {allStudents.map((student, idx) => (
+          {[...allStudents].sort((a,b) => `${a['First Name']||''} ${a['Last Name']||''}`.trim().localeCompare(`${b['First Name']||''} ${b['Last Name']||''}`.trim())).map((student, idx) => (
             <div 
               key={idx} 
               onClick={() => {
@@ -3022,6 +3271,257 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           </div>
         </div>
       </div>
+    );
+  }
+
+  // ADMIN PROGRAM SETUP
+  if (currentPage === 'admin-setup' && isAdmin) {
+    const f = setupForm || {
+      program_name: programSettings.program_name,
+      start_date: programSettings.start_date,
+      end_date: programSettings.end_date,
+      total_sessions: programSettings.total_sessions,
+      total_gratitude_sessions: programSettings.total_gratitude_sessions,
+      session_dates: [...(programSettings.session_dates || [])],
+      teams: (programSettings.teams || []).map(t => ({ ...t }))
+    };
+    if (!setupForm) setTimeout(() => setSetupForm(f), 0);
+
+    const upd = (patch) => setSetupForm({ ...f, ...patch });
+    const nSessions = parseInt(f.total_sessions, 10) || 0;
+    const dates = [...(f.session_dates || [])];
+    while (dates.length < nSessions) dates.push('');
+
+    const setDate = (i, val) => {
+      const d = [...dates]; d[i] = val; upd({ session_dates: d });
+    };
+    const setTeam = (i, patch) => {
+      const t = f.teams.map((tm, idx) => idx === i ? { ...tm, ...patch } : tm);
+      upd({ teams: t });
+    };
+    const addTeam = () => upd({ teams: [...f.teams, { name: '', lead_name: '', lead_pin: '' }] });
+    const removeTeam = (i) => upd({ teams: f.teams.filter((_, idx) => idx !== i) });
+
+    return (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-400 via-purple-300 to-pink-300 pb-32">
+      <div className="p-4 max-w-xl mx-auto">
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => { setSetupForm(null); setCurrentPage('admin-dashboard'); }} className="text-white font-bold">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-3xl font-black text-white">⚙️ Program Setup</h1>
+        </div>
+
+        {/* Program details */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Program details</p>
+          <label className="text-sm font-bold text-gray-600 block mb-1">Program name</label>
+          <input value={f.program_name || ''} onChange={e => upd({ program_name: e.target.value })}
+            className="w-full p-3 border-2 border-purple-200 rounded-xl mb-3 font-semibold text-gray-700" />
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="text-sm font-bold text-gray-600 block mb-1">Start date</label>
+              <input value={f.start_date || ''} onChange={e => upd({ start_date: e.target.value })}
+                placeholder="2026-07-05" className="w-full p-3 border-2 border-purple-200 rounded-xl text-gray-700" />
+            </div>
+            <div>
+              <label className="text-sm font-bold text-gray-600 block mb-1">End date</label>
+              <input value={f.end_date || ''} onChange={e => upd({ end_date: e.target.value })}
+                placeholder="2026-09-20" className="w-full p-3 border-2 border-purple-200 rounded-xl text-gray-700" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-bold text-gray-600 block mb-1">Total sessions</label>
+              <input type="number" min="1" max="60" value={f.total_sessions}
+                onChange={e => upd({ total_sessions: e.target.value })}
+                className="w-full p-3 border-2 border-purple-200 rounded-xl font-bold text-gray-700" />
+            </div>
+            <div>
+              <label className="text-sm font-bold text-gray-600 block mb-1">Gratitude sessions</label>
+              <input type="number" min="1" max="60" value={f.total_gratitude_sessions}
+                onChange={e => upd({ total_gratitude_sessions: e.target.value })}
+                className="w-full p-3 border-2 border-purple-200 rounded-xl font-bold text-gray-700" />
+            </div>
+          </div>
+          <div className="bg-purple-50 rounded-xl p-3 mt-3 text-xs text-purple-700">
+            ℹ️ Grades auto-recalculate around the session count.
+          </div>
+        </div>
+
+        {/* Session schedule */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Session schedule ({nSessions} sessions)</p>
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {Array.from({ length: nSessions }, (_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className="text-sm font-bold text-gray-500 w-20">Session {i + 1}</span>
+                <input value={dates[i] || ''} onChange={e => setDate(i, e.target.value)}
+                  placeholder="YYYY-MM-DD" className="flex-1 p-2 border-2 border-gray-200 rounded-lg text-gray-700 text-sm" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Teams & leaders */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Teams &amp; leaders</p>
+          <div className="space-y-3">
+            {f.teams.map((t, i) => (
+              <div key={i} className="border-2 border-gray-100 rounded-xl p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <input value={t.name || ''} onChange={e => setTeam(i, { name: e.target.value.toUpperCase() })}
+                    placeholder="TEAM NAME" className="flex-1 p-2 border-2 border-purple-200 rounded-lg font-bold text-gray-700" />
+                  <button onClick={() => removeTeam(i)} className="w-9 h-9 bg-red-50 text-red-500 rounded-lg flex items-center justify-center">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1">Lead name</label>
+                    <input value={t.lead_name || ''} onChange={e => setTeam(i, { lead_name: e.target.value })}
+                      className="w-full p-2 border-2 border-gray-200 rounded-lg text-gray-700 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1">Lead PIN</label>
+                    <input value={t.lead_pin || ''} onChange={e => setTeam(i, { lead_pin: e.target.value })}
+                      placeholder="4 digits" className="w-full p-2 border-2 border-gray-200 rounded-lg text-gray-700 text-sm" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button onClick={addTeam} className="w-full mt-3 py-2 text-purple-600 font-bold border-2 border-dashed border-purple-200 rounded-xl">
+            + Add team
+          </button>
+        </div>
+      </div>
+
+      {/* Sticky save */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/20 to-transparent">
+        <button onClick={() => saveProgramSettings({ ...f, session_dates: dates })}
+          className="w-full max-w-xl mx-auto block bg-white text-purple-700 font-black rounded-2xl py-4 shadow-xl text-lg">
+          💾 Save program
+        </button>
+      </div>
+    </div>
+    );
+  }
+
+  // ADMIN MARK ATTENDANCE
+  if (currentPage === 'admin-attendance' && isAdmin) {
+    const rosterForMarking = [...allStudents]
+      .filter(s => s['Student ID'] && s['Student ID'].match(/^HJ\d+$/i))
+      .filter(s => attendanceTeamFilter === 'ALL' || (s['TEAM'] || '').toUpperCase() === attendanceTeamFilter.toUpperCase())
+      .sort((a, b) => `${a['First Name']||''}`.localeCompare(`${b['First Name']||''}`));
+
+    const markAllPresent = () => {
+      setAttendanceMarks(prev => {
+        const next = { ...prev };
+        rosterForMarking.forEach(s => {
+          const sid = s['Student ID'];
+          const cur = next[sid] || { attendance: false, hj_shirt: false, gratitude: false };
+          next[sid] = { ...cur, attendance: true };
+        });
+        return next;
+      });
+    };
+
+    const teams = ['ALL', 'MARC', 'BASSEL', 'KYRRA'];
+
+    return (
+    <div className="min-h-screen bg-gradient-to-br from-green-400 via-emerald-300 to-teal-400 pb-32">
+      <div className="p-4">
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-3xl font-black text-white">📋 Mark Attendance</h1>
+        </div>
+
+        {/* Session + Team selectors */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
+          <label className="text-sm font-bold text-gray-600 mb-1 block">Session</label>
+          <select
+            value={attendanceSession}
+            onChange={(e) => { const n = parseInt(e.target.value, 10); setAttendanceSession(n); loadAttendanceMarks(n); }}
+            className="w-full p-3 border-2 border-green-300 rounded-xl font-bold text-gray-700 mb-3"
+          >
+            {Array.from({ length: sessionCount }, (_, i) => i + 1).map(n => (
+              <option key={n} value={n}>Session {n}</option>
+            ))}
+          </select>
+
+          <label className="text-sm font-bold text-gray-600 mb-1 block">Team</label>
+          <div className="flex gap-2 flex-wrap">
+            {teams.map(t => (
+              <button
+                key={t}
+                onClick={() => setAttendanceTeamFilter(t)}
+                className={`px-3 py-1 rounded-full text-sm font-bold ${attendanceTeamFilter === t ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Quick actions */}
+        <div className="flex gap-2 mb-3">
+          <button onClick={markAllPresent} className="flex-1 bg-white/90 text-green-700 font-bold rounded-xl py-2 text-sm shadow">
+            ✓ Mark all present
+          </button>
+          <button onClick={() => loadAttendanceMarks(attendanceSession)} className="px-4 bg-white/90 text-gray-600 font-bold rounded-xl py-2 text-sm shadow">
+            ↺ Reload
+          </button>
+        </div>
+
+        {/* Column headers */}
+        <div className="flex items-center px-3 mb-1">
+          <div className="flex-1 text-xs font-bold text-white/90">Student</div>
+          <div className="w-14 text-center text-xs font-bold text-white/90">Present</div>
+          <div className="w-14 text-center text-xs font-bold text-white/90">Shirt 🫂</div>
+          <div className="w-14 text-center text-xs font-bold text-white/90">Grat 💗</div>
+        </div>
+
+        {/* Student rows */}
+        <div className="space-y-2">
+          {rosterForMarking.length === 0 ? (
+            <div className="bg-white rounded-xl p-6 text-center text-gray-500">No students in this team.</div>
+          ) : rosterForMarking.map(s => {
+            const sid = s['Student ID'];
+            const m = attendanceMarks[sid] || { attendance: false, hj_shirt: false, gratitude: false };
+            const Box = ({ on, onClick }) => (
+              <button onClick={onClick} className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center font-black ${on ? 'bg-green-500 border-green-600 text-white' : 'bg-gray-50 border-gray-300 text-transparent'}`}>
+                ✓
+              </button>
+            );
+            return (
+              <div key={sid} className="bg-white rounded-xl p-3 flex items-center shadow-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-gray-800 text-sm truncate">{s['First Name']} {s['Last Name']}</p>
+                  <p className="text-xs text-purple-600">{sid}</p>
+                </div>
+                <div className="w-14 flex justify-center"><Box on={m.attendance} onClick={() => toggleMark(sid, 'attendance')} /></div>
+                <div className="w-14 flex justify-center"><Box on={m.hj_shirt} onClick={() => toggleMark(sid, 'hj_shirt')} /></div>
+                <div className="w-14 flex justify-center"><Box on={m.gratitude} onClick={() => toggleMark(sid, 'gratitude')} /></div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Sticky save bar */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/20 to-transparent">
+        <button
+          onClick={saveAttendanceMarks}
+          disabled={savingAttendance}
+          className="w-full bg-white text-green-700 font-black rounded-2xl py-4 shadow-xl text-lg"
+        >
+          {savingAttendance ? 'Saving...' : `💾 Save Session ${attendanceSession}`}
+        </button>
+      </div>
+    </div>
     );
   }
 
