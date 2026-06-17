@@ -217,10 +217,11 @@ const BADGES = [
 ];
 
 
-// Hyoji floating helper component
+// Hyoji floating helper component — an app-help guide for students.
 const HyojiHelper = ({ page, studentData, earnedBadges, BADGES, growthPercentage }) => {
   const [open, setOpen] = React.useState(false);
   const [bounce, setBounce] = React.useState(false);
+  const [activeQ, setActiveQ] = React.useState(null);
 
   React.useEffect(() => {
     setBounce(true);
@@ -228,27 +229,76 @@ const HyojiHelper = ({ page, studentData, earnedBadges, BADGES, growthPercentage
     return () => clearTimeout(t);
   }, [page]);
 
-  const tips = {
-    home: growthPercentage >= 76 ? "You're almost a Filial Heart! Keep it up! 👑" :
-          growthPercentage >= 51 ? "You're a Loving Heart! Push for Filial Heart! 💜" :
-          growthPercentage >= 26 ? "You're a Faithful Heart! Keep growing! 🙏" :
-          "Welcome! Complete sessions to grow your heart! 🕊️",
-    badges: earnedBadges.length === BADGES.length ? "You earned ALL badges! You're a Heart Champion! 🏆" :
-            `${BADGES.length - earnedBadges.length} more badges to unlock! Keep going! 💪`,
-    gratitude: "Writing gratitude every session earns +80 XP! ✍️",
-    grades: growthPercentage >= 75 ? "Amazing grades! You're shining bright! ⭐" :
-            "Keep attending sessions to boost your score! 📈",
-    profile: "Complete your profile so your team knows you! 😊",
-  };
+  React.useEffect(() => { setActiveQ(null); }, [open, page]);
 
-  const tip = tips[page] || "Keep growing your heart! 💜";
+  // All help topics. `tags` lets us surface the most relevant ones first per page.
+  const helpTopics = [
+    { q: 'How do I write in my gratitude journal?',
+      a: "Tap the 💗 Gratitude Journal button on your home page. Pick the session, type what you're thankful for, and tap Submit. Try to write one every session — it grows your Heart of Gratitude!",
+      tags: ['gratitude'] },
+    { q: 'How do I earn badges?',
+      a: "Badges unlock as you grow! Attend sessions, write gratitude, complete service, and finish your goals. Tap '🏅 My Hyojeong Heart Badges' to see which ones you've earned and what's still locked.",
+      tags: ['badges', 'home'] },
+    { q: 'What is my Growth Journey %?',
+      a: "It's how your heart is growing overall — a mix of your attendance, service, gratitude, and quiz. As it goes up, you move through heart levels: Seeking → Faithful → Loving → Filial Heart. 💜",
+      tags: ['home', 'grades'] },
+    { q: 'What do the pillars mean?',
+      a: "Each pillar is a part of your growth: 💜 Faithful Presence (coming to sessions), 💙 Filial Actions (service), 🫂 One Heart One Shirt (wearing your HJ shirt), 💡 Heart Knowledge (quizzes), and 💖 Heart of Gratitude (your journal).",
+      tags: ['home'] },
+    { q: 'What do the green and grey boxes mean?',
+      a: "In 'Session by session', each numbered box is one session. Green/colored means you did it (attended, wore your shirt, or wrote gratitude). Grey means not yet. It helps you see which sessions to catch up on!",
+      tags: ['home'] },
+    { q: 'How is my grade calculated?',
+      a: "Your HJ Grade adds up: Attendance, Service, Gratitude, One Heart One Shirt, and Quiz. The more faithfully you join in, the higher it grows. Tap '📖 View My HJ Grades' to see the details.",
+      tags: ['grades'] },
+    { q: 'How do I set my goals?',
+      a: "Open '👤 My HJ Profile'. You can write your goals there and update them as you work toward them. Finishing your goals also helps your heart grow!",
+      tags: ['profile'] },
+    { q: 'How do I update my profile?',
+      a: "Tap '👤 My HJ Profile', then edit your photo, birthday, or address. Tap Save when you're done so your team knows you better. 😊",
+      tags: ['profile'] },
+    { q: 'I forgot my password — what do I do?',
+      a: "No worries! Ask your team leader or program admin — they can look up or reset it for you.",
+      tags: ['home'] },
+  ];
+
+  // Order topics so the ones tagged for the current page come first.
+  const ordered = [...helpTopics].sort((a, b) => {
+    const aRel = a.tags.includes(page) ? 0 : 1;
+    const bRel = b.tags.includes(page) ? 0 : 1;
+    return aRel - bRel;
+  });
 
   return (
     <div style={{position:'fixed', bottom:80, right:16, zIndex:999}}>
       {open && (
-        <div style={{background:'white', borderRadius:'16px 16px 4px 16px', padding:'12px 16px', marginBottom:8, boxShadow:'0 4px 20px rgba(0,0,0,0.15)', maxWidth:200, animation:'hyojiTipFade 0.3s ease-out'}}>
-          <p style={{margin:0, fontSize:13, fontWeight:600, color:'#db2777', marginBottom:4}}>Hyoji says:</p>
-          <p style={{margin:0, fontSize:12, color:'#4B5563', lineHeight:1.4}}>{tip}</p>
+        <div style={{background:'white', borderRadius:'16px 16px 4px 16px', padding:'14px 16px', marginBottom:8, boxShadow:'0 8px 30px rgba(0,0,0,0.18)', width:270, maxHeight:380, overflowY:'auto', animation:'hyojiTipFade 0.3s ease-out'}}>
+          <div style={{display:'flex', alignItems:'center', gap:6, marginBottom:8}}>
+            <span style={{fontSize:16}}>💝</span>
+            <p style={{margin:0, fontSize:14, fontWeight:700, color:'#db2777'}}>Hi! I'm Hyoji</p>
+          </div>
+          {activeQ === null ? (
+            <>
+              <p style={{margin:'0 0 10px', fontSize:12, color:'#6B7280'}}>How can I help you with the app?</p>
+              <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                {ordered.map((t, i) => (
+                  <button key={i} onClick={() => setActiveQ(t)}
+                    style={{textAlign:'left', background:'#FCE7F3', border:'none', borderRadius:10, padding:'8px 10px', fontSize:12, fontWeight:600, color:'#9d174d', cursor:'pointer', lineHeight:1.3}}>
+                    {t.q}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <p style={{margin:'0 0 6px', fontSize:13, fontWeight:700, color:'#831843', lineHeight:1.35}}>{activeQ.q}</p>
+              <p style={{margin:'0 0 12px', fontSize:12.5, color:'#4B5563', lineHeight:1.5}}>{activeQ.a}</p>
+              <button onClick={() => setActiveQ(null)}
+                style={{background:'#F3E8FF', border:'none', borderRadius:10, padding:'7px 12px', fontSize:12, fontWeight:700, color:'#7C3AED', cursor:'pointer'}}>
+                ← Back to questions
+              </button>
+            </>
+          )}
         </div>
       )}
       <button
