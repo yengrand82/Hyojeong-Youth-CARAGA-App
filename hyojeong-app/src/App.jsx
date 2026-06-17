@@ -292,9 +292,12 @@ const App = () => {
   const [gratitudeText, setGratitudeText] = useState('');
   const [selectedSession, setSelectedSession] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [leadTeam, setLeadTeam] = useState(null); // team name if logged in as a team lead
   const [adminPassword, setAdminPassword] = useState('');
+  const [loginRole, setLoginRole] = useState('member'); // 'member' | 'lead' | 'admin'
   const [allGratitudeEntries, setAllGratitudeEntries] = useState([]);
   const [myGratitudeEntries, setMyGratitudeEntries] = useState([]);
+  const [myAttendanceMarks, setMyAttendanceMarks] = useState([]); // logged-in student's per-session marks
   const [adminRemark, setAdminRemark] = useState('');
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [allStudents, setAllStudents] = useState([]);
@@ -487,6 +490,22 @@ const App = () => {
       setMyGratitudeEntries(translated);
     } catch (err) {
       console.error('Error:', err);
+    }
+  };
+
+  // Load the logged-in student's per-session attendance marks.
+  const loadMyAttendanceMarks = async (studId) => {
+    try {
+      const { data, error } = await supabase
+        .from('attendance_marks')
+        .select('session_number, attendance, hj_shirt, gratitude')
+        .eq('student_id', studId)
+        .order('session_number', { ascending: true });
+      if (error) { console.error('Error loading my attendance:', error); setMyAttendanceMarks([]); return; }
+      setMyAttendanceMarks(data || []);
+    } catch (err) {
+      console.error('Error loading my attendance:', err);
+      setMyAttendanceMarks([]);
     }
   };
 
@@ -778,6 +797,23 @@ const App = () => {
     setEditingProfile(true);
   };
 
+  // Assign (or change) a student's team from the admin detail view.
+  const handleAssignTeam = async (studId, teamName) => {
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ team: teamName || null })
+        .eq('student_id', studId);
+      if (error) { alert('Failed to assign team: ' + error.message); return; }
+      // Update local roster + the open detail view immediately.
+      setAllStudents(prev => prev.map(s => s['Student ID'] === studId ? { ...s, 'TEAM': teamName } : s));
+      setSelectedStudentDetail(prev => prev && prev['Student ID'] === studId ? { ...prev, 'TEAM': teamName } : prev);
+    } catch (err) {
+      console.error('Assign team error:', err);
+      alert('Failed to assign team.');
+    }
+  };
+
   const handleSaveProfile = async () => {
     try {
       setLoading(true);
@@ -937,7 +973,7 @@ const App = () => {
         attendance: attendanceMarks[sid].attendance,
         hj_shirt: attendanceMarks[sid].hj_shirt,
         gratitude: attendanceMarks[sid].gratitude,
-        marked_by: isAdmin ? 'admin' : (studentData ? studentData['Student ID'] : 'unknown'),
+        marked_by: isAdmin ? 'admin' : (leadTeam ? `lead:${leadTeam}` : (studentData ? studentData['Student ID'] : 'unknown')),
         updated_at: new Date().toISOString()
       }));
       if (records.length === 0) {
@@ -1103,7 +1139,8 @@ const App = () => {
     setIsAdmin(false);
     await Promise.all([
       loadMyGratitudeEntries(student['Student ID']),
-      loadStudentProgress(student['Student ID'])
+      loadStudentProgress(student['Student ID']),
+      loadMyAttendanceMarks(student['Student ID'])
     ]);
     setLoading(false);
     setCurrentPage('home');
@@ -1112,12 +1149,60 @@ const App = () => {
   const handleAdminLogin = () => {
     if (adminPassword === 'hjadmin2026') { 
       setIsAdmin(true); 
+      setLeadTeam(null);
       setCurrentPage('admin-dashboard'); 
       setSelectedSessionFilter('Session 1');
       loadStudents();
       loadAllGratitudeEntries('Session 1');
-    } else { 
-      setError('Incorrect admin password'); 
+      return;
+    }
+    // Otherwise, check if it matches a team lead's PIN.
+    const teams = programSettings.teams || [];
+    const match = teams.find(t => t.lead_pin && String(t.lead_pin).trim() === adminPassword.trim() && t.name);
+    if (match) {
+      setIsAdmin(false);
+      setLeadTeam(match.name);
+      setAttendanceTeamFilter(match.name);
+      setAttendanceSession(1);
+      loadStudents();
+      loadAttendanceMarks(1);
+      setCurrentPage('lead-attendance');
+      setError('');
+      return;
+    }
+    setError('Incorrect password or PIN');
+  };
+
+  // Team-lead login: PIN must match a team in settings.
+  const handleLeadLogin = () => {
+    const teams = programSettings.teams || [];
+    const match = teams.find(t => t.lead_pin && String(t.lead_pin).trim() === adminPassword.trim() && t.name);
+    if (match) {
+      setIsAdmin(false);
+      setLeadTeam(match.name);
+      setAttendanceTeamFilter(match.name);
+      setAttendanceSession(1);
+      loadStudents();
+      loadAttendanceMarks(1);
+      setCurrentPage('lead-attendance');
+      setError('');
+    } else {
+      setError('Incorrect team PIN');
+    }
+  };
+
+  // Admin-only login.
+  const handleAdminOnlyLogin = () => {
+    if (adminPassword === 'hjadmin2026') {
+      setIsAdmin(true);
+      setLeadTeam(null);
+      setCurrentPage('admin-dashboard');
+      setSelectedSessionFilter('Session 1');
+      loadStudents();
+      loadAllGratitudeEntries('Session 1');
+      setError('');
+    } else {
+      setError('Incorrect admin password');
     }
   };
 
@@ -1126,6 +1211,7 @@ const App = () => {
     setStudentId(''); 
     setPassword('');
     setIsAdmin(false); 
+    setLeadTeam(null);
     setAdminPassword(''); 
     setCurrentPage('login');
     setMyGratitudeEntries([]);
@@ -1680,28 +1766,85 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
               </div>
             </div>
           ) : (
-            <>
-              <input 
-                type="text" 
-                value={studentId} 
-                onChange={(e) => setStudentId(e.target.value)} 
-                onKeyPress={(e) => e.key === 'Enter' && handleLogin()} 
-                placeholder="Enter your Student ID (e.g., HJ001)" 
-                className="w-full px-4 py-4 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300 text-lg font-semibold mb-4" 
-              />
-              <input 
-                type="password" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                onKeyPress={(e) => e.key === 'Enter' && handleLogin()} 
-                placeholder="Enter your password" 
-                className="w-full px-4 py-4 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300 text-lg font-semibold mb-4" 
-              />
-              {error && <div className="mb-4 p-3 bg-red-50 border-2 border-red-300 rounded-xl text-red-600 text-sm font-semibold">{error}</div>}
-              <button onClick={handleLogin} className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all">
-                Login
-              </button>
-            </>
+            <div className="relative z-10">
+              {/* Role selector */}
+              <div className="flex gap-2 mb-5">
+                {[
+                  { key: 'member', label: '🙋 Member' },
+                  { key: 'lead', label: '⭐ Team Leader' },
+                  { key: 'admin', label: '🔑 Admin' }
+                ].map(r => (
+                  <button
+                    key={r.key}
+                    onClick={() => { setLoginRole(r.key); setError(''); setAdminPassword(''); setPassword(''); }}
+                    className={`flex-1 px-2 py-2 rounded-xl text-sm font-bold transition-all ${loginRole === r.key ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow' : 'bg-gray-100 text-gray-600'}`}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+
+              {loginRole === 'member' && (
+                <>
+                  <input
+                    type="text"
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                    placeholder="Enter your Student ID (e.g., HJ001)"
+                    className="w-full px-4 py-4 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300 text-lg font-semibold mb-4"
+                  />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                    placeholder="Enter your password"
+                    className="w-full px-4 py-4 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300 text-lg font-semibold mb-4"
+                  />
+                  {error && <div className="mb-4 p-3 bg-red-50 border-2 border-red-300 rounded-xl text-red-600 text-sm font-semibold">{error}</div>}
+                  <button onClick={handleLogin} className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all">
+                    Login
+                  </button>
+                </>
+              )}
+
+              {loginRole === 'lead' && (
+                <>
+                  <p className="text-sm text-gray-500 mb-3">Enter your Team Leader PIN to mark your team's attendance.</p>
+                  <input
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleLeadLogin()}
+                    placeholder="Team PIN"
+                    className="w-full px-4 py-4 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300 text-lg font-semibold mb-4"
+                  />
+                  {error && <div className="mb-4 p-3 bg-red-50 border-2 border-red-300 rounded-xl text-red-600 text-sm font-semibold">{error}</div>}
+                  <button onClick={handleLeadLogin} className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all">
+                    Login as Team Leader
+                  </button>
+                </>
+              )}
+
+              {loginRole === 'admin' && (
+                <>
+                  <p className="text-sm text-gray-500 mb-3">Enter the admin password.</p>
+                  <input
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleAdminOnlyLogin()}
+                    placeholder="Admin password"
+                    className="w-full px-4 py-4 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300 text-lg font-semibold mb-4"
+                  />
+                  {error && <div className="mb-4 p-3 bg-red-50 border-2 border-red-300 rounded-xl text-red-600 text-sm font-semibold">{error}</div>}
+                  <button onClick={handleAdminOnlyLogin} className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all">
+                    Login as Admin
+                  </button>
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -1866,21 +2009,22 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
               </div>
             </div>
           </div>
-          <h2 className="text-2xl font-black text-white mb-2">Admin Access</h2>
+          <h2 className="text-2xl font-black text-white mb-2">Admin / Team Lead Access</h2>
         </div>
         <div className="bg-white rounded-2xl shadow-2xl p-8 border-4 border-white">
-          <h2 className="text-2xl font-black text-gray-800 mb-6 text-center">Enter Password</h2>
+          <h2 className="text-2xl font-black text-gray-800 mb-2 text-center">Enter Password or PIN</h2>
+          <p className="text-sm text-gray-500 text-center mb-6">Admins enter the admin password. Team leads enter their PIN.</p>
           <input 
             type="password" 
             value={adminPassword} 
             onChange={(e) => setAdminPassword(e.target.value)} 
             onKeyPress={(e) => e.key === 'Enter' && handleAdminLogin()} 
-            placeholder="Enter admin password" 
+            placeholder="Admin password or team PIN" 
             className="w-full px-4 py-4 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300 text-lg font-semibold mb-4" 
           />
           {error && <div className="mb-4 p-3 bg-red-50 border-2 border-red-300 rounded-xl text-red-600 text-sm font-semibold">{error}</div>}
           <button onClick={handleAdminLogin} className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold text-lg shadow-lg mb-2">
-            Login as Admin
+            Login
           </button>
           <button onClick={() => { setCurrentPage('login'); setAdminPassword(''); setError(''); }} className="w-full px-6 py-4 bg-gray-200 text-gray-700 rounded-xl font-bold text-lg">
             Back
@@ -2041,6 +2185,48 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
               </div>
             </div>
           </div>
+
+          {(() => {
+            const markMap = {};
+            myAttendanceMarks.forEach(m => { markMap[m.session_number] = m; });
+            const sessions = Array.from({ length: sessionCount }, (_, i) => i + 1);
+            const pct = (field) => {
+              const done = sessions.filter(n => markMap[n] && markMap[n][field]).length;
+              return Math.round((done / sessionCount) * 100);
+            };
+            const Row = ({ label, field, color }) => (
+              <div style={{marginBottom:14}}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6}}>
+                  <span style={{fontSize:12, fontWeight:600, color:'#6B7280'}}>{label}</span>
+                  <span style={{fontSize:13, fontWeight:700, color}}>{pct(field)}%</span>
+                </div>
+                <div style={{display:'flex', flexWrap:'wrap', gap:5}}>
+                  {sessions.map(n => {
+                    const on = markMap[n] && markMap[n][field];
+                    return (
+                      <div key={n} title={dateForSession(n) || `Session ${n}`}
+                        style={{width:30, height:30, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center',
+                          fontSize:12, fontWeight:700,
+                          background: on ? color : '#F3F4F6',
+                          color: on ? 'white' : '#C7CBD1'}}>
+                        {n}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+            return (
+              <div className="duo-card">
+                <p style={{fontSize:11, fontWeight:600, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 14px'}}>Session by session</p>
+                <Row label="Attendance" field="attendance" color="#16A34A" />
+                <Row label="One Heart, One Shirt 🫂" field="hj_shirt" color="#0D9488" />
+                <Row label="Gratitude 💗" field="gratitude" color="#E11D48" />
+                <p style={{fontSize:10, color:'#9CA3AF', margin:'4px 0 0'}}>Tap and hold a box to see its date. Grey = missed.</p>
+              </div>
+            );
+          })()}
+
 
           <div className="duo-card">
             <p style={{fontSize:11, fontWeight:600, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 14px'}}>Heart level journey</p>
@@ -3009,6 +3195,22 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                       <p className="text-base font-bold text-gray-800">{selectedStudentDetail['Address']}</p>
                     </div>
                   )}
+                  <div className="col-span-2 bg-white rounded-lg p-3">
+                    <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-1">👥 Team</p>
+                    <select
+                      value={selectedStudentDetail['TEAM'] || ''}
+                      onChange={(e) => handleAssignTeam(selectedStudentDetail['Student ID'], e.target.value)}
+                      className="w-full p-2 border-2 border-indigo-200 rounded-lg font-bold text-gray-700"
+                    >
+                      <option value="">— No team —</option>
+                      {Array.from(new Set([
+                        ...((programSettings.teams || []).map(t => t.name).filter(Boolean)),
+                        ...allStudents.map(s => s['TEAM']).filter(Boolean)
+                      ])).map(name => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -3409,10 +3611,11 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
   }
 
   // ADMIN MARK ATTENDANCE
-  if (currentPage === 'admin-attendance' && isAdmin) {
+  if ((currentPage === 'admin-attendance' || currentPage === 'lead-attendance') && (isAdmin || leadTeam)) {
+    const effectiveTeamFilter = leadTeam ? leadTeam : attendanceTeamFilter;
     const rosterForMarking = [...allStudents]
       .filter(s => s['Student ID'] && s['Student ID'].match(/^HJ\d+$/i))
-      .filter(s => attendanceTeamFilter === 'ALL' || (s['TEAM'] || '').toUpperCase() === attendanceTeamFilter.toUpperCase())
+      .filter(s => effectiveTeamFilter === 'ALL' || (s['TEAM'] || '').toUpperCase() === effectiveTeamFilter.toUpperCase())
       .sort((a, b) => `${a['First Name']||''}`.localeCompare(`${b['First Name']||''}`));
 
     const markAllPresent = () => {
@@ -3427,16 +3630,19 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
       });
     };
 
-    const teams = ['ALL', 'MARC', 'BASSEL', 'KYRRA'];
+    const teams = ['ALL', ...((programSettings.teams || []).map(t => t.name).filter(Boolean))];
 
     return (
     <div className="min-h-screen bg-gradient-to-br from-green-400 via-emerald-300 to-teal-400 pb-32">
       <div className="p-4">
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">
+          <button onClick={() => leadTeam ? handleLogout() : setCurrentPage('admin-dashboard')} className="text-white font-bold">
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-3xl font-black text-white">📋 Mark Attendance</h1>
+          <div>
+            <h1 className="text-3xl font-black text-white">📋 Mark Attendance</h1>
+            {leadTeam && <p className="text-white/90 font-bold text-sm">Team {leadTeam} · Team Lead</p>}
+          </div>
         </div>
 
         {/* Session + Team selectors */}
@@ -3445,25 +3651,32 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           <select
             value={attendanceSession}
             onChange={(e) => { const n = parseInt(e.target.value, 10); setAttendanceSession(n); loadAttendanceMarks(n); }}
-            className="w-full p-3 border-2 border-green-300 rounded-xl font-bold text-gray-700 mb-3"
+            className="w-full p-3 border-2 border-green-300 rounded-xl font-bold text-gray-700 mb-1"
           >
             {Array.from({ length: sessionCount }, (_, i) => i + 1).map(n => (
-              <option key={n} value={n}>Session {n}</option>
+              <option key={n} value={n}>Session {n}{dateForSession(n) ? ` · ${dateForSession(n)}` : ''}</option>
             ))}
           </select>
+          {dateForSession(attendanceSession) && (
+            <p className="text-sm text-green-700 font-semibold mb-3">📅 {dateForSession(attendanceSession)}</p>
+          )}
 
-          <label className="text-sm font-bold text-gray-600 mb-1 block">Team</label>
-          <div className="flex gap-2 flex-wrap">
-            {teams.map(t => (
-              <button
-                key={t}
-                onClick={() => setAttendanceTeamFilter(t)}
-                className={`px-3 py-1 rounded-full text-sm font-bold ${attendanceTeamFilter === t ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'}`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+          {!leadTeam && (
+            <>
+              <label className="text-sm font-bold text-gray-600 mb-1 block">Team</label>
+              <div className="flex gap-2 flex-wrap">
+                {teams.map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setAttendanceTeamFilter(t)}
+                    className={`px-3 py-1 rounded-full text-sm font-bold ${attendanceTeamFilter === t ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Quick actions */}
