@@ -348,6 +348,17 @@ const App = () => {
   const [allGratitudeEntries, setAllGratitudeEntries] = useState([]);
   const [myGratitudeEntries, setMyGratitudeEntries] = useState([]);
   const [myAttendanceMarks, setMyAttendanceMarks] = useState([]); // logged-in student's per-session marks
+  const [expandedPillar, setExpandedPillar] = useState(null); // which pillar's detail is open on home
+  const [studentStatusFilter, setStudentStatusFilter] = useState('active'); // All Students page filter
+  const [scoreEdits, setScoreEdits] = useState({}); // { studentId: {quiz1,quiz2,quiz3,service_pct} }
+  const [savingScores, setSavingScores] = useState(false);
+  const [quizTeamFilter, setQuizTeamFilter] = useState('ALL');
+  const [allMarks, setAllMarks] = useState([]); // every student's attendance marks (for admin list)
+  const [studentTeamFilter, setStudentTeamFilter] = useState('ALL'); // team filter on All Students page
+  const [announcements, setAnnouncements] = useState([]);
+  const [announceText, setAnnounceText] = useState('');
+  const [announceTitle, setAnnounceTitle] = useState('');
+  const [postingAnnounce, setPostingAnnounce] = useState(false);
   const [adminRemark, setAdminRemark] = useState('');
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [allStudents, setAllStudents] = useState([]);
@@ -511,6 +522,8 @@ const App = () => {
         'HJ Attendance': r.hj_attendance,
         'HJ Service Pct': r.hj_service_pct,
         'HJ Shirt Pct': r.hj_shirt_pct,
+        'Status': r.status || 'active',
+        'Quiz1': r.quiz1, 'Quiz2': r.quiz2, 'Quiz3': r.quiz3, 'ServicePct': r.service_pct,
         'HJ Quiz': r.hj_quiz,
         'Percentage': r.percentage,
       }));
@@ -850,6 +863,47 @@ const App = () => {
     setEditingProfile(true);
   };
 
+  // Save quiz + service scores for a single student (from the detail card).
+  const handleSaveStudentScores = async (studId, q1, q2, q3, svc) => {
+    try {
+      const quizzes = [q1, q2, q3].map(v => v === '' || v == null ? null : Number(v));
+      const taken = quizzes.filter(v => v != null && !isNaN(v));
+      const avgPct = taken.length ? Math.round((taken.reduce((a, b) => a + b, 0) / taken.length) / 10 * 100 * 100) / 100 : 0;
+      const svcPct = svc === '' || svc == null ? null : Math.min(100, Number(svc));
+      const { error } = await supabase.from('students').update({
+        quiz1: quizzes[0], quiz2: quizzes[1], quiz3: quizzes[2],
+        quiz_score: avgPct, hj_quiz: avgPct,
+        service_pct: svcPct,
+        hj_service_pct: svcPct == null ? 0 : svcPct,
+        service_week_score: svcPct == null ? 0 : Math.round(svcPct / 100 * 50 * 100) / 100
+      }).eq('student_id', studId);
+      if (error) { alert('Failed to save scores: ' + error.message); return; }
+      const patch = { 'Quiz1': quizzes[0], 'Quiz2': quizzes[1], 'Quiz3': quizzes[2], 'ServicePct': svcPct, 'HJ Quiz': avgPct, 'HJ Service Pct': svcPct == null ? 0 : svcPct };
+      setAllStudents(prev => prev.map(s => s['Student ID'] === studId ? { ...s, ...patch } : s));
+      setSelectedStudentDetail(prev => prev && prev['Student ID'] === studId ? { ...prev, ...patch } : prev);
+      alert('✅ Scores saved!');
+    } catch (err) {
+      console.error('Save student scores error:', err);
+      alert('Failed to save scores.');
+    }
+  };
+
+  // Toggle a student's active/inactive status from the admin detail view.
+  const handleToggleStatus = async (studId, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ status: newStatus })
+        .eq('student_id', studId);
+      if (error) { alert('Failed to update status: ' + error.message); return; }
+      setAllStudents(prev => prev.map(s => s['Student ID'] === studId ? { ...s, 'Status': newStatus } : s));
+      setSelectedStudentDetail(prev => prev && prev['Student ID'] === studId ? { ...prev, 'Status': newStatus } : prev);
+    } catch (err) {
+      console.error('Status toggle error:', err);
+      alert('Failed to update status.');
+    }
+  };
+
   // Assign (or change) a student's team from the admin detail view.
   const handleAssignTeam = async (studId, teamName) => {
     try {
@@ -900,6 +954,129 @@ const App = () => {
       alert('Failed to update profile. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load announcements relevant to the current viewer.
+  const loadAnnouncements = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) { console.error('Error loading announcements:', error); setAnnouncements([]); return; }
+      setAnnouncements(data || []);
+    } catch (err) {
+      console.error('Error loading announcements:', err);
+      setAnnouncements([]);
+    }
+  };
+
+  // Post a new announcement. Admin -> 'all'; lead -> their team.
+  const postAnnouncement = async () => {
+    if (!announceText.trim()) { alert('Please write your announcement first.'); return; }
+    try {
+      setPostingAnnounce(true);
+      const record = {
+        author_role: isAdmin ? 'admin' : 'lead',
+        author_name: isAdmin ? 'Admin' : `Team ${leadTeam} Lead`,
+        audience: isAdmin ? 'all' : leadTeam,
+        title: announceTitle.trim() || null,
+        body: announceText.trim()
+      };
+      const { error } = await supabase.from('announcements').insert([record]);
+      if (error) { alert('Failed to post: ' + error.message); return; }
+      setAnnounceText(''); setAnnounceTitle('');
+      await loadAnnouncements();
+      alert('✅ Announcement posted!');
+    } catch (err) {
+      console.error('Post announcement error:', err);
+      alert('Failed to post announcement.');
+    } finally {
+      setPostingAnnounce(false);
+    }
+  };
+
+  // Load every student's attendance marks (for the admin student list overview).
+  const loadAllMarks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('attendance_marks')
+        .select('student_id, session_number, attendance, hj_shirt, gratitude');
+      if (error) { console.error('Error loading all marks:', error); setAllMarks([]); return; }
+      setAllMarks(data || []);
+    } catch (err) {
+      console.error('Error loading all marks:', err);
+      setAllMarks([]);
+    }
+  };
+
+  // Load current quiz/service values into editable state for a roster.
+  const loadScoreEdits = (roster) => {
+    const edits = {};
+    roster.forEach(s => {
+      const sid = s['Student ID'];
+      edits[sid] = {
+        quiz1: s['Quiz1'] ?? '',
+        quiz2: s['Quiz2'] ?? '',
+        quiz3: s['Quiz3'] ?? '',
+        service_pct: s['ServicePct'] ?? ''
+      };
+    });
+    setScoreEdits(edits);
+  };
+
+  const setScoreField = (studentId, field, value) => {
+    setScoreEdits(prev => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), [field]: value } }));
+  };
+
+  // Save quiz scores: writes quiz1-3, and the averaged quiz_score (%) + hj_quiz for display.
+  const saveQuizScores = async () => {
+    try {
+      setSavingScores(true);
+      const updates = Object.keys(scoreEdits).map(sid => {
+        const e = scoreEdits[sid];
+        const q = ['quiz1', 'quiz2', 'quiz3'].map(k => e[k] === '' || e[k] == null ? null : Number(e[k]));
+        const taken = q.filter(v => v != null && !isNaN(v));
+        const avgPct = taken.length ? Math.round((taken.reduce((a, b) => a + b, 0) / taken.length) / 10 * 100 * 100) / 100 : 0;
+        return supabase.from('students').update({
+          quiz1: q[0], quiz2: q[1], quiz3: q[2],
+          quiz_score: avgPct, hj_quiz: avgPct
+        }).eq('student_id', sid);
+      });
+      await Promise.all(updates);
+      await loadStudents();
+      alert('✅ Quiz scores saved!');
+    } catch (err) {
+      console.error('Save quiz error:', err);
+      alert('Failed to save quiz scores.');
+    } finally {
+      setSavingScores(false);
+    }
+  };
+
+  // Save service scores: writes service_pct (%) and hj_service_pct for display.
+  const saveServiceScores = async () => {
+    try {
+      setSavingScores(true);
+      const updates = Object.keys(scoreEdits).map(sid => {
+        const e = scoreEdits[sid];
+        const pct = e.service_pct === '' || e.service_pct == null ? null : Math.min(100, Number(e.service_pct));
+        return supabase.from('students').update({
+          service_pct: pct,
+          hj_service_pct: pct == null ? 0 : pct,
+          service_week_score: pct == null ? 0 : Math.round(pct / 100 * 50 * 100) / 100
+        }).eq('student_id', sid);
+      });
+      await Promise.all(updates);
+      await loadStudents();
+      alert('✅ Service scores saved!');
+    } catch (err) {
+      console.error('Save service error:', err);
+      alert('Failed to save service scores.');
+    } finally {
+      setSavingScores(false);
     }
   };
 
@@ -1161,6 +1338,8 @@ const App = () => {
           'HJ Attendance': r.hj_attendance,
           'HJ Service Pct': r.hj_service_pct,
         'HJ Shirt Pct': r.hj_shirt_pct,
+        'Status': r.status || 'active',
+        'Quiz1': r.quiz1, 'Quiz2': r.quiz2, 'Quiz3': r.quiz3, 'ServicePct': r.service_pct,
           'HJ Quiz': r.hj_quiz,
           'Percentage': r.percentage,
         }));
@@ -1193,7 +1372,8 @@ const App = () => {
     await Promise.all([
       loadMyGratitudeEntries(student['Student ID']),
       loadStudentProgress(student['Student ID']),
-      loadMyAttendanceMarks(student['Student ID'])
+      loadMyAttendanceMarks(student['Student ID']),
+      loadAnnouncements()
     ]);
     setLoading(false);
     setCurrentPage('home');
@@ -1219,7 +1399,8 @@ const App = () => {
       setAttendanceSession(1);
       loadStudents();
       loadAttendanceMarks(1);
-      setCurrentPage('lead-attendance');
+      loadAnnouncements();
+      setCurrentPage('lead-dashboard');
       setError('');
       return;
     }
@@ -1237,7 +1418,8 @@ const App = () => {
       setAttendanceSession(1);
       loadStudents();
       loadAttendanceMarks(1);
-      setCurrentPage('lead-attendance');
+      loadAnnouncements();
+      setCurrentPage('lead-dashboard');
       setError('');
     } else {
       setError('Incorrect team PIN');
@@ -1923,6 +2105,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     if (!allStudents || allStudents.length === 0) return (<div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 flex items-center justify-center"><div style={{background:'white',borderRadius:20,padding:24,textAlign:'center'}}><p style={{fontSize:18,fontWeight:700,color:'#7C3AED'}}>Loading rankings...</p><p style={{color:'#9CA3AF',fontSize:13}}>Please go back and try again</p><button onClick={()=>setCurrentPage('home')} style={{marginTop:12,background:'#7C3AED',color:'white',border:'none',borderRadius:12,padding:'10px 20px',cursor:'pointer',fontWeight:600}}>Go Home</button></div></div>);
     const sorted = [...allStudents]
       .filter(s => s['Student ID'] && s['Student ID'].match(/^HJ\d+$/i))
+      .filter(s => (s['Status'] || 'active') === 'active')
       .sort((a, b) => getGrade(b) - getGrade(a));
 
     const teamSorted = sorted.filter(s => (s['TEAM']||'').toUpperCase() === leaderboardTeam.toUpperCase());
@@ -2093,7 +2276,8 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     const servicePct = Math.min(100, Math.round(parseFloat(studentData['HJ Service Pct']) || 0));
     const quizPct = Math.min(100, Math.round(studentData['HJ Quiz'] || 0));
     const gratitudePct = Math.min(100, Math.round((myGratitudeEntries.length / gratitudeCount) * 100));
-    const shirtPct = Math.min(100, Math.round(parseFloat(studentData['HJ Shirt Pct']) || 0));
+    const shirtMarksDone = myAttendanceMarks.filter(m => m.hj_shirt).length;
+    const shirtPct = Math.min(100, Math.round((shirtMarksDone / sessionCount) * 100));
     const growthPercentage = Math.round((attendancePct + servicePct + quizPct + gratitudePct) / 4);
     const xpTotal = Math.round((attendancePct * 5) + (servicePct * 3) + (quizPct * 2) + (gratitudePct * 2) + (earnedBadges.length * 50));
     const streakCount = myGratitudeEntries.length;
@@ -2170,6 +2354,29 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             <p style={{fontSize:12, color:'#9D174D', margin:0, fontWeight:600}}>— True Parents · {todaysMessage.theme}</p>
           </div>
 
+          {(() => {
+            const myTeam = (studentData['TEAM'] || '').toUpperCase();
+            const visible = announcements.filter(a => a.audience === 'all' || (a.audience || '').toUpperCase() === myTeam).slice(0, 5);
+            if (visible.length === 0) return null;
+            return (
+              <div className="duo-card" style={{marginBottom:12}}>
+                <p style={{fontSize:11, fontWeight:600, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 10px'}}>📢 Announcements</p>
+                <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                  {visible.map(a => (
+                    <div key={a.id} style={{background:'#F9FAFB', borderRadius:10, padding:'10px 12px'}}>
+                      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:2}}>
+                        <span style={{fontSize:10, fontWeight:700, color:'#7C3AED'}}>{a.audience === 'all' ? '🌍 Everyone' : `👥 ${a.audience}`}</span>
+                        <span style={{fontSize:10, color:'#9CA3AF'}}>{new Date(a.created_at).toLocaleDateString()}</span>
+                      </div>
+                      {a.title && <p style={{fontSize:13, fontWeight:700, color:'#1F2937', margin:'0 0 2px'}}>{a.title}</p>}
+                      <p style={{fontSize:12, color:'#4B5563', margin:0, lineHeight:1.4}}>{a.body}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="duo-card" style={{background: currentLevel.color, border:'none', marginBottom:12}}>
             <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10}}>
               <div>
@@ -2200,108 +2407,109 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             </div>
           </div>
 
-          <div className="duo-card">
-            <p style={{fontSize:11, fontWeight:600, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 16px'}}>Your pillars</p>
-
-            <div className="pillar-row">
-              <div className="pillar-icon" style={{background:'#EDE9FE'}}>💜</div>
-              <div style={{flex:1}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <span style={{fontSize:14, fontWeight:600, color:'#1F2937'}}>Faithful Presence</span>
-                  <span style={{fontSize:17, fontWeight:700, color:'#7C3AED'}}>{attendancePct}%</span>
-                </div>
-                <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${attendancePct}%`, background:'#7C3AED'}}></div></div>
-                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{attendedSessions(studentData)} of {sessionCount} sessions attended</p>
-              </div>
-            </div>
-
-            <div className="pillar-row">
-              <div className="pillar-icon" style={{background:'#D1FAE5'}}>💙</div>
-              <div style={{flex:1}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <span style={{fontSize:14, fontWeight:600, color:'#1F2937'}}>Filial Actions</span>
-                  <span style={{fontSize:17, fontWeight:700, color:'#059669'}}>{servicePct}%</span>
-                </div>
-                <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${servicePct}%`, background:'#059669'}}></div></div>
-                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{servicePct === 100 ? 'Service week completed! 🎉' : 'Complete your service week'}</p>
-              </div>
-            </div>
-
-            <div className="pillar-row">
-              <div className="pillar-icon" style={{background:'#CCFBF1'}}>🫂</div>
-              <div style={{flex:1}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <span style={{fontSize:14, fontWeight:600, color:'#1F2937'}}>One Heart, One Shirt</span>
-                  <span style={{fontSize:17, fontWeight:700, color:'#0D9488'}}>{shirtPct}%</span>
-                </div>
-                <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${shirtPct}%`, background:'#0D9488'}}></div></div>
-                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{shirtPct === 100 ? 'Wearing the Heart of Hyojeong every time! 🫂' : 'Wear your HJ shirt to every session'}</p>
-              </div>
-            </div>
-
-            <div className="pillar-row">
-              <div className="pillar-icon" style={{background:'#FEF3C7'}}>💡</div>
-              <div style={{flex:1}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <span style={{fontSize:14, fontWeight:600, color:'#1F2937'}}>Heart Knowledge</span>
-                  <span style={{fontSize:17, fontWeight:700, color:'#D97706'}}>{quizPct}%</span>
-                </div>
-                <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${quizPct}%`, background:'#D97706'}}></div></div>
-                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>Quiz score average</p>
-              </div>
-            </div>
-
-            <div className="pillar-row" style={{marginBottom:0}}>
-              <div className="pillar-icon" style={{background:'#FFE4E6'}}>💗</div>
-              <div style={{flex:1}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                  <span style={{fontSize:14, fontWeight:600, color:'#1F2937'}}>Heart of Gratitude</span>
-                  <span style={{fontSize:17, fontWeight:700, color:'#E11D48'}}>{gratitudePct}%</span>
-                </div>
-                <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${gratitudePct}%`, background:'#E11D48'}}></div></div>
-                <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{myGratitudeEntries.length} of {gratitudeCount} entries submitted</p>
-              </div>
-            </div>
-          </div>
-
           {(() => {
             const markMap = {};
             myAttendanceMarks.forEach(m => { markMap[m.session_number] = m; });
             const sessions = Array.from({ length: sessionCount }, (_, i) => i + 1);
-            const pct = (field) => {
-              const done = sessions.filter(n => markMap[n] && markMap[n][field]).length;
-              return Math.round((done / sessionCount) * 100);
-            };
-            const Row = ({ label, field, color }) => (
-              <div style={{marginBottom:14}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6}}>
-                  <span style={{fontSize:12, fontWeight:600, color:'#6B7280'}}>{label}</span>
-                  <span style={{fontSize:13, fontWeight:700, color}}>{pct(field)}%</span>
-                </div>
-                <div style={{display:'flex', flexWrap:'wrap', gap:5}}>
-                  {sessions.map(n => {
-                    const on = markMap[n] && markMap[n][field];
-                    return (
-                      <div key={n} title={dateForSession(n) || `Session ${n}`}
-                        style={{width:30, height:30, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center',
-                          fontSize:12, fontWeight:700,
-                          background: on ? color : '#F3F4F6',
-                          color: on ? 'white' : '#C7CBD1'}}>
-                        {n}
-                      </div>
-                    );
-                  })}
-                </div>
+
+            // Reusable session-box grid for a given mark field.
+            const SessionGrid = ({ field, color }) => (
+              <div style={{display:'flex', flexWrap:'wrap', gap:5, marginTop:4}}>
+                {sessions.map(n => {
+                  const on = markMap[n] && markMap[n][field];
+                  return (
+                    <div key={n} title={dateForSession(n) || `Session ${n}`}
+                      style={{width:30, height:30, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center',
+                        fontSize:12, fontWeight:700, background: on ? color : '#F3F4F6', color: on ? 'white' : '#C7CBD1'}}>
+                      {n}
+                    </div>
+                  );
+                })}
               </div>
             );
+
+            // One pillar row: tappable header + inline expanding detail.
+            const Pillar = ({ id, icon, iconBg, name, pct, color, caption, last, children }) => {
+              const isOpen = expandedPillar === id;
+              return (
+                <div style={{marginBottom: last ? 0 : 16}}>
+                  <div onClick={() => setExpandedPillar(isOpen ? null : id)}
+                    style={{display:'flex', alignItems:'center', gap:14, cursor:'pointer'}}>
+                    <div className="pillar-icon" style={{background:iconBg}}>{icon}</div>
+                    <div style={{flex:1}}>
+                      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                        <span style={{fontSize:14, fontWeight:600, color:'#1F2937'}}>{name} <span style={{fontSize:11, color:'#C7CBD1'}}>{isOpen ? '▲' : '▼'}</span></span>
+                        <span style={{fontSize:17, fontWeight:700, color}}>{pct}%</span>
+                      </div>
+                      <div className="xp-bar-bg"><div className="xp-bar-fill" style={{width:`${pct}%`, background:color}}></div></div>
+                      <p style={{fontSize:11, color:'#9CA3AF', margin:'3px 0 0'}}>{caption}</p>
+                    </div>
+                  </div>
+                  {isOpen && (
+                    <div style={{marginTop:12, marginLeft:0, padding:'12px 14px', background:'#FAFAFB', borderRadius:12}}>
+                      {children}
+                    </div>
+                  )}
+                </div>
+              );
+            };
+
             return (
-              <div className="duo-card">
-                <p style={{fontSize:11, fontWeight:600, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 14px'}}>Session by session</p>
-                <Row label="Attendance" field="attendance" color="#16A34A" />
-                <Row label="One Heart, One Shirt 🫂" field="hj_shirt" color="#0D9488" />
-                <Row label="Gratitude 💗" field="gratitude" color="#E11D48" />
-                <p style={{fontSize:10, color:'#9CA3AF', margin:'4px 0 0'}}>Tap and hold a box to see its date. Grey = missed.</p>
-              </div>
+            <div className="duo-card">
+              <p style={{fontSize:11, fontWeight:600, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 16px'}}>Your pillars · tap to see details</p>
+
+              <Pillar id="attendance" icon="💜" iconBg="#EDE9FE" name="Faithful Presence" pct={attendancePct} color="#7C3AED"
+                caption={`${attendedSessions(studentData)} of ${sessionCount} sessions attended`}>
+                <p style={{fontSize:11, fontWeight:600, color:'#6B7280', margin:'0 0 4px'}}>Which sessions you attended</p>
+                <SessionGrid field="attendance" color="#7C3AED" />
+                <p style={{fontSize:10, color:'#9CA3AF', margin:'8px 0 0'}}>Grey = missed. Tap & hold a box for its date.</p>
+              </Pillar>
+
+              <Pillar id="service" icon="💙" iconBg="#D1FAE5" name="Filial Actions" pct={servicePct} color="#059669"
+                caption={servicePct === 100 ? 'Service week completed! 🎉' : 'Complete your service week'}>
+                <p style={{fontSize:12, color:'#4B5563', margin:0, lineHeight:1.5}}>
+                  {servicePct === 100
+                    ? 'You completed your HJ Service Week — wonderful! 🎉 Service is love in action.'
+                    : `Your service progress is at ${servicePct}%. Completing your HJ Service Week fills this pillar.`}
+                </p>
+              </Pillar>
+
+              <Pillar id="shirt" icon="🫂" iconBg="#CCFBF1" name="One Heart, One Shirt" pct={shirtPct} color="#0D9488"
+                caption={shirtPct === 100 ? 'Wearing the Heart of Hyojeong every time! 🫂' : 'Wear your HJ shirt to every session'}>
+                <p style={{fontSize:11, fontWeight:600, color:'#6B7280', margin:'0 0 4px'}}>Sessions you wore your HJ shirt</p>
+                <SessionGrid field="hj_shirt" color="#0D9488" />
+                <p style={{fontSize:10, color:'#9CA3AF', margin:'8px 0 0'}}>Grey = not worn. Let's aim for all green! 🫂</p>
+              </Pillar>
+
+              <Pillar id="quiz" icon="💡" iconBg="#FEF3C7" name="Heart Knowledge" pct={quizPct} color="#D97706"
+                caption="Quiz score average">
+                <p style={{fontSize:12, color:'#4B5563', margin:0, lineHeight:1.5}}>
+                  Your quiz score average is <b>{quizPct}%</b>. This grows as you take the Heavenly Quizzes during sessions. Keep learning! 💡
+                </p>
+              </Pillar>
+
+              <Pillar id="gratitude" icon="💗" iconBg="#FFE4E6" name="Heart of Gratitude" pct={gratitudePct} color="#E11D48" last
+                caption={`${myGratitudeEntries.length} of ${gratitudeCount} entries submitted`}>
+                <p style={{fontSize:11, fontWeight:600, color:'#6B7280', margin:'0 0 4px'}}>Sessions you logged gratitude</p>
+                <SessionGrid field="gratitude" color="#E11D48" />
+                <p style={{fontSize:11, fontWeight:600, color:'#6B7280', margin:'12px 0 6px'}}>My gratitude entries</p>
+                {myGratitudeEntries.length === 0 ? (
+                  <p style={{fontSize:12, color:'#9CA3AF', fontStyle:'italic', margin:0}}>No entries yet. Write your first one from the Gratitude Journal! 💗</p>
+                ) : (
+                  <div style={{display:'flex', flexDirection:'column', gap:8, maxHeight:240, overflowY:'auto'}}>
+                    {[...myGratitudeEntries]
+                      .sort((a,b) => (parseInt((b.session||'').replace(/\D/g,''))||0) - (parseInt((a.session||'').replace(/\D/g,''))||0))
+                      .map((e, i) => (
+                      <div key={i} style={{background:'white', borderRadius:10, padding:'8px 10px', boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+                        <p style={{fontSize:10, fontWeight:700, color:'#E11D48', margin:'0 0 2px'}}>{e.session || 'Entry'}</p>
+                        <p style={{fontSize:12, color:'#374151', margin:0, lineHeight:1.4}}>{e.content || ''}</p>
+                        {e.adminRemark && <p style={{fontSize:11, color:'#7C3AED', margin:'4px 0 0', fontStyle:'italic'}}>💬 {e.adminRemark}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Pillar>
+            </div>
             );
           })()}
 
@@ -3054,8 +3262,8 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-purple-200">
             <Users className="w-8 h-8 text-purple-600 mb-2" />
-            <p className="text-sm text-gray-600 font-bold">Total Students</p>
-            <p className="text-3xl font-black text-purple-600">{allStudents.length}</p>
+            <p className="text-sm text-gray-600 font-bold">Active Students</p>
+            <p className="text-3xl font-black text-purple-600">{allStudents.filter(s => (s['Status'] || 'active') === 'active').length}<span className="text-base text-gray-400 font-bold"> / {allStudents.length}</span></p>
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-pink-200">
             <MessageSquare className="w-8 h-8 text-pink-600 mb-2" />
@@ -3071,7 +3279,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
-          <button onClick={() => setCurrentPage('admin-students')} className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+          <button onClick={() => { loadAllMarks(); setCurrentPage('admin-students'); }} className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Users className="w-6 h-6" />
               <span className="font-bold">View All Students</span>
@@ -3096,6 +3304,27 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             <div className="flex items-center gap-3">
               <Calendar className="w-6 h-6" />
               <span className="font-bold">Mark Attendance</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => { const r = allStudents.filter(s => (s['Status']||'active')==='active'); loadScoreEdits(r); setQuizTeamFilter('ALL'); setCurrentPage('admin-quizzes'); }} className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <BookOpen className="w-6 h-6" />
+              <span className="font-bold">Quiz Scores</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => { const r = allStudents.filter(s => (s['Status']||'active')==='active'); loadScoreEdits(r); setQuizTeamFilter('ALL'); setCurrentPage('admin-service'); }} className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Heart className="w-6 h-6" />
+              <span className="font-bold">Service Project</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => { loadAnnouncements(); setCurrentPage('admin-announce'); }} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <MessageSquare className="w-6 h-6" />
+              <span className="font-bold">Announcements</span>
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
@@ -3289,6 +3518,57 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                       ))}
                     </select>
                   </div>
+                  <div className="col-span-2 bg-white rounded-lg p-3">
+                    <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-2">⭐ Status</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleToggleStatus(selectedStudentDetail['Student ID'], 'active')}
+                        className={`flex-1 py-2 rounded-lg font-bold text-sm ${(selectedStudentDetail['Status'] || 'active') === 'active' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}
+                      >
+                        ✓ Active
+                      </button>
+                      <button
+                        onClick={() => handleToggleStatus(selectedStudentDetail['Student ID'], 'inactive')}
+                        className={`flex-1 py-2 rounded-lg font-bold text-sm ${selectedStudentDetail['Status'] === 'inactive' ? 'bg-gray-500 text-white' : 'bg-gray-100 text-gray-500'}`}
+                      >
+                        💤 Inactive
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">Inactive students are kept but hidden from the active program. They can rejoin anytime.</p>
+                  </div>
+                  <div className="col-span-2 bg-white rounded-lg p-3">
+                    <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-2">💡 Quiz Scores (each /10)</p>
+                    <div className="flex gap-2 mb-3">
+                      {[['Quiz1','Q1'],['Quiz2','Q2'],['Quiz3','Q3']].map(([field,label]) => (
+                        <div key={field} className="flex-1">
+                          <label className="text-xs text-gray-500 block text-center mb-1">{label}</label>
+                          <input type="number" min="0" max="10"
+                            key={`${selectedStudentDetail['Student ID']}-${field}`}
+                            defaultValue={selectedStudentDetail[field] ?? ''}
+                            id={`score-${field}`}
+                            className="w-full h-10 text-center border-2 border-amber-200 rounded-lg font-bold text-gray-700" />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-2">💙 Service Project (/100%)</p>
+                    <input type="number" min="0" max="100"
+                      key={`${selectedStudentDetail['Student ID']}-service`}
+                      defaultValue={selectedStudentDetail['ServicePct'] ?? ''}
+                      id="score-ServicePct"
+                      placeholder="0"
+                      className="w-full h-10 text-center border-2 border-blue-200 rounded-lg font-bold text-gray-700 mb-3" />
+                    <button
+                      onClick={() => handleSaveStudentScores(
+                        selectedStudentDetail['Student ID'],
+                        document.getElementById('score-Quiz1').value,
+                        document.getElementById('score-Quiz2').value,
+                        document.getElementById('score-Quiz3').value,
+                        document.getElementById('score-ServicePct').value
+                      )}
+                      className="w-full py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-bold text-sm">
+                      💾 Save Quiz & Service
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -3426,21 +3706,65 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           </button>
           <h1 className="text-3xl font-black text-white">All Students</h1>
         </div>
+        <div className="flex gap-2 mb-3">
+          {[
+            { key: 'active', label: '✓ Active' },
+            { key: 'inactive', label: '💤 Inactive' },
+            { key: 'all', label: 'All' }
+          ].map(f => {
+            const count = f.key === 'all' ? allStudents.length : allStudents.filter(s => (s['Status'] || 'active') === f.key).length;
+            return (
+              <button key={f.key} onClick={() => setStudentStatusFilter(f.key)}
+                className={`flex-1 py-2 rounded-xl font-bold text-sm ${studentStatusFilter === f.key ? 'bg-white text-purple-600' : 'bg-white/30 text-white'}`}>
+                {f.label} ({count})
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex gap-2 flex-wrap mb-4">
+          {['ALL', ...((programSettings.teams || []).map(t => t.name).filter(Boolean)), ...Array.from(new Set(allStudents.map(s => s['TEAM']).filter(Boolean)))]
+            .filter((v, i, arr) => arr.indexOf(v) === i)
+            .map(t => (
+            <button key={t} onClick={() => setStudentTeamFilter(t)}
+              className={`px-3 py-1 rounded-full text-xs font-bold ${studentTeamFilter === t ? 'bg-purple-600 text-white' : 'bg-white/50 text-gray-700'}`}>
+              {t === 'ALL' ? '👥 All teams' : t}
+            </button>
+          ))}
+        </div>
         <div className="space-y-3">
-          {[...allStudents].sort((a,b) => `${a['First Name']||''} ${a['Last Name']||''}`.trim().localeCompare(`${b['First Name']||''} ${b['Last Name']||''}`.trim())).map((student, idx) => (
-            <div 
-              key={idx} 
-              onClick={() => {
-                setSelectedStudentDetail(student);
-                loadStudentProgressForAdmin(student['Student ID']);
-              }}
-              className="bg-white rounded-2xl shadow-lg p-4 border-4 border-white cursor-pointer hover:border-purple-300 transition-all"
-            >
-              <div className="flex items-center gap-3">
+          {[...allStudents]
+            .filter(s => studentStatusFilter === 'all' || (s['Status'] || 'active') === studentStatusFilter)
+            .filter(s => studentTeamFilter === 'ALL' || (s['TEAM'] || '').toUpperCase() === studentTeamFilter.toUpperCase())
+            .sort((a,b) => `${a['Last Name']||''} ${a['First Name']||''}`.trim().localeCompare(`${b['Last Name']||''} ${b['First Name']||''}`.trim())).map((student, idx) => {
+            const sid = student['Student ID'];
+            const sMarks = allMarks.filter(m => m.student_id === sid);
+            const mMap = {}; sMarks.forEach(m => { mMap[m.session_number] = m; });
+            const sessions = Array.from({ length: sessionCount }, (_, i) => i + 1);
+            const MiniGrid = ({ field, color, label }) => {
+              const done = sessions.filter(n => mMap[n] && mMap[n][field]).length;
+              return (
+                <div className="mb-1">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-bold text-gray-500">{label}</span>
+                    <span className="text-[10px] font-bold" style={{color}}>{Math.round(done/sessionCount*100)}%</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {sessions.map(n => {
+                      const on = mMap[n] && mMap[n][field];
+                      return <div key={n} style={{width:16, height:16, borderRadius:4, background: on ? color : '#F3F4F6'}}></div>;
+                    })}
+                  </div>
+                </div>
+              );
+            };
+            return (
+            <div key={idx} className="bg-white rounded-2xl shadow-lg p-4">
+              <div onClick={() => { setSelectedStudentDetail(student); loadStudentProgressForAdmin(sid); }}
+                className="flex items-center gap-3 cursor-pointer mb-3">
                 <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="sm" />
                 <div className="flex-1">
                   <p className="font-black text-gray-800">{student['First Name']} {student['Last Name']}</p>
-                  <p className="text-sm text-purple-600 font-bold">{student['Student ID']}</p>
+                  <p className="text-sm text-purple-600 font-bold">{sid} {student['TEAM'] ? `· ${student['TEAM']}` : ''}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-600">{student['Category']}</p>
@@ -3448,8 +3772,24 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-400" />
               </div>
+              <div className="bg-gray-50 rounded-xl p-3">
+                <MiniGrid field="attendance" color="#7C3AED" label="📅 Attendance" />
+                <MiniGrid field="hj_shirt" color="#0D9488" label="🫂 One Heart One Shirt" />
+                <MiniGrid field="gratitude" color="#E11D48" label="💗 Gratitude" />
+                <div className="flex gap-2 mt-2 pt-2 border-t border-gray-200">
+                  <div className="flex-1 text-center">
+                    <p className="text-[10px] text-gray-500 font-bold">💡 Quiz</p>
+                    <p className="text-sm font-black text-amber-600">{Math.round(parseFloat(student['HJ Quiz']) || 0)}%</p>
+                  </div>
+                  <div className="flex-1 text-center border-l border-gray-200">
+                    <p className="text-[10px] text-gray-500 font-bold">💙 Service</p>
+                    <p className="text-sm font-black text-blue-600">{Math.round(parseFloat(student['HJ Service Pct']) || 0)}%</p>
+                  </div>
+                </div>
+              </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
@@ -3726,9 +4066,213 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
   }
 
   // ADMIN MARK ATTENDANCE
+  // TEAM LEAD DASHBOARD
+  // ANNOUNCEMENTS (post + view) for admin and leads
+  if ((currentPage === 'admin-announce' || currentPage === 'lead-announce') && (isAdmin || leadTeam)) {
+    const myPosts = announcements.filter(a => isAdmin ? true : (a.audience === leadTeam || a.audience === 'all'));
+    return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+      <div className="p-4">
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => setCurrentPage(leadTeam ? 'lead-dashboard' : 'admin-dashboard')} className="text-white font-bold"><ArrowLeft className="w-6 h-6" /></button>
+          <h1 className="text-3xl font-black text-white">📢 Announcements</h1>
+        </div>
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
+          <p className="text-sm font-bold text-gray-700 mb-2">
+            {isAdmin ? 'Post to everyone (all students & leaders)' : `Post to Team ${leadTeam}`}
+          </p>
+          <input value={announceTitle} onChange={e => setAnnounceTitle(e.target.value)} placeholder="Title (optional)"
+            className="w-full p-3 border-2 border-purple-200 rounded-xl mb-2 font-bold text-gray-700" />
+          <textarea value={announceText} onChange={e => setAnnounceText(e.target.value)} placeholder="Write your announcement..." rows={3}
+            className="w-full p-3 border-2 border-purple-200 rounded-xl mb-2 text-gray-700" />
+          <button onClick={postAnnouncement} disabled={postingAnnounce}
+            className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold">
+            {postingAnnounce ? 'Posting...' : '📢 Post Announcement'}
+          </button>
+        </div>
+        <p className="text-white font-bold text-sm mb-2 px-1">Recent announcements</p>
+        <div className="space-y-3">
+          {myPosts.length === 0 ? (
+            <div className="bg-white/80 rounded-xl p-4 text-center text-gray-500">No announcements yet.</div>
+          ) : myPosts.map(a => (
+            <div key={a.id} className="bg-white rounded-xl p-4 shadow-sm">
+              <div className="flex justify-between items-start mb-1">
+                <span className="text-xs font-bold text-purple-600">{a.audience === 'all' ? '🌍 Everyone' : `👥 ${a.audience}`}</span>
+                <span className="text-xs text-gray-400">{new Date(a.created_at).toLocaleDateString()}</span>
+              </div>
+              {a.title && <p className="font-black text-gray-800">{a.title}</p>}
+              <p className="text-sm text-gray-700">{a.body}</p>
+              <p className="text-xs text-gray-400 mt-1">— {a.author_name}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+    );
+  }
+
+  if (currentPage === 'lead-dashboard' && leadTeam) {
+    return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-black text-white">Team {leadTeam}</h1>
+          <button onClick={handleLogout} className="bg-white/30 text-white font-bold px-4 py-2 rounded-xl text-sm">Logout</button>
+        </div>
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
+          <p className="text-sm text-gray-500">Welcome, Team Lead 💝</p>
+          <p className="text-lg font-black text-purple-600">Mark your team's growth</p>
+        </div>
+        <div className="space-y-3">
+          <button onClick={() => { setAttendanceSession(1); loadAttendanceMarks(1); setCurrentPage('lead-attendance'); }}
+            className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3"><Calendar className="w-6 h-6" /><span className="font-bold">Mark Attendance</span></div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => { const r = allStudents.filter(s => (s['Status']||'active')==='active' && (s['TEAM']||'').toUpperCase()===leadTeam.toUpperCase()); loadScoreEdits(r); setCurrentPage('lead-quizzes'); }}
+            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3"><BookOpen className="w-6 h-6" /><span className="font-bold">Quiz Scores</span></div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => { const r = allStudents.filter(s => (s['Status']||'active')==='active' && (s['TEAM']||'').toUpperCase()===leadTeam.toUpperCase()); loadScoreEdits(r); setCurrentPage('lead-service'); }}
+            className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3"><Heart className="w-6 h-6" /><span className="font-bold">Service Project</span></div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => { loadAnnouncements(); setCurrentPage('lead-announce'); }}
+            className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3"><MessageSquare className="w-6 h-6" /><span className="font-bold">Announcements</span></div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        </div>
+      </div>
+    </div>
+    );
+  }
+
+  // QUIZ SCORES (admin + lead)
+  if ((currentPage === 'lead-quizzes' || currentPage === 'admin-quizzes') && (isAdmin || leadTeam)) {
+    const teamFilter = leadTeam || quizTeamFilter;
+    const roster = [...allStudents]
+      .filter(s => (s['Status']||'active')==='active' && s['Student ID'] && s['Student ID'].match(/^HJ\d+$/i))
+      .filter(s => !teamFilter || teamFilter === 'ALL' || (s['TEAM']||'').toUpperCase() === teamFilter.toUpperCase())
+      .sort((a,b) => `${a['Last Name']||''} ${a['First Name']||''}`.localeCompare(`${b['Last Name']||''} ${b['First Name']||''}`));
+    const teams = ['ALL', ...((programSettings.teams || []).map(t => t.name).filter(Boolean))];
+    return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-32">
+      <div className="p-4">
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => setCurrentPage(leadTeam ? 'lead-dashboard' : 'admin-dashboard')} className="text-white font-bold"><ArrowLeft className="w-6 h-6" /></button>
+          <div>
+            <h1 className="text-3xl font-black text-white">💡 Quiz Scores</h1>
+            {leadTeam && <p className="text-white/90 font-bold text-sm">Team {leadTeam}</p>}
+          </div>
+        </div>
+        <div className="bg-white/90 rounded-xl p-3 mb-3 text-sm text-gray-600">Enter each quiz out of <b>10</b>. There are 3 quizzes for the whole program. Heart Knowledge = average of quizzes taken.</div>
+        {!leadTeam && (
+          <div className="flex gap-2 flex-wrap mb-3">
+            {teams.map(t => (
+              <button key={t} onClick={() => setQuizTeamFilter(t)} className={`px-3 py-1 rounded-full text-sm font-bold ${quizTeamFilter===t ? 'bg-purple-600 text-white' : 'bg-white/60 text-gray-700'}`}>{t}</button>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center px-3 mb-1">
+          <div className="flex-1 text-xs font-bold text-white/90">Student</div>
+          <div className="w-12 text-center text-xs font-bold text-white/90">Q1</div>
+          <div className="w-12 text-center text-xs font-bold text-white/90">Q2</div>
+          <div className="w-12 text-center text-xs font-bold text-white/90">Q3</div>
+        </div>
+        <div className="space-y-2">
+          {roster.map(s => {
+            const sid = s['Student ID'];
+            const e = scoreEdits[sid] || {};
+            const Box = (field) => (
+              <input type="number" min="0" max="10" value={e[field] ?? ''} onChange={ev => setScoreField(sid, field, ev.target.value)}
+                className="w-11 h-10 text-center border-2 border-amber-200 rounded-lg font-bold text-gray-700" />
+            );
+            return (
+              <div key={sid} className="bg-white rounded-xl p-3 flex items-center shadow-sm gap-1">
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-gray-800 text-sm truncate">{s['First Name']} {s['Last Name']}</p>
+                  <p className="text-xs text-purple-600">{sid}</p>
+                </div>
+                {Box('quiz1')}{Box('quiz2')}{Box('quiz3')}
+              </div>
+            );
+          })}
+          {roster.length === 0 && <div className="bg-white rounded-xl p-6 text-center text-gray-500">No students in this team.</div>}
+        </div>
+      </div>
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/20 to-transparent">
+        <button onClick={saveQuizScores} disabled={savingScores} className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-black rounded-2xl py-4 shadow-xl text-lg">
+          {savingScores ? 'Saving...' : '💾 Save Quiz Scores'}
+        </button>
+      </div>
+    </div>
+    );
+  }
+
+  // SERVICE SCORES (admin + lead)
+  if ((currentPage === 'lead-service' || currentPage === 'admin-service') && (isAdmin || leadTeam)) {
+    const teamFilter = leadTeam || quizTeamFilter;
+    const roster = [...allStudents]
+      .filter(s => (s['Status']||'active')==='active' && s['Student ID'] && s['Student ID'].match(/^HJ\d+$/i))
+      .filter(s => !teamFilter || teamFilter === 'ALL' || (s['TEAM']||'').toUpperCase() === teamFilter.toUpperCase())
+      .sort((a,b) => `${a['Last Name']||''} ${a['First Name']||''}`.localeCompare(`${b['Last Name']||''} ${b['First Name']||''}`));
+    const teams = ['ALL', ...((programSettings.teams || []).map(t => t.name).filter(Boolean))];
+    return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-32">
+      <div className="p-4">
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => setCurrentPage(leadTeam ? 'lead-dashboard' : 'admin-dashboard')} className="text-white font-bold"><ArrowLeft className="w-6 h-6" /></button>
+          <div>
+            <h1 className="text-3xl font-black text-white">💙 Service Project</h1>
+            {leadTeam && <p className="text-white/90 font-bold text-sm">Team {leadTeam}</p>}
+          </div>
+        </div>
+        <div className="bg-white/90 rounded-xl p-3 mb-3 text-sm text-gray-600">Enter each student's service project score out of <b>100%</b>. One service project per program.</div>
+        {!leadTeam && (
+          <div className="flex gap-2 flex-wrap mb-3">
+            {teams.map(t => (
+              <button key={t} onClick={() => setQuizTeamFilter(t)} className={`px-3 py-1 rounded-full text-sm font-bold ${quizTeamFilter===t ? 'bg-purple-600 text-white' : 'bg-white/60 text-gray-700'}`}>{t}</button>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center px-3 mb-1">
+          <div className="flex-1 text-xs font-bold text-white/90">Student</div>
+          <div className="w-24 text-center text-xs font-bold text-white/90">Service %</div>
+        </div>
+        <div className="space-y-2">
+          {roster.map(s => {
+            const sid = s['Student ID'];
+            const e = scoreEdits[sid] || {};
+            return (
+              <div key={sid} className="bg-white rounded-xl p-3 flex items-center shadow-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-gray-800 text-sm truncate">{s['First Name']} {s['Last Name']}</p>
+                  <p className="text-xs text-purple-600">{sid}</p>
+                </div>
+                <input type="number" min="0" max="100" value={e.service_pct ?? ''} onChange={ev => setScoreField(sid, 'service_pct', ev.target.value)}
+                  className="w-20 h-10 text-center border-2 border-blue-200 rounded-lg font-bold text-gray-700" />
+              </div>
+            );
+          })}
+          {roster.length === 0 && <div className="bg-white rounded-xl p-6 text-center text-gray-500">No students in this team.</div>}
+        </div>
+      </div>
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/20 to-transparent">
+        <button onClick={saveServiceScores} disabled={savingScores} className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-black rounded-2xl py-4 shadow-xl text-lg">
+          {savingScores ? 'Saving...' : '💾 Save Service Scores'}
+        </button>
+      </div>
+    </div>
+    );
+  }
+
   if ((currentPage === 'admin-attendance' || currentPage === 'lead-attendance') && (isAdmin || leadTeam)) {
     const effectiveTeamFilter = leadTeam ? leadTeam : attendanceTeamFilter;
     const rosterForMarking = [...allStudents]
+      .filter(s => (s['Status'] || 'active') === 'active')
       .filter(s => s['Student ID'] && s['Student ID'].match(/^HJ\d+$/i))
       .filter(s => effectiveTeamFilter === 'ALL' || (s['TEAM'] || '').toUpperCase() === effectiveTeamFilter.toUpperCase())
       .sort((a, b) => `${a['First Name']||''}`.localeCompare(`${b['First Name']||''}`));
@@ -3751,7 +4295,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     <div className="min-h-screen bg-gradient-to-br from-green-400 via-emerald-300 to-teal-400 pb-32">
       <div className="p-4">
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => leadTeam ? handleLogout() : setCurrentPage('admin-dashboard')} className="text-white font-bold">
+          <button onClick={() => leadTeam ? setCurrentPage('lead-dashboard') : setCurrentPage('admin-dashboard')} className="text-white font-bold">
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div>
@@ -3828,7 +4372,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
               <div key={sid} className="bg-white rounded-xl p-3 flex items-center shadow-sm">
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-800 text-sm truncate">{s['First Name']} {s['Last Name']}</p>
-                  <p className="text-xs text-purple-600">{sid}</p>
+                  <p className="text-xs text-purple-600">{sid}{s['TEAM'] ? <span className="text-gray-400"> · {s['TEAM']}</span> : <span className="text-gray-300"> · no team</span>}</p>
                 </div>
                 <div className="w-14 flex justify-center"><Box on={m.attendance} onClick={() => toggleMark(sid, 'attendance')} /></div>
                 <div className="w-14 flex justify-center"><Box on={m.hj_shirt} onClick={() => toggleMark(sid, 'hj_shirt')} /></div>
