@@ -370,6 +370,7 @@ const App = () => {
   const [announceText, setAnnounceText] = useState('');
   const [announceTitle, setAnnounceTitle] = useState('');
   const [postingAnnounce, setPostingAnnounce] = useState(false);
+  const [recomputing, setRecomputing] = useState(false);
   const [expandedStudent, setExpandedStudent] = useState(null); // which student row is expanded in admin list
   const [inlineMarkEdits, setInlineMarkEdits] = useState({}); // { 'sid-session': {attendance,hj_shirt,gratitude} } unsaved edits
   const [inlineScoreEdits, setInlineScoreEdits] = useState({}); // { sid: {quiz1,quiz2,quiz3,service_pct} }
@@ -1277,6 +1278,22 @@ const App = () => {
   // Attendance 40% + Service 20% + Gratitude 20% + One Heart One Shirt 10% + Quiz 10%.
   // Attendance & shirt come from attendance_marks; gratitude from real entries
   // (falling back to the attendance gratitude checkbox); service & quiz from students.
+  // Admin button: recompute every student's grade and refresh.
+  const handleRecomputeAll = async () => {
+    if (!window.confirm('Recompute grades for all students using the latest data and formula?')) return;
+    try {
+      setRecomputing(true);
+      await recomputeAllGrades();
+      await loadStudents();
+      alert('✅ All grades recomputed!');
+    } catch (err) {
+      console.error('Recompute all error:', err);
+      alert('Something went wrong recomputing grades.');
+    } finally {
+      setRecomputing(false);
+    }
+  };
+
   const recomputeAllGrades = async () => {
     try {
       // Pull everything we need in three queries.
@@ -3513,6 +3530,13 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             <div className="flex items-center gap-3">
               <Heart className="w-6 h-6" />
               <span className="font-bold">View Heart Journals</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={handleRecomputeAll} disabled={recomputing} className="w-full bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <RefreshCw className={`w-6 h-6 ${recomputing ? 'animate-spin' : ''}`} />
+              <span className="font-bold">{recomputing ? 'Recomputing…' : 'Recompute All Grades'}</span>
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
