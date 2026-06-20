@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift, Target, UserPlus } from 'lucide-react';
+import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift, Target, UserPlus, Clock } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const TOTAL_SESSIONS = 21; // Meeting sessions (attendance) per program
@@ -371,6 +371,11 @@ const App = () => {
   const [announceTitle, setAnnounceTitle] = useState('');
   const [postingAnnounce, setPostingAnnounce] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
+  const [archives, setArchives] = useState([]);
+  const [viewingArchive, setViewingArchive] = useState(null);
+  const [archiveStudents, setArchiveStudents] = useState([]);
+  const [loadingArchive, setLoadingArchive] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [expandedStudent, setExpandedStudent] = useState(null); // which student row is expanded in admin list
   const [inlineMarkEdits, setInlineMarkEdits] = useState({}); // { 'sid-session': {attendance,hj_shirt,gratitude} } unsaved edits
   const [inlineScoreEdits, setInlineScoreEdits] = useState({}); // { sid: {quiz1,quiz2,quiz3,service_pct} }
@@ -1077,6 +1082,60 @@ const App = () => {
   };
 
   // Build a printable HTML report for one student and open the print dialog.
+  // Print a summary report for an archived program.
+  // Open a printable HTML report reliably on both desktop and mobile.
+  // Mobile browsers block window.open+document.write, so we use a Blob URL,
+  // which they treat as a real page that can be viewed, shared, and printed.
+  const openPrintable = (html, title) => {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
+    // Ensure the page auto-opens the print dialog once it loads.
+    const withPrint = html.includes('window.print()')
+      ? html
+      : html.replace('</body>', `<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);});</script></body>`);
+    if (isMobile) {
+      const blob = new Blob([withPrint], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, '_blank');
+      if (!win) {
+        // Pop-up blocked: navigate the current tab to the report instead.
+        window.location.href = url;
+      }
+      // Clean up the object URL after a while.
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      return;
+    }
+    const win = window.open('', '_blank');
+    if (!win) { alert('Please allow pop-ups to open the report.'); return; }
+    win.document.write(withPrint);
+    win.document.close();
+  };
+
+  const printArchiveReport = (archive, students) => {
+    const heartFor = (g) => heartLevelFor(Math.round(parseFloat(g) || 0));
+    const rows = (students || []).map((s, i) => {
+      const hl = heartFor(s.hj_grade);
+      return `<tr>
+        <td style="padding:6px;border-bottom:1px solid #eee">${i + 1}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee">${s.first_name || ''} ${s.last_name || ''}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee">${s.student_id || ''}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee">${s.team || ''}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee">${hl.icon} ${hl.name}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;font-weight:bold">${Math.round(parseFloat(s.hj_grade) || 0)}%</td>
+      </tr>`;
+    }).join('');
+    const html = `<html><head><title>${archive.archive_name}</title></head>
+      <body style="font-family:system-ui,sans-serif;padding:24px;color:#1F2937">
+        <h1 style="color:#2563EB">📜 ${archive.archive_name}</h1>
+        <p style="color:#6B7280">${archive.start_date || ''}${archive.end_date ? ` – ${archive.end_date}` : ''} · ${archive.student_count} students · ${archive.total_sessions} sessions</p>
+        <button onclick="window.print()" style="padding:10px 20px;background:#2563EB;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;margin-bottom:16px">🖨️ Print / Save as PDF</button>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tr style="background:#EFF6FF"><th style="padding:6px;text-align:left">#</th><th style="padding:6px;text-align:left">Name</th><th style="padding:6px;text-align:left">ID</th><th style="padding:6px;text-align:left">Team</th><th style="padding:6px;text-align:left">Heart Level</th><th style="padding:6px;text-align:right">Grade</th></tr>
+          ${rows}
+        </table>
+      </body></html>`;
+    openPrintable(html, archive.archive_name);
+  };
+
   const printStudentReport = (student, marks, gratEntries) => {
     const sid = student['Student ID'];
     const sessions = Array.from({ length: sessionCount }, (_, i) => i + 1);
@@ -1089,8 +1148,7 @@ const App = () => {
     const svc = Math.round(parseFloat(student['HJ Service Pct']) || 0);
     const grats = (gratEntries || []).filter(g => g.studentId === sid || g.student_id === sid);
     const gratHtml = grats.length ? grats.map(g => `<div style="background:#FFF1F2;border-radius:8px;padding:8px;margin-bottom:6px"><b style="color:#E11D48;font-size:11px">${g.session || ('Session ' + g.session_number)}</b><br>${(g.content || g.entry_text || '').replace(/</g,'&lt;')}</div>`).join('') : '<i style="color:#9CA3AF">No gratitude entries yet.</i>';
-    const w = window.open('', '_blank');
-    w.document.write(`<!DOCTYPE html><html><head><title>${student['First Name']} ${student['Last Name']} - HJ Report</title>
+    const w_html = `<!DOCTYPE html><html><head><title>${student['First Name']} ${student['Last Name']} - HJ Report</title>
       <style>body{font-family:-apple-system,Arial,sans-serif;padding:30px;color:#1F2937;max-width:800px;margin:0 auto}
       h1{color:#7C3AED;margin-bottom:0}.sub{color:#6B7280;margin-top:4px}
       .pillar{margin:14px 0}.plabel{display:flex;justify-content:space-between;font-weight:bold;font-size:13px;margin-bottom:4px}
@@ -1117,8 +1175,8 @@ const App = () => {
       ${gratHtml}
       <p style="margin-top:24px;color:#9CA3AF;font-size:11px;text-align:center">Hyojeong Youth CARAGA · Generated ${new Date().toLocaleDateString()}</p>
       <button onclick="window.print()" style="display:block;margin:20px auto;padding:12px 28px;background:#7C3AED;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer">🖨️ Print / Save as PDF</button>
-      </body></html>`);
-    w.document.close();
+      </body></html>`;
+    openPrintable(w_html, `${student['First Name']} ${student['Last Name']} - HJ Report`);
   };
 
   // Build a printable summary report of all (filtered) students.
@@ -1135,8 +1193,7 @@ const App = () => {
         <td style="text-align:center">${Math.round(parseFloat(s['HJ Service Pct'])||0)}%</td>
         <td style="text-align:center;font-weight:bold;color:#7C3AED">${Math.round(parseFloat(s['HJ Grade'])||0)}%</td></tr>`;
     }).join('');
-    const w = window.open('', '_blank');
-    w.document.write(`<!DOCTYPE html><html><head><title>All Students Report</title>
+    const all_html = `<!DOCTYPE html><html><head><title>All Students Report</title>
       <style>body{font-family:-apple-system,Arial,sans-serif;padding:24px;color:#1F2937}h1{color:#7C3AED}
       table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #E5E7EB;padding:6px 8px;text-align:left}
       th{background:#EDE9FE;color:#5B21B6}tr:nth-child(even){background:#FAFAFB}@media print{button{display:none}}</style></head><body>
@@ -1145,8 +1202,8 @@ const App = () => {
       <table><thead><tr><th>Name</th><th>ID</th><th>Team</th><th>Att</th><th>Shirt</th><th>Grat</th><th>Quiz</th><th>Service</th><th>Grade</th></tr></thead>
       <tbody>${rows}</tbody></table>
       <button onclick="window.print()" style="display:block;margin:20px auto;padding:12px 28px;background:#7C3AED;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer">🖨️ Print / Save as PDF</button>
-      </body></html>`);
-    w.document.close();
+      </body></html>`;
+    openPrintable(all_html, 'All Students Report');
   };
 
   // Load announcements relevant to the current viewer.
@@ -1331,6 +1388,7 @@ const App = () => {
     }
   };
 
+  // Load the list of past program archives (newest first).
   const recomputeAllGrades = async () => {
     try {
       // Pull everything we need in three queries.
@@ -1399,6 +1457,102 @@ const App = () => {
     } catch (err) {
       console.error('Recompute error:', err);
     }
+  };
+
+  // Load the list of archived programs.
+  const loadArchives = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('program_archives')
+        .select('*')
+        .order('archived_at', { ascending: false });
+      if (error) { console.error('Load archives error:', error); return; }
+      setArchives(data || []);
+    } catch (err) { console.error('Load archives error:', err); }
+  };
+
+  // Load one archive's student snapshots.
+  const loadArchiveStudents = async (archive) => {
+    try {
+      setLoadingArchive(true);
+      setViewingArchive(archive);
+      const { data, error } = await supabase
+        .from('program_archive_students')
+        .select('*')
+        .eq('archive_id', archive.id)
+        .order('hj_grade', { ascending: false });
+      if (error) { console.error('Load archive students error:', error); setArchiveStudents([]); }
+      else setArchiveStudents(data || []);
+    } catch (err) { console.error('Load archive students error:', err); setArchiveStudents([]); }
+    finally { setLoadingArchive(false); }
+  };
+
+  // Build a full snapshot of the current program and write it to the archive tables.
+  const archiveCurrentProgram = async (archiveName) => {
+    const [studentsRes, marksRes, gratRes] = await Promise.all([
+      supabase.from('students').select('*'),
+      supabase.from('attendance_marks').select('*'),
+      supabase.from('gratitude').select('*')
+    ]);
+    if (studentsRes.error) { alert('Archive failed loading students: ' + studentsRes.error.message); return null; }
+    const students = studentsRes.data || [];
+    const marks = marksRes.data || [];
+    const grat = gratRes.data || [];
+
+    const { data: archRow, error: archErr } = await supabase
+      .from('program_archives')
+      .insert({
+        archive_name: archiveName,
+        program_name: programSettings.program_name,
+        start_date: programSettings.start_date,
+        end_date: programSettings.end_date,
+        total_sessions: sessionCount,
+        total_gratitude_sessions: gratitudeCount,
+        num_quizzes: quizCount,
+        num_services: serviceCount,
+        student_count: students.length
+      })
+      .select()
+      .single();
+    if (archErr || !archRow) { alert('Archive failed: ' + (archErr?.message || 'no row')); return null; }
+    const archiveId = archRow.id;
+
+    const marksBy = {}; marks.forEach(m => { (marksBy[m.student_id] = marksBy[m.student_id] || []).push(m); });
+    const gratBy = {}; grat.forEach(g => { (gratBy[g.student_id] = gratBy[g.student_id] || []).push(g); });
+
+    const rows = students.map(s => ({
+      archive_id: archiveId,
+      student_id: s.student_id,
+      first_name: s.first_name,
+      last_name: s.last_name,
+      team: s.team,
+      category: s.category,
+      photo_url: s.photo_url,
+      hj_grade: s.hj_grade || 0,
+      hj_attendance: s.hj_attendance || 0,
+      hj_service_pct: s.hj_service_pct || 0,
+      hj_gratitude_pct: s.hj_gratitude_pct || 0,
+      hj_shirt_pct: s.hj_shirt_pct || 0,
+      hj_quiz: s.hj_quiz || 0,
+      detail: {
+        quiz_scores: s.quiz_scores || [],
+        service_scores: s.service_scores || [],
+        status: s.status || 'active',
+        attendance_marks: (marksBy[s.student_id] || []).map(m => ({
+          session: m.session_number, attendance: m.attendance, hj_shirt: m.hj_shirt, gratitude: m.gratitude
+        })),
+        gratitude_entries: (gratBy[s.student_id] || []).map(g => ({
+          session: g.session_number, text: g.text || g.entry || ''
+        }))
+      }
+    }));
+
+    for (let i = 0; i < rows.length; i += 50) {
+      const chunk = rows.slice(i, i + 50);
+      const { error } = await supabase.from('program_archive_students').insert(chunk);
+      if (error) { alert('Archive detail failed: ' + error.message); return archiveId; }
+    }
+    return archiveId;
   };
 
   const saveAttendanceMarks = async () => {
@@ -3571,6 +3725,13 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
+          <button onClick={() => { loadArchives(); setViewingArchive(null); setCurrentPage('admin-archives'); }} className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Clock className="w-6 h-6" />
+              <span className="font-bold">📜 Past Programs</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
           <button onClick={handleRecomputeAll} disabled={recomputing} className="w-full bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
             <div className="flex items-center gap-3">
               <RefreshCw className={`w-6 h-6 ${recomputing ? 'animate-spin' : ''}`} />
@@ -4848,6 +5009,78 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
         >
           {savingAttendance ? 'Saving...' : `💾 Save Session ${attendanceSession}`}
         </button>
+      </div>
+    </div>
+    );
+  }
+
+  // ADMIN PAST PROGRAMS (archive list + single-archive viewer)
+  if (currentPage === 'admin-archives' && isAdmin) {
+    const heartFor = (g) => heartLevelFor(Math.round(parseFloat(g) || 0));
+    return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-cyan-300 to-purple-300 pb-20">
+      <div className="p-4 max-w-xl mx-auto">
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => { if (viewingArchive) { setViewingArchive(null); setArchiveStudents([]); } else { setCurrentPage('admin-dashboard'); } }} className="text-white font-bold">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-3xl font-black text-white">📜 {viewingArchive ? 'Program' : 'Past Programs'}</h1>
+        </div>
+
+        {!viewingArchive && (
+          <>
+            {archives.length === 0 && (
+              <div className="bg-white rounded-2xl shadow-lg p-6 text-center text-gray-500">
+                No archived programs yet. When you start a new program, the current one is saved here.
+              </div>
+            )}
+            {archives.map(a => (
+              <button key={a.id} onClick={() => loadArchiveStudents(a)}
+                className="w-full bg-white rounded-2xl shadow-lg p-4 mb-3 flex items-center justify-between text-left">
+                <div>
+                  <p className="font-black text-gray-800">{a.archive_name}</p>
+                  <p className="text-sm text-gray-500">
+                    {(a.start_date || '?')}{a.end_date ? ` – ${a.end_date}` : ''} · {a.student_count} students
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {a.total_sessions} sessions · {a.num_quizzes} quizzes · {a.num_services} service
+                  </p>
+                </div>
+                <ChevronRight className="w-6 h-6 text-gray-400" />
+              </button>
+            ))}
+          </>
+        )}
+
+        {viewingArchive && (
+          <>
+            <div className="bg-white rounded-2xl shadow-lg p-4 mb-3">
+              <p className="font-black text-gray-800 text-lg">{viewingArchive.archive_name}</p>
+              <p className="text-sm text-gray-500">
+                {(viewingArchive.start_date || '?')}{viewingArchive.end_date ? ` – ${viewingArchive.end_date}` : ''} · archived snapshot
+              </p>
+              <button onClick={() => printArchiveReport(viewingArchive, archiveStudents)}
+                className="mt-3 w-full py-2 bg-blue-50 text-blue-700 border-2 border-blue-200 rounded-xl font-bold text-sm">
+                🖨️ Print / Save Archive Report (PDF)
+              </button>
+            </div>
+            {loadingArchive && <div className="bg-white rounded-2xl shadow-lg p-6 text-center text-gray-500">Loading...</div>}
+            {!loadingArchive && archiveStudents.map((s, i) => {
+              const hl = heartFor(s.hj_grade);
+              return (
+                <div key={s.id} className="bg-white rounded-2xl shadow-lg p-3 mb-2 flex items-center gap-3">
+                  <span className="text-gray-400 font-black w-6 text-center">{i + 1}</span>
+                  <Avatar firstName={s.first_name} lastName={s.last_name} photoUrl={s.photo_url} size="sm" />
+                  <div className="flex-1">
+                    <p className="font-bold text-gray-800">{s.first_name} {s.last_name}</p>
+                    <p className="text-xs text-purple-600 font-bold">{s.student_id} {s.team ? `· ${s.team}` : ''} · {hl.icon} {hl.name}</p>
+                  </div>
+                  <p className="text-base font-black text-blue-600">{Math.round(parseFloat(s.hj_grade) || 0)}%</p>
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
     </div>
     );
