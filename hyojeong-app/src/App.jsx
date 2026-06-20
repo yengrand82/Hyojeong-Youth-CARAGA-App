@@ -359,6 +359,10 @@ const App = () => {
   const [announceText, setAnnounceText] = useState('');
   const [announceTitle, setAnnounceTitle] = useState('');
   const [postingAnnounce, setPostingAnnounce] = useState(false);
+  const [expandedStudent, setExpandedStudent] = useState(null); // which student row is expanded in admin list
+  const [inlineMarkEdits, setInlineMarkEdits] = useState({}); // { 'sid-session': {attendance,hj_shirt,gratitude} } unsaved edits
+  const [inlineScoreEdits, setInlineScoreEdits] = useState({}); // { sid: {quiz1,quiz2,quiz3,service_pct} }
+  const [savingInline, setSavingInline] = useState(false);
   const [adminRemark, setAdminRemark] = useState('');
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [allStudents, setAllStudents] = useState([]);
@@ -378,7 +382,8 @@ const App = () => {
     age: '',
     address: '',
     category: '',
-    photoUrl: ''
+    photoUrl: '',
+    contactNumber: ''
   });
   
   // Points system
@@ -523,6 +528,7 @@ const App = () => {
         'HJ Service Pct': r.hj_service_pct,
         'HJ Shirt Pct': r.hj_shirt_pct,
         'Status': r.status || 'active',
+        'Contact': r.contact_number,
         'Quiz1': r.quiz1, 'Quiz2': r.quiz2, 'Quiz3': r.quiz3, 'ServicePct': r.service_pct,
         'HJ Quiz': r.hj_quiz,
         'Percentage': r.percentage,
@@ -804,6 +810,7 @@ const App = () => {
           address: newStudent.address || null,
           category: newStudent.category || null,
           photo_url: newStudent.photoUrl || null,
+          contact_number: newStudent.contactNumber || null,
           hj_service_points: 0
         });
 
@@ -814,7 +821,7 @@ const App = () => {
       }
 
       alert(`✅ Student added successfully!\n\nStudent ID: ${studentId}\nPassword: ${password}\n\n⚠️ Please save this password! The student will need it to log in.`);
-      setNewStudent({ firstName: '', lastName: '', dateOfBirth: '', age: '', address: '', category: '', photoUrl: '' });
+      setNewStudent({ firstName: '', lastName: '', dateOfBirth: '', age: '', address: '', category: '', photoUrl: '', contactNumber: '' });
       setShowAddStudentForm(false);
       await loadStudents(); // Refresh student list
     } catch (err) {
@@ -955,6 +962,131 @@ const App = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Save inline edits for one student from the expanded list row:
+  // attendance marks (per session) + quiz + service, then recompute grades.
+  const saveInlineStudent = async (sid) => {
+    try {
+      setSavingInline(true);
+      // 1. Attendance marks: gather this student's current marks (from allMarks) merged with edits.
+      const sessions = Array.from({ length: sessionCount }, (_, i) => i + 1);
+      const existing = {};
+      allMarks.filter(m => m.student_id === sid).forEach(m => { existing[m.session_number] = m; });
+      const records = sessions.map(n => {
+        const editKey = `${sid}-${n}`;
+        const base = existing[n] || { attendance: false, hj_shirt: false, gratitude: false };
+        const edit = inlineMarkEdits[editKey] || {};
+        return {
+          student_id: sid,
+          session_number: n,
+          attendance: edit.attendance != null ? edit.attendance : !!base.attendance,
+          hj_shirt: edit.hj_shirt != null ? edit.hj_shirt : !!base.hj_shirt,
+          gratitude: edit.gratitude != null ? edit.gratitude : !!base.gratitude,
+          marked_by: 'admin',
+          updated_at: new Date().toISOString()
+        };
+      }).filter(r => r.attendance || r.hj_shirt || r.gratitude); // only store sessions with a mark
+      if (records.length > 0) {
+        const { error } = await supabase.from('attendance_marks').upsert(records, { onConflict: 'student_id,session_number' });
+        if (error) { alert('Failed to save marks: ' + error.message); return; }
+      }
+      // 2. Quiz + service scores.
+      const se = inlineScoreEdits[sid] || {};
+      const q = ['quiz1','quiz2','quiz3'].map(k => se[k] === '' || se[k] == null ? null : Number(se[k]));
+      const taken = q.filter(v => v != null && !isNaN(v));
+      const avgPct = taken.length ? Math.round((taken.reduce((a,b)=>a+b,0)/taken.length)/10*100*100)/100 : 0;
+      const svc = se.service_pct === '' || se.service_pct == null ? null : Math.min(100, Number(se.service_pct));
+      await supabase.from('students').update({
+        quiz1: q[0], quiz2: q[1], quiz3: q[2], quiz_score: avgPct, hj_quiz: avgPct,
+        service_pct: svc, hj_service_pct: svc == null ? 0 : svc,
+        service_week_score: svc == null ? 0 : Math.round(svc/100*50*100)/100
+      }).eq('student_id', sid);
+      // 3. Refresh data + recompute grades.
+      await recomputeAllGrades();
+      await loadAllMarks();
+      // Clear this student's inline edits.
+      setInlineMarkEdits(prev => { const n = {...prev}; Object.keys(n).forEach(k => { if (k.startsWith(sid + '-')) delete n[k]; }); return n; });
+      alert('✅ Saved!');
+    } catch (err) {
+      console.error('Inline save error:', err);
+      alert('Failed to save.');
+    } finally {
+      setSavingInline(false);
+    }
+  };
+
+  // Build a printable HTML report for one student and open the print dialog.
+  const printStudentReport = (student, marks, gratEntries) => {
+    const sid = student['Student ID'];
+    const sessions = Array.from({ length: sessionCount }, (_, i) => i + 1);
+    const mMap = {}; (marks || []).forEach(m => { mMap[m.session_number] = m; });
+    const pct = (field) => Math.round(sessions.filter(n => mMap[n] && mMap[n][field]).length / sessionCount * 100);
+    const box = (on, color) => `<span style="display:inline-block;width:20px;height:20px;border-radius:4px;margin:1px;background:${on?color:'#E5E7EB'};color:#fff;font-size:9px;text-align:center;line-height:20px;font-weight:bold"></span>`;
+    const grid = (field, color) => sessions.map(n => box(mMap[n] && mMap[n][field], color)).join('');
+    const grade = Math.round(parseFloat(student['HJ Grade']) || 0);
+    const quiz = Math.round(parseFloat(student['HJ Quiz']) || 0);
+    const svc = Math.round(parseFloat(student['HJ Service Pct']) || 0);
+    const grats = (gratEntries || []).filter(g => g.studentId === sid || g.student_id === sid);
+    const gratHtml = grats.length ? grats.map(g => `<div style="background:#FFF1F2;border-radius:8px;padding:8px;margin-bottom:6px"><b style="color:#E11D48;font-size:11px">${g.session || ('Session ' + g.session_number)}</b><br>${(g.content || g.entry_text || '').replace(/</g,'&lt;')}</div>`).join('') : '<i style="color:#9CA3AF">No gratitude entries yet.</i>';
+    const w = window.open('', '_blank');
+    w.document.write(`<!DOCTYPE html><html><head><title>${student['First Name']} ${student['Last Name']} - HJ Report</title>
+      <style>body{font-family:-apple-system,Arial,sans-serif;padding:30px;color:#1F2937;max-width:800px;margin:0 auto}
+      h1{color:#7C3AED;margin-bottom:0}.sub{color:#6B7280;margin-top:4px}
+      .pillar{margin:14px 0}.plabel{display:flex;justify-content:space-between;font-weight:bold;font-size:13px;margin-bottom:4px}
+      .scores{display:flex;gap:12px;margin:16px 0}.score{flex:1;text-align:center;background:#F9FAFB;border-radius:10px;padding:12px}
+      .score .v{font-size:24px;font-weight:bold}.head{display:flex;align-items:center;gap:16px;border-bottom:2px solid #EDE9FE;padding-bottom:16px}
+      @media print{button{display:none}}</style></head><body>
+      <div class="head">
+        ${student['Photo'] ? `<img src="${student['Photo']}" style="width:70px;height:70px;border-radius:50%;object-fit:cover">` : ''}
+        <div><h1>${student['First Name']} ${student['Last Name']}</h1>
+        <p class="sub">${sid} · ${student['Category']||''} ${student['TEAM']?'· '+student['TEAM']:''} ${student['Contact']?'· '+student['Contact']:''}</p></div>
+        <div style="margin-left:auto;text-align:center"><div style="font-size:32px;font-weight:bold;color:#7C3AED">${grade}%</div><div style="font-size:11px;color:#6B7280">HJ Grade</div></div>
+      </div>
+      <div class="scores">
+        <div class="score"><div class="v" style="color:#7C3AED">${pct('attendance')}%</div><div>Attendance</div></div>
+        <div class="score"><div class="v" style="color:#0D9488">${pct('hj_shirt')}%</div><div>One Heart One Shirt</div></div>
+        <div class="score"><div class="v" style="color:#E11D48">${pct('gratitude')}%</div><div>Gratitude</div></div>
+        <div class="score"><div class="v" style="color:#D97706">${quiz}%</div><div>Quiz</div></div>
+        <div class="score"><div class="v" style="color:#3B82F6">${svc}%</div><div>Service</div></div>
+      </div>
+      <div class="pillar"><div class="plabel"><span>📅 Attendance</span><span style="color:#7C3AED">${pct('attendance')}%</span></div>${grid('attendance','#7C3AED')}</div>
+      <div class="pillar"><div class="plabel"><span>🫂 One Heart One Shirt</span><span style="color:#0D9488">${pct('hj_shirt')}%</span></div>${grid('hj_shirt','#0D9488')}</div>
+      <div class="pillar"><div class="plabel"><span>💗 Gratitude</span><span style="color:#E11D48">${pct('gratitude')}%</span></div>${grid('gratitude','#E11D48')}</div>
+      <h3 style="color:#E11D48;margin-top:24px">💗 Gratitude Journal (${grats.length})</h3>
+      ${gratHtml}
+      <p style="margin-top:24px;color:#9CA3AF;font-size:11px;text-align:center">Hyojeong Youth CARAGA · Generated ${new Date().toLocaleDateString()}</p>
+      <button onclick="window.print()" style="display:block;margin:20px auto;padding:12px 28px;background:#7C3AED;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer">🖨️ Print / Save as PDF</button>
+      </body></html>`);
+    w.document.close();
+  };
+
+  // Build a printable summary report of all (filtered) students.
+  const printAllStudentsReport = (students, marks) => {
+    const sessions = Array.from({ length: sessionCount }, (_, i) => i + 1);
+    const rows = students.map(s => {
+      const sid = s['Student ID'];
+      const mm = {}; marks.filter(m => m.student_id === sid).forEach(m => { mm[m.session_number] = m; });
+      const p = (f) => Math.round(sessions.filter(n => mm[n] && mm[n][f]).length / sessionCount * 100);
+      return `<tr>
+        <td>${s['First Name']} ${s['Last Name']}</td><td>${sid}</td><td>${s['TEAM']||'-'}</td>
+        <td style="text-align:center">${p('attendance')}%</td><td style="text-align:center">${p('hj_shirt')}%</td>
+        <td style="text-align:center">${p('gratitude')}%</td><td style="text-align:center">${Math.round(parseFloat(s['HJ Quiz'])||0)}%</td>
+        <td style="text-align:center">${Math.round(parseFloat(s['HJ Service Pct'])||0)}%</td>
+        <td style="text-align:center;font-weight:bold;color:#7C3AED">${Math.round(parseFloat(s['HJ Grade'])||0)}%</td></tr>`;
+    }).join('');
+    const w = window.open('', '_blank');
+    w.document.write(`<!DOCTYPE html><html><head><title>All Students Report</title>
+      <style>body{font-family:-apple-system,Arial,sans-serif;padding:24px;color:#1F2937}h1{color:#7C3AED}
+      table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #E5E7EB;padding:6px 8px;text-align:left}
+      th{background:#EDE9FE;color:#5B21B6}tr:nth-child(even){background:#FAFAFB}@media print{button{display:none}}</style></head><body>
+      <h1>Hyojeong Youth CARAGA — All Students Report</h1>
+      <p style="color:#6B7280">${students.length} students · Generated ${new Date().toLocaleDateString()}</p>
+      <table><thead><tr><th>Name</th><th>ID</th><th>Team</th><th>Att</th><th>Shirt</th><th>Grat</th><th>Quiz</th><th>Service</th><th>Grade</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+      <button onclick="window.print()" style="display:block;margin:20px auto;padding:12px 28px;background:#7C3AED;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer">🖨️ Print / Save as PDF</button>
+      </body></html>`);
+    w.document.close();
   };
 
   // Load announcements relevant to the current viewer.
@@ -1339,6 +1471,7 @@ const App = () => {
           'HJ Service Pct': r.hj_service_pct,
         'HJ Shirt Pct': r.hj_shirt_pct,
         'Status': r.status || 'active',
+        'Contact': r.contact_number,
         'Quiz1': r.quiz1, 'Quiz2': r.quiz2, 'Quiz3': r.quiz3, 'ServicePct': r.service_pct,
           'HJ Quiz': r.hj_quiz,
           'Percentage': r.percentage,
@@ -2554,6 +2687,10 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
               <span>👤 My HJ Profile</span>
               <ChevronRight size={20} />
             </button>
+            <button onClick={() => printStudentReport(studentData, myAttendanceMarks, myGratitudeEntries)} style={{background:'#10B981', color:'white', border:'none', borderRadius:14, padding:'14px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontWeight:600, fontSize:15}}>
+              <span>🖨️ Download / Print My Report</span>
+              <ChevronRight size={20} />
+            </button>
           </div>
 
         </div>
@@ -3300,27 +3437,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
-          <button onClick={() => { setCurrentPage('admin-attendance'); setAttendanceSession(1); loadAttendanceMarks(1); }} className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Calendar className="w-6 h-6" />
-              <span className="font-bold">Mark Attendance</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-          <button onClick={() => { const r = allStudents.filter(s => (s['Status']||'active')==='active'); loadScoreEdits(r); setQuizTeamFilter('ALL'); setCurrentPage('admin-quizzes'); }} className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <BookOpen className="w-6 h-6" />
-              <span className="font-bold">Quiz Scores</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-          <button onClick={() => { const r = allStudents.filter(s => (s['Status']||'active')==='active'); loadScoreEdits(r); setQuizTeamFilter('ALL'); setCurrentPage('admin-service'); }} className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Heart className="w-6 h-6" />
-              <span className="font-bold">Service Project</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
           <button onClick={() => { loadAnnouncements(); setCurrentPage('admin-announce'); }} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
             <div className="flex items-center gap-3">
               <MessageSquare className="w-6 h-6" />
@@ -3411,6 +3527,17 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   placeholder="e.g., 123 Main Street, Butuan City"
                   rows="2"
                   className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Contact Number</label>
+                <input 
+                  type="text"
+                  value={newStudent.contactNumber}
+                  onChange={(e) => setNewStudent(s => ({...s, contactNumber: e.target.value}))}
+                  placeholder="e.g., 09XX XXX XXXX"
+                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
                 />
               </div>
 
@@ -3731,6 +3858,18 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             </button>
           ))}
         </div>
+        <button
+          onClick={() => {
+            const filtered = [...allStudents]
+              .filter(s => studentStatusFilter === 'all' || (s['Status'] || 'active') === studentStatusFilter)
+              .filter(s => studentTeamFilter === 'ALL' || (s['TEAM'] || '').toUpperCase() === studentTeamFilter.toUpperCase())
+              .filter(s => s['Student ID'] && s['Student ID'].match(/^HJ\d+$/i))
+              .sort((a,b) => `${a['Last Name']||''} ${a['First Name']||''}`.localeCompare(`${b['Last Name']||''} ${b['First Name']||''}`));
+            printAllStudentsReport(filtered, allMarks);
+          }}
+          className="w-full mb-4 py-3 bg-white text-purple-600 rounded-xl font-bold shadow">
+          🖨️ Print All Students Report (PDF)
+        </button>
         <div className="space-y-3">
           {[...allStudents]
             .filter(s => studentStatusFilter === 'all' || (s['Status'] || 'active') === studentStatusFilter)
@@ -3740,27 +3879,44 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             const sMarks = allMarks.filter(m => m.student_id === sid);
             const mMap = {}; sMarks.forEach(m => { mMap[m.session_number] = m; });
             const sessions = Array.from({ length: sessionCount }, (_, i) => i + 1);
-            const MiniGrid = ({ field, color, label }) => {
-              const done = sessions.filter(n => mMap[n] && mMap[n][field]).length;
-              return (
-                <div className="mb-1">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-[10px] font-bold text-gray-500">{label}</span>
-                    <span className="text-[10px] font-bold" style={{color}}>{Math.round(done/sessionCount*100)}%</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {sessions.map(n => {
-                      const on = mMap[n] && mMap[n][field];
-                      return <div key={n} style={{width:16, height:16, borderRadius:4, background: on ? color : '#F3F4F6'}}></div>;
-                    })}
-                  </div>
-                </div>
-              );
+            const isExpanded = expandedStudent === sid;
+            // Get the effective mark for a session+field (edit overrides saved).
+            const getMark = (n, field) => {
+              const editKey = `${sid}-${n}`;
+              const edit = inlineMarkEdits[editKey];
+              if (edit && edit[field] != null) return edit[field];
+              return !!(mMap[n] && mMap[n][field]);
             };
+            const toggleInline = (n, field) => {
+              const editKey = `${sid}-${n}`;
+              setInlineMarkEdits(prev => ({ ...prev, [editKey]: { ...(prev[editKey]||{}), [field]: !getMark(n, field) } }));
+            };
+            const pctFor = (field) => {
+              const done = sessions.filter(n => getMark(n, field)).length;
+              return Math.round(done / sessionCount * 100);
+            };
+            const EditGrid = ({ field, color, label }) => (
+              <div className="mb-2">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[11px] font-bold text-gray-600">{label}</span>
+                  <span className="text-[11px] font-bold" style={{color}}>{pctFor(field)}%</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {sessions.map(n => {
+                    const on = getMark(n, field);
+                    return <button key={n} onClick={() => toggleInline(n, field)} title={`Session ${n}`}
+                      style={{width:22, height:22, borderRadius:5, fontSize:9, fontWeight:700, border:'none', cursor:'pointer',
+                        background: on ? color : '#E5E7EB', color: on ? 'white' : '#9CA3AF'}}>{n}</button>;
+                  })}
+                </div>
+              </div>
+            );
+            const se = inlineScoreEdits[sid] || { quiz1: student['Quiz1'] ?? '', quiz2: student['Quiz2'] ?? '', quiz3: student['Quiz3'] ?? '', service_pct: student['ServicePct'] ?? '' };
+            const setSE = (field, val) => setInlineScoreEdits(prev => ({ ...prev, [sid]: { ...se, [field]: val } }));
             return (
-            <div key={idx} className="bg-white rounded-2xl shadow-lg p-4">
-              <div onClick={() => { setSelectedStudentDetail(student); loadStudentProgressForAdmin(sid); }}
-                className="flex items-center gap-3 cursor-pointer mb-3">
+            <div key={idx} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div onClick={() => { setExpandedStudent(isExpanded ? null : sid); if (!isExpanded && !inlineScoreEdits[sid]) setInlineScoreEdits(prev => ({ ...prev, [sid]: { quiz1: student['Quiz1'] ?? '', quiz2: student['Quiz2'] ?? '', quiz3: student['Quiz3'] ?? '', service_pct: student['ServicePct'] ?? '' } })); }}
+                className="flex items-center gap-3 cursor-pointer p-4">
                 <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="sm" />
                 <div className="flex-1">
                   <p className="font-black text-gray-800">{student['First Name']} {student['Last Name']}</p>
@@ -3768,25 +3924,46 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-600">{student['Category']}</p>
-                  <p className="text-sm font-bold text-purple-600">{Math.round(parseFloat(student['HJ Grade']) || 0)}%</p>
+                  <p className="text-base font-black text-purple-600">{Math.round(parseFloat(student['HJ Grade']) || 0)}%</p>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
+                <span className="text-gray-400 text-lg">{isExpanded ? '▲' : '▼'}</span>
               </div>
-              <div className="bg-gray-50 rounded-xl p-3">
-                <MiniGrid field="attendance" color="#7C3AED" label="📅 Attendance" />
-                <MiniGrid field="hj_shirt" color="#0D9488" label="🫂 One Heart One Shirt" />
-                <MiniGrid field="gratitude" color="#E11D48" label="💗 Gratitude" />
-                <div className="flex gap-2 mt-2 pt-2 border-t border-gray-200">
-                  <div className="flex-1 text-center">
-                    <p className="text-[10px] text-gray-500 font-bold">💡 Quiz</p>
-                    <p className="text-sm font-black text-amber-600">{Math.round(parseFloat(student['HJ Quiz']) || 0)}%</p>
+              {isExpanded && (
+                <div className="bg-gray-50 p-4 border-t border-gray-100">
+                  <p className="text-[11px] text-gray-400 mb-2">Tap a box to mark/unmark that session.</p>
+                  <EditGrid field="attendance" color="#7C3AED" label="📅 Attendance" />
+                  <EditGrid field="hj_shirt" color="#0D9488" label="🫂 One Heart One Shirt" />
+                  <EditGrid field="gratitude" color="#E11D48" label="💗 Gratitude" />
+                  <div className="flex gap-2 mt-3 mb-2">
+                    <div className="flex-1">
+                      <p className="text-[10px] text-gray-500 font-bold mb-1">💡 Quiz (each /10)</p>
+                      <div className="flex gap-1">
+                        {['quiz1','quiz2','quiz3'].map(k => (
+                          <input key={k} type="number" min="0" max="10" value={se[k] ?? ''} onChange={e => setSE(k, e.target.value)}
+                            className="w-full h-9 text-center border-2 border-amber-200 rounded-lg font-bold text-gray-700 text-sm" />
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{width:90}}>
+                      <p className="text-[10px] text-gray-500 font-bold mb-1">💙 Service /100</p>
+                      <input type="number" min="0" max="100" value={se.service_pct ?? ''} onChange={e => setSE('service_pct', e.target.value)}
+                        className="w-full h-9 text-center border-2 border-blue-200 rounded-lg font-bold text-gray-700 text-sm" />
+                    </div>
                   </div>
-                  <div className="flex-1 text-center border-l border-gray-200">
-                    <p className="text-[10px] text-gray-500 font-bold">💙 Service</p>
-                    <p className="text-sm font-black text-blue-600">{Math.round(parseFloat(student['HJ Service Pct']) || 0)}%</p>
-                  </div>
+                  <button onClick={() => saveInlineStudent(sid)} disabled={savingInline}
+                    className="w-full mt-2 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold">
+                    {savingInline ? 'Saving...' : '💾 Save Changes'}
+                  </button>
+                  <button onClick={() => printStudentReport(student, allMarks.filter(m => m.student_id === sid), [])}
+                    className="w-full mt-2 py-2 bg-white text-purple-600 border-2 border-purple-200 rounded-xl font-bold text-sm">
+                    🖨️ Print / Save Report (PDF)
+                  </button>
+                  <button onClick={() => { setSelectedStudentDetail(student); loadStudentProgressForAdmin(sid); }}
+                    className="w-full mt-2 py-2 bg-white text-purple-600 border-2 border-purple-200 rounded-xl font-bold text-sm">
+                    Open full profile (photo, team, status…)
+                  </button>
                 </div>
-              </div>
+              )}
             </div>
             );
           })}
@@ -4111,6 +4288,115 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     );
   }
 
+  // LEAD: MY TEAM MEMBERS (collapsible inline-edit list, locked to the lead's team)
+  if (currentPage === 'lead-students' && leadTeam) {
+    const roster = [...allStudents]
+      .filter(s => (s['Status']||'active')==='active' && s['Student ID'] && s['Student ID'].match(/^HJ\d+$/i))
+      .filter(s => (s['TEAM']||'').toUpperCase() === leadTeam.toUpperCase())
+      .sort((a,b) => `${a['Last Name']||''} ${a['First Name']||''}`.trim().localeCompare(`${b['Last Name']||''} ${b['First Name']||''}`.trim()));
+    return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+      <div className="p-4">
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => setCurrentPage('lead-dashboard')} className="text-white font-bold"><ArrowLeft className="w-6 h-6" /></button>
+          <div>
+            <h1 className="text-3xl font-black text-white">Team {leadTeam}</h1>
+            <p className="text-white/90 font-bold text-sm">{roster.length} members · tap a name to edit</p>
+          </div>
+        </div>
+        <div className="space-y-3">
+          {roster.length === 0 ? (
+            <div className="bg-white rounded-xl p-6 text-center text-gray-500">No members in your team yet.</div>
+          ) : roster.map((student, idx) => {
+            const sid = student['Student ID'];
+            const sMarks = allMarks.filter(m => m.student_id === sid);
+            const mMap = {}; sMarks.forEach(m => { mMap[m.session_number] = m; });
+            const sessions = Array.from({ length: sessionCount }, (_, i) => i + 1);
+            const isExpanded = expandedStudent === sid;
+            const getMark = (n, field) => {
+              const edit = inlineMarkEdits[`${sid}-${n}`];
+              if (edit && edit[field] != null) return edit[field];
+              return !!(mMap[n] && mMap[n][field]);
+            };
+            const toggleInline = (n, field) => {
+              const editKey = `${sid}-${n}`;
+              setInlineMarkEdits(prev => ({ ...prev, [editKey]: { ...(prev[editKey]||{}), [field]: !getMark(n, field) } }));
+            };
+            const pctFor = (field) => Math.round(sessions.filter(n => getMark(n, field)).length / sessionCount * 100);
+            const EditGrid = ({ field, color, label }) => (
+              <div className="mb-2">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[11px] font-bold text-gray-600">{label}</span>
+                  <span className="text-[11px] font-bold" style={{color}}>{pctFor(field)}%</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {sessions.map(n => {
+                    const on = getMark(n, field);
+                    return <button key={n} onClick={() => toggleInline(n, field)} title={`Session ${n}`}
+                      style={{width:22, height:22, borderRadius:5, fontSize:9, fontWeight:700, border:'none', cursor:'pointer',
+                        background: on ? color : '#E5E7EB', color: on ? 'white' : '#9CA3AF'}}>{n}</button>;
+                  })}
+                </div>
+              </div>
+            );
+            const se = inlineScoreEdits[sid] || { quiz1: student['Quiz1'] ?? '', quiz2: student['Quiz2'] ?? '', quiz3: student['Quiz3'] ?? '', service_pct: student['ServicePct'] ?? '' };
+            const setSE = (field, val) => setInlineScoreEdits(prev => ({ ...prev, [sid]: { ...se, [field]: val } }));
+            return (
+            <div key={idx} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div onClick={() => { setExpandedStudent(isExpanded ? null : sid); if (!isExpanded && !inlineScoreEdits[sid]) setInlineScoreEdits(prev => ({ ...prev, [sid]: { quiz1: student['Quiz1'] ?? '', quiz2: student['Quiz2'] ?? '', quiz3: student['Quiz3'] ?? '', service_pct: student['ServicePct'] ?? '' } })); }}
+                className="flex items-center gap-3 cursor-pointer p-4">
+                <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="sm" />
+                <div className="flex-1">
+                  <p className="font-black text-gray-800">{student['First Name']} {student['Last Name']}</p>
+                  <p className="text-sm text-purple-600 font-bold">{sid}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-600">{student['Category']}</p>
+                  <p className="text-base font-black text-purple-600">{Math.round(parseFloat(student['HJ Grade']) || 0)}%</p>
+                </div>
+                <span className="text-gray-400 text-lg">{isExpanded ? '▲' : '▼'}</span>
+              </div>
+              {isExpanded && (
+                <div className="bg-gray-50 p-4 border-t border-gray-100">
+                  <p className="text-[11px] text-gray-400 mb-2">Tap a box to mark/unmark that session.</p>
+                  <EditGrid field="attendance" color="#7C3AED" label="📅 Attendance" />
+                  <EditGrid field="hj_shirt" color="#0D9488" label="🫂 One Heart One Shirt" />
+                  <EditGrid field="gratitude" color="#E11D48" label="💗 Gratitude" />
+                  <div className="flex gap-2 mt-3 mb-2">
+                    <div className="flex-1">
+                      <p className="text-[10px] text-gray-500 font-bold mb-1">💡 Quiz (each /10)</p>
+                      <div className="flex gap-1">
+                        {['quiz1','quiz2','quiz3'].map(k => (
+                          <input key={k} type="number" min="0" max="10" value={se[k] ?? ''} onChange={e => setSE(k, e.target.value)}
+                            className="w-full h-9 text-center border-2 border-amber-200 rounded-lg font-bold text-gray-700 text-sm" />
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{width:90}}>
+                      <p className="text-[10px] text-gray-500 font-bold mb-1">💙 Service /100</p>
+                      <input type="number" min="0" max="100" value={se.service_pct ?? ''} onChange={e => setSE('service_pct', e.target.value)}
+                        className="w-full h-9 text-center border-2 border-blue-200 rounded-lg font-bold text-gray-700 text-sm" />
+                    </div>
+                  </div>
+                  <button onClick={() => saveInlineStudent(sid)} disabled={savingInline}
+                    className="w-full mt-2 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold">
+                    {savingInline ? 'Saving...' : '💾 Save Changes'}
+                  </button>
+                  <button onClick={() => printStudentReport(student, allMarks.filter(m => m.student_id === sid), [])}
+                    className="w-full mt-2 py-2 bg-white text-purple-600 border-2 border-purple-200 rounded-xl font-bold text-sm">
+                    🖨️ Print / Save Report (PDF)
+                  </button>
+                </div>
+              )}
+            </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+    );
+  }
+
   if (currentPage === 'lead-dashboard' && leadTeam) {
     return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
@@ -4124,19 +4410,14 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           <p className="text-lg font-black text-purple-600">Mark your team's growth</p>
         </div>
         <div className="space-y-3">
+          <button onClick={() => { loadAllMarks(); setCurrentPage('lead-students'); }}
+            className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3"><Users className="w-6 h-6" /><span className="font-bold">My Team Members</span></div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
           <button onClick={() => { setAttendanceSession(1); loadAttendanceMarks(1); setCurrentPage('lead-attendance'); }}
             className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3"><Calendar className="w-6 h-6" /><span className="font-bold">Mark Attendance</span></div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-          <button onClick={() => { const r = allStudents.filter(s => (s['Status']||'active')==='active' && (s['TEAM']||'').toUpperCase()===leadTeam.toUpperCase()); loadScoreEdits(r); setCurrentPage('lead-quizzes'); }}
-            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3"><BookOpen className="w-6 h-6" /><span className="font-bold">Quiz Scores</span></div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-          <button onClick={() => { const r = allStudents.filter(s => (s['Status']||'active')==='active' && (s['TEAM']||'').toUpperCase()===leadTeam.toUpperCase()); loadScoreEdits(r); setCurrentPage('lead-service'); }}
-            className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3"><Heart className="w-6 h-6" /><span className="font-bold">Service Project</span></div>
+            <div className="flex items-center gap-3"><Calendar className="w-6 h-6" /><span className="font-bold">Mark Attendance (whole session)</span></div>
             <ChevronRight className="w-6 h-6" />
           </button>
           <button onClick={() => { loadAnnouncements(); setCurrentPage('lead-announce'); }}
