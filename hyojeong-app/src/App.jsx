@@ -240,7 +240,7 @@ const HyojiHelper = ({ page, studentData, earnedBadges, BADGES, growthPercentage
       a: "Badges unlock as you grow! Attend sessions, write gratitude, complete service, and finish your goals. Tap '🏅 My Hyojeong Heart Badges' to see which ones you've earned and what's still locked.",
       tags: ['badges', 'home'] },
     { q: 'What is my Growth Journey %?',
-      a: "It's how your heart is growing overall — a mix of your attendance, service, gratitude, and quiz. As it goes up, you move through heart levels: Seeking → Faithful → Loving → Filial Heart. 💜",
+      a: "Your HJ Grade adds up: Attendance, Service, Gratitude, One Heart One Shirt, and Quiz. The more faithfully you join in, the more your heart grows — from Seeking Heart 🕊️ to Faithful 🙏 to Loving 💜 to Filial Heart 👑. You can see your pillars right on your home page! 💝",
       tags: ['home', 'grades'] },
     { q: 'What do the pillars mean?',
       a: "Each pillar is a part of your growth: 💜 Faithful Presence (coming to sessions), 💙 Filial Actions (service), 🫂 One Heart One Shirt (wearing your HJ shirt), 💡 Heart Knowledge (quizzes), and 💖 Heart of Gratitude (your journal).",
@@ -249,7 +249,7 @@ const HyojiHelper = ({ page, studentData, earnedBadges, BADGES, growthPercentage
       a: "In 'Session by session', each numbered box is one session. Green/colored means you did it (attended, wore your shirt, or wrote gratitude). Grey means not yet. It helps you see which sessions to catch up on!",
       tags: ['home'] },
     { q: 'How is my grade calculated?',
-      a: "Your HJ Grade adds up: Attendance, Service, Gratitude, One Heart One Shirt, and Quiz. The more faithfully you join in, the higher it grows. Tap '📖 View My HJ Grades' to see the details.",
+      a: "Your HJ Grade adds up: Attendance, Service, Gratitude, One Heart One Shirt, and Quiz. The more faithfully you join in, the more your heart grows. You can see all your pillars right on your home page! 💝",
       tags: ['grades'] },
     { q: 'How do I set my goals?',
       a: "Open '👤 My HJ Profile'. You can write your goals there and update them as you work toward them. Finishing your goals also helps your heart grow!",
@@ -333,6 +333,17 @@ const HyojiHelper = ({ page, studentData, earnedBadges, BADGES, growthPercentage
   );
 };
 
+// Heart level for a given grade % — used across leaderboards instead of raw numbers.
+const heartLevelFor = (grade) => {
+  const g = Math.round(parseFloat(grade) || 0);
+  return [
+    { name: 'Seeking Heart', icon: '🕊️', min: 0, color: '#F59E0B' },
+    { name: 'Faithful Heart', icon: '🙏', min: 26, color: '#10B981' },
+    { name: 'Loving Heart', icon: '💜', min: 51, color: '#8B5CF6' },
+    { name: 'Filial Heart', icon: '👑', min: 76, color: '#EC4899' }
+  ].filter(l => g >= l.min).pop();
+};
+
 const App = () => {
   const [currentPage, setCurrentPage] = useState('login');
   const [studentId, setStudentId] = useState('');
@@ -383,7 +394,8 @@ const App = () => {
     address: '',
     category: '',
     photoUrl: '',
-    contactNumber: ''
+    contactNumber: '',
+    fbAccount: ''
   });
   
   // Points system
@@ -420,6 +432,8 @@ const App = () => {
   const [tempProfile, setTempProfile] = useState({
     dateOfBirth: '',
     address: '',
+    contactNumber: '',
+    fbAccount: '',
     photoUrl: ''
   });
 
@@ -529,6 +543,7 @@ const App = () => {
         'HJ Shirt Pct': r.hj_shirt_pct,
         'Status': r.status || 'active',
         'Contact': r.contact_number,
+        'FB': r.fb_account,
         'Quiz1': r.quiz1, 'Quiz2': r.quiz2, 'Quiz3': r.quiz3, 'ServicePct': r.service_pct,
         'HJ Quiz': r.hj_quiz,
         'Percentage': r.percentage,
@@ -811,6 +826,7 @@ const App = () => {
           category: newStudent.category || null,
           photo_url: newStudent.photoUrl || null,
           contact_number: newStudent.contactNumber || null,
+          fb_account: newStudent.fbAccount || null,
           hj_service_points: 0
         });
 
@@ -821,7 +837,7 @@ const App = () => {
       }
 
       alert(`✅ Student added successfully!\n\nStudent ID: ${studentId}\nPassword: ${password}\n\n⚠️ Please save this password! The student will need it to log in.`);
-      setNewStudent({ firstName: '', lastName: '', dateOfBirth: '', age: '', address: '', category: '', photoUrl: '', contactNumber: '' });
+      setNewStudent({ firstName: '', lastName: '', dateOfBirth: '', age: '', address: '', category: '', photoUrl: '', contactNumber: '', fbAccount: '' });
       setShowAddStudentForm(false);
       await loadStudents(); // Refresh student list
     } catch (err) {
@@ -865,6 +881,8 @@ const App = () => {
     setTempProfile({
       dateOfBirth: studentData['Date of Birth'] || '',
       address: studentData['Address'] || '',
+      contactNumber: studentData['Contact'] || '',
+      fbAccount: studentData['FB'] || '',
       photoUrl: studentData['Photo'] || ''
     });
     setEditingProfile(true);
@@ -937,6 +955,8 @@ const App = () => {
         .update({
           date_of_birth: tempProfile.dateOfBirth || null,
           address: tempProfile.address,
+          contact_number: tempProfile.contactNumber || null,
+          fb_account: tempProfile.fbAccount || null,
           photo_url: tempProfile.photoUrl
         })
         .eq('student_id', studentData['Student ID']);
@@ -952,6 +972,8 @@ const App = () => {
         ...prev,
         'Date of Birth': tempProfile.dateOfBirth,
         'Address': tempProfile.address,
+        'Contact': tempProfile.contactNumber,
+        'FB': tempProfile.fbAccount,
         'Photo': tempProfile.photoUrl
       }));
       setEditingProfile(false);
@@ -1472,6 +1494,7 @@ const App = () => {
         'HJ Shirt Pct': r.hj_shirt_pct,
         'Status': r.status || 'active',
         'Contact': r.contact_number,
+        'FB': r.fb_account,
         'Quiz1': r.quiz1, 'Quiz2': r.quiz2, 'Quiz3': r.quiz3, 'ServicePct': r.service_pct,
           'HJ Quiz': r.hj_quiz,
           'Percentage': r.percentage,
@@ -2136,18 +2159,20 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           ) : (
             <div className="relative z-10">
               {/* Role selector */}
+              <p className="text-sm font-bold text-gray-500 mb-2 text-center">Who's logging in?</p>
               <div className="flex gap-2 mb-5">
                 {[
-                  { key: 'member', label: '🙋 Member' },
-                  { key: 'lead', label: '⭐ Team Leader' },
-                  { key: 'admin', label: '🔑 Admin' }
+                  { key: 'member', label: 'Member', icon: '🙋' },
+                  { key: 'lead', label: 'Team Leader', icon: '⭐' },
+                  { key: 'admin', label: 'Admin', icon: '🔑' }
                 ].map(r => (
                   <button
                     key={r.key}
                     onClick={() => { setLoginRole(r.key); setError(''); setAdminPassword(''); setPassword(''); }}
-                    className={`flex-1 px-2 py-2 rounded-xl text-sm font-bold transition-all ${loginRole === r.key ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow' : 'bg-gray-100 text-gray-600'}`}
+                    className={`flex-1 flex flex-col items-center gap-1 px-2 py-3 rounded-2xl transition-all border-2 ${loginRole === r.key ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-transparent shadow-lg' : 'bg-white text-gray-700 border-gray-200'}`}
                   >
-                    {r.label}
+                    <span className="text-2xl">{r.icon}</span>
+                    <span className="font-black text-xs leading-tight text-center">{r.label}</span>
                   </button>
                 ))}
               </div>
@@ -2274,8 +2299,15 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 </div>
               </div>
               <div style={{textAlign:'right'}}>
-                <p style={{fontSize:22, fontWeight:800, margin:0}}>{getGrade(studentData)}%</p>
-                <p style={{fontSize:11, opacity:0.8, margin:0}}>HJ Grade</p>
+                {(() => {
+                  const g = getGrade(studentData);
+                  const lv = heartLevelFor(g);
+                  return (<>
+                    <p style={{fontSize:26, margin:0, lineHeight:1}}>{lv.icon}</p>
+                    <p style={{fontSize:13, fontWeight:800, opacity:0.95, margin:'2px 0 0'}}>{lv.name}</p>
+                    <p style={{fontSize:15, fontWeight:800, opacity:0.9, margin:0}}>{g}%</p>
+                  </>);
+                })()}
               </div>
             </div>
           </div>
@@ -2343,9 +2375,20 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                     <p style={{fontSize:11, color:'#9CA3AF', margin:0}}>{student['TEAM'] || 'No team'}</p>
                   </div>
 
-                  {/* Grade */}
-                  <div style={{textAlign:'right', flexShrink:0}}>
-                    <p style={{fontSize:16, fontWeight:800, color: isMedal ? medalColors[idx] : isMe ? '#7C3AED' : '#1F2937', margin:0}}>{grade}%</p>
+                  {/* Heart Level + grade */}
+                  <div style={{textAlign:'right', flexShrink:0, minWidth:90}}>
+                    {(() => {
+                      const lv = heartLevelFor(grade);
+                      return (
+                        <div style={{display:'flex', alignItems:'center', justifyContent:'flex-end', gap:5}}>
+                          <span style={{fontSize:18}}>{lv.icon}</span>
+                          <div style={{textAlign:'left'}}>
+                            <span style={{fontSize:11, fontWeight:700, color: isMedal ? medalColors[idx] : lv.color, lineHeight:1.1, display:'block'}}>{lv.name}</span>
+                            <span style={{fontSize:12, fontWeight:800, color: isMedal ? medalColors[idx] : '#6B7280', lineHeight:1.1}}>{grade}%</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               );
@@ -2411,7 +2454,8 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     const gratitudePct = Math.min(100, Math.round((myGratitudeEntries.length / gratitudeCount) * 100));
     const shirtMarksDone = myAttendanceMarks.filter(m => m.hj_shirt).length;
     const shirtPct = Math.min(100, Math.round((shirtMarksDone / sessionCount) * 100));
-    const growthPercentage = Math.round((attendancePct + servicePct + quizPct + gratitudePct) / 4);
+    // Official HJ Grade (same weighted formula as admin) — single source of truth.
+    const growthPercentage = Math.round(parseFloat(studentData['HJ Grade']) || 0);
     const xpTotal = Math.round((attendancePct * 5) + (servicePct * 3) + (quizPct * 2) + (gratitudePct * 2) + (earnedBadges.length * 50));
     const streakCount = myGratitudeEntries.length;
 
@@ -2677,10 +2721,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             </button>
             <button onClick={() => setCurrentPage('gratitude')} style={{background:'#EC4899', color:'white', border:'none', borderRadius:14, padding:'14px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontWeight:600, fontSize:15}}>
               <span>💗 Gratitude Journal</span>
-              <ChevronRight size={20} />
-            </button>
-            <button onClick={() => setCurrentPage('grades')} style={{background:'#7C3AED', color:'white', border:'none', borderRadius:14, padding:'14px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontWeight:600, fontSize:15}}>
-              <span>📖 View My HJ Grades</span>
               <ChevronRight size={20} />
             </button>
             <button onClick={() => setCurrentPage('profile')} style={{background:'#3B82F6', color:'white', border:'none', borderRadius:14, padding:'14px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', fontWeight:600, fontSize:15}}>
@@ -3188,6 +3228,28 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   />
                 </div>
 
+                <div className="bg-teal-50 rounded-2xl p-4 border-2 border-teal-200">
+                  <label className="text-xs text-teal-600 font-bold uppercase tracking-wide mb-2 block">📱 Contact Number</label>
+                  <input
+                    type="text"
+                    value={tempProfile.contactNumber}
+                    onChange={(e) => setTempProfile(p => ({...p, contactNumber: e.target.value}))}
+                    placeholder="e.g., 09XX XXX XXXX"
+                    className="w-full px-4 py-3 border-2 border-teal-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-teal-300"
+                  />
+                </div>
+
+                <div className="bg-blue-50 rounded-2xl p-4 border-2 border-blue-200">
+                  <label className="text-xs text-blue-600 font-bold uppercase tracking-wide mb-2 block">👤 Facebook Account</label>
+                  <input
+                    type="text"
+                    value={tempProfile.fbAccount}
+                    onChange={(e) => setTempProfile(p => ({...p, fbAccount: e.target.value}))}
+                    placeholder="Your Facebook name or link"
+                    className="w-full px-4 py-3 border-2 border-blue-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-300"
+                  />
+                </div>
+
                 <div className="bg-indigo-50 rounded-2xl p-4 border-2 border-indigo-200">
                   <label className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-2 block">📸 Photo URL</label>
                   <input
@@ -3238,6 +3300,20 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 <div className="col-span-2 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl p-4 border-2 border-indigo-200">
                   <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-1">⭐ Category</p>
                   <p className="text-lg font-black text-gray-800">{studentData['Category']}</p>
+                </div>
+              )}
+
+              {studentData['Contact'] && (
+                <div className="col-span-2 bg-gradient-to-br from-teal-100 to-emerald-100 rounded-2xl p-4 border-2 border-teal-200">
+                  <p className="text-xs text-teal-600 font-bold uppercase tracking-wide mb-1">📱 Contact Number</p>
+                  <p className="text-base font-bold text-gray-800">{studentData['Contact']}</p>
+                </div>
+              )}
+
+              {studentData['FB'] && (
+                <div className="col-span-2 bg-gradient-to-br from-blue-100 to-sky-100 rounded-2xl p-4 border-2 border-blue-200">
+                  <p className="text-xs text-blue-600 font-bold uppercase tracking-wide mb-1">👤 Facebook Account</p>
+                  <p className="text-base font-bold text-gray-800">{studentData['FB']}</p>
                 </div>
               )}
             </div>
@@ -3363,17 +3439,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
               </div>
             )}
           </div>
-
-          <button 
-            onClick={() => setCurrentPage('grades')} 
-            className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <BookOpen className="w-6 h-6" />
-              <span className="font-bold">View My HJ Grades</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
         </div>
         <HyojiHelper page="profile" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={0} />
         <NavBar />
@@ -3537,6 +3602,17 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   value={newStudent.contactNumber}
                   onChange={(e) => setNewStudent(s => ({...s, contactNumber: e.target.value}))}
                   placeholder="e.g., 09XX XXX XXXX"
+                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Facebook Account</label>
+                <input 
+                  type="text"
+                  value={newStudent.fbAccount}
+                  onChange={(e) => setNewStudent(s => ({...s, fbAccount: e.target.value}))}
+                  placeholder="Facebook name or profile link"
                   className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-300"
                 />
               </div>
@@ -4018,8 +4094,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                       <p className="text-sm text-purple-600 font-bold">{student['Student ID']}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-black text-purple-600">{Math.round(parseFloat(student['HJ Grade']) || 0)}%</p>
-                      <p className="text-xs text-gray-500">Overall Grade</p>
+                      {(() => { const lv = heartLevelFor(student['HJ Grade']); return (<><p className="text-2xl" style={{margin:0}}>{lv.icon}</p><p className="text-xs font-bold" style={{color:lv.color}}>{lv.name}</p><p className="text-sm font-black text-gray-700">{Math.round(parseFloat(student['HJ Grade'])||0)}%</p></>); })()}
                     </div>
                   </div>
                 ))}
@@ -4058,8 +4133,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                       <p className="text-sm text-purple-600 font-bold">{student['Student ID']}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-black text-blue-600">{Math.round(parseFloat(student['HJ Grade']) || 0)}%</p>
-                      <p className="text-xs text-gray-500">Overall Grade</p>
+                      {(() => { const lv = heartLevelFor(student['HJ Grade']); return (<><p className="text-2xl" style={{margin:0}}>{lv.icon}</p><p className="text-xs font-bold" style={{color:lv.color}}>{lv.name}</p><p className="text-sm font-black text-gray-700">{Math.round(parseFloat(student['HJ Grade'])||0)}%</p></>); })()}
                     </div>
                   </div>
                 ))}
@@ -4573,7 +4647,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     const teams = ['ALL', ...((programSettings.teams || []).map(t => t.name).filter(Boolean))];
 
     return (
-    <div className="min-h-screen bg-gradient-to-br from-green-400 via-emerald-300 to-teal-400 pb-32">
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-32">
       <div className="p-4">
         <div className="flex items-center gap-3 mb-4">
           <button onClick={() => leadTeam ? setCurrentPage('lead-dashboard') : setCurrentPage('admin-dashboard')} className="text-white font-bold">
