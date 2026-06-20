@@ -376,6 +376,8 @@ const App = () => {
   const [archiveStudents, setArchiveStudents] = useState([]);
   const [loadingArchive, setLoadingArchive] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [startingProgram, setStartingProgram] = useState(false);
+  const [newProgramForm, setNewProgramForm] = useState(null);
   const [expandedStudent, setExpandedStudent] = useState(null); // which student row is expanded in admin list
   const [inlineMarkEdits, setInlineMarkEdits] = useState({}); // { 'sid-session': {attendance,hj_shirt,gratitude} } unsaved edits
   const [inlineScoreEdits, setInlineScoreEdits] = useState({}); // { sid: {quiz1,quiz2,quiz3,service_pct} }
@@ -1553,6 +1555,62 @@ const App = () => {
       if (error) { alert('Archive detail failed: ' + error.message); return archiveId; }
     }
     return archiveId;
+  };
+
+  // Stage 4: Start a New Program.
+  // 1) Archive everything, 2) clear attendance + gratitude, 3) reset grades/scores,
+  // 4) save the new program's settings (length/quizzes/services/name/dates).
+  // Students are KEPT (you set active/inactive afterward).
+  const startNewProgram = async (opts) => {
+    // opts: { archiveName, newName, startDate, endDate, sessions, gratitudeSessions, quizzes, services }
+    try {
+      setStartingProgram(true);
+
+      // 1) Archive the current program first (nothing is lost).
+      const archiveId = await archiveCurrentProgram(opts.archiveName);
+      if (!archiveId) { setStartingProgram(false); return false; } // archive failed → abort, no clearing
+
+      // 2) Clear attendance marks and gratitude entries (delete all rows).
+      const delMarks = await supabase.from('attendance_marks').delete().neq('student_id', '___none___');
+      if (delMarks.error) { alert('Could not clear attendance: ' + delMarks.error.message); setStartingProgram(false); return false; }
+      const delGrat = await supabase.from('gratitude').delete().neq('student_id', '___none___');
+      if (delGrat.error) { alert('Could not clear gratitude: ' + delGrat.error.message); setStartingProgram(false); return false; }
+
+      // 3) Reset every student's grade/score fields to 0 (keep the students themselves).
+      const resetRes = await supabase.from('students').update({
+        hj_grade: 0, hj_attendance: 0, hj_service_pct: 0, hj_gratitude_pct: 0, hj_shirt_pct: 0, hj_quiz: 0,
+        quiz_score: 0, service_week_score: 0, service_pct: null,
+        quiz1: null, quiz2: null, quiz3: null,
+        quiz_scores: [], service_scores: []
+      }).neq('student_id', '___none___');
+      if (resetRes.error) { alert('Could not reset student scores: ' + resetRes.error.message); setStartingProgram(false); return false; }
+
+      // 4) Save the new program settings.
+      const dates = [];
+      const next = {
+        ...programSettings,
+        program_name: opts.newName || 'New Program',
+        start_date: opts.startDate || '',
+        end_date: opts.endDate || '',
+        total_sessions: parseInt(opts.sessions, 10) || 21,
+        total_gratitude_sessions: parseInt(opts.gratitudeSessions, 10) || parseInt(opts.sessions, 10) || 21,
+        num_quizzes: parseInt(opts.quizzes, 10) || 0,
+        num_services: parseInt(opts.services, 10) || 0,
+        session_dates: dates
+      };
+      await saveProgramSettings(next);
+
+      // Refresh local data.
+      await loadStudents();
+      await loadArchives();
+      setStartingProgram(false);
+      return true;
+    } catch (err) {
+      console.error('Start new program error:', err);
+      alert('Something went wrong starting the new program.');
+      setStartingProgram(false);
+      return false;
+    }
   };
 
   const saveAttendanceMarks = async () => {
@@ -3732,6 +3790,13 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
+          <button onClick={() => { setNewProgramForm({ archiveName: programSettings.program_name || 'Program', newName: '', startDate: '', endDate: '', sessions: 21, gratitudeSessions: 21, quizzes: 0, services: 0, confirm: '' }); setCurrentPage('admin-new-program'); }} className="w-full bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-6 h-6" />
+              <span className="font-bold">▶️ Start New Program</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
           <button onClick={handleRecomputeAll} disabled={recomputing} className="w-full bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
             <div className="flex items-center gap-3">
               <RefreshCw className={`w-6 h-6 ${recomputing ? 'animate-spin' : ''}`} />
@@ -4371,6 +4436,120 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           </div>
         </div>
       </div>
+    );
+  }
+
+  // ADMIN START NEW PROGRAM
+  if (currentPage === 'admin-new-program' && isAdmin) {
+    const f = newProgramForm || {};
+    const upd = (patch) => setNewProgramForm(prev => ({ ...(prev || {}), ...patch }));
+    const canStart = (f.archiveName || '').trim().length > 0 && (f.newName || '').trim().length > 0 && f.confirm === 'START';
+    const doStart = async () => {
+      if (!canStart) return;
+      const ok = await startNewProgram(f);
+      if (ok) {
+        alert('🎉 New program started! The previous program was archived. Now set your students active/inactive for this batch.');
+        setNewProgramForm(null);
+        setCurrentPage('admin-dashboard');
+      }
+    };
+    return (
+    <div className="min-h-screen bg-gradient-to-br from-red-400 via-rose-300 to-pink-300 pb-32">
+      <div className="p-4 max-w-xl mx-auto">
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => { setNewProgramForm(null); setCurrentPage('admin-dashboard'); }} className="text-white font-bold">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-3xl font-black text-white">▶️ Start New Program</h1>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-lg p-5 mb-4">
+          <p className="font-black text-gray-800 mb-2">This will, in order:</p>
+          <div className="space-y-2 mb-2 text-sm">
+            <div className="flex items-center gap-2"><span>📜</span><span className="text-gray-700">Archive the current program (saved forever in Past Programs)</span></div>
+            <div className="flex items-center gap-2"><span>🧹</span><span className="text-gray-700">Clear attendance, gratitude, quiz &amp; service data</span></div>
+            <div className="flex items-center gap-2"><span>🔄</span><span className="text-gray-700">Reset all grades to 0</span></div>
+            <div className="flex items-center gap-2"><span>👥</span><span className="text-gray-700">Keep all students (set active/inactive after)</span></div>
+          </div>
+          <p className="text-xs text-rose-600 bg-rose-50 rounded-xl p-2 font-bold">Nothing is lost — everything is archived first. But the current program's live data WILL be cleared.</p>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-lg p-5 mb-4 space-y-4">
+          <div>
+            <label className="text-sm font-bold text-gray-600 block mb-1">📜 Name for the archive (the program ending now)</label>
+            <input type="text" value={f.archiveName || ''} onChange={e => upd({ archiveName: e.target.value })}
+              placeholder="e.g. 21-Day Program · Feb–May 2026"
+              className="w-full p-3 border-2 border-rose-200 rounded-xl font-bold text-gray-700" />
+          </div>
+
+          <div className="border-t-2 border-gray-100 pt-4">
+            <p className="font-black text-gray-800 mb-3">🌱 New program details</p>
+            <label className="text-sm font-bold text-gray-600 block mb-1">Program name</label>
+            <input type="text" value={f.newName || ''} onChange={e => upd({ newName: e.target.value })}
+              placeholder="e.g. Summer Program 2026"
+              className="w-full p-3 border-2 border-purple-200 rounded-xl font-bold text-gray-700 mb-3" />
+
+            <label className="text-sm font-bold text-gray-600 block mb-2">Program length (sessions)</label>
+            <div className="flex gap-2 mb-3">
+              {[7, 14, 21, 40].map(n => (
+                <button key={n} onClick={() => upd({ sessions: n, gratitudeSessions: n })}
+                  className={`flex-1 py-2 rounded-xl font-bold text-sm ${parseInt(f.sessions,10) === n ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'}`}>
+                  {n} days
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="text-xs font-bold text-gray-500 block mb-1">Sessions (custom)</label>
+                <input type="number" min="1" max="60" value={f.sessions || ''} onChange={e => upd({ sessions: e.target.value, gratitudeSessions: e.target.value })}
+                  className="w-full p-3 border-2 border-purple-200 rounded-xl font-bold text-gray-700" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 block mb-1">Gratitude sessions</label>
+                <input type="number" min="1" max="60" value={f.gratitudeSessions || ''} onChange={e => upd({ gratitudeSessions: e.target.value })}
+                  className="w-full p-3 border-2 border-pink-200 rounded-xl font-bold text-gray-700" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="text-xs font-bold text-gray-500 block mb-1">💡 Number of quizzes</label>
+                <input type="number" min="0" max="20" value={f.quizzes ?? 0} onChange={e => upd({ quizzes: e.target.value })}
+                  className="w-full p-3 border-2 border-amber-200 rounded-xl font-bold text-gray-700" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 block mb-1">💙 Number of service projects</label>
+                <input type="number" min="0" max="20" value={f.services ?? 0} onChange={e => upd({ services: e.target.value })}
+                  className="w-full p-3 border-2 border-blue-200 rounded-xl font-bold text-gray-700" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-gray-500 block mb-1">Start date</label>
+                <input type="date" value={f.startDate || ''} onChange={e => upd({ startDate: e.target.value })}
+                  className="w-full p-3 border-2 border-gray-200 rounded-xl font-bold text-gray-700" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 block mb-1">End date</label>
+                <input type="date" value={f.endDate || ''} onChange={e => upd({ endDate: e.target.value })}
+                  className="w-full p-3 border-2 border-gray-200 rounded-xl font-bold text-gray-700" />
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t-2 border-gray-100 pt-4">
+            <label className="text-sm font-bold text-gray-600 block mb-1">Type <span className="text-rose-600">START</span> to confirm</label>
+            <input type="text" value={f.confirm || ''} onChange={e => upd({ confirm: e.target.value })}
+              placeholder="START"
+              className="w-full p-3 border-2 border-rose-300 rounded-xl font-bold text-gray-700" />
+          </div>
+        </div>
+
+        <button onClick={doStart} disabled={!canStart || startingProgram}
+          className={`w-full py-4 rounded-2xl font-black text-white shadow-lg ${canStart && !startingProgram ? 'bg-gradient-to-r from-red-500 to-rose-600' : 'bg-gray-300'}`}>
+          {startingProgram ? 'Archiving & starting…' : '📜 Archive & Start New Program'}
+        </button>
+      </div>
+    </div>
     );
   }
 
