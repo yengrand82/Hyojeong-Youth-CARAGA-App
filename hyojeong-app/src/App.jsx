@@ -426,6 +426,8 @@ const App = () => {
     start_date: '', end_date: '',
     total_sessions: TOTAL_SESSIONS,
     total_gratitude_sessions: TOTAL_GRATITUDE_SESSIONS,
+    num_quizzes: 3,
+    num_services: 1,
     session_dates: [],
     teams: [],
     heart_messages: []
@@ -456,6 +458,8 @@ const App = () => {
           end_date: data.end_date || '',
           total_sessions: data.total_sessions || TOTAL_SESSIONS,
           total_gratitude_sessions: data.total_gratitude_sessions || TOTAL_GRATITUDE_SESSIONS,
+          num_quizzes: data.num_quizzes || 3,
+          num_services: data.num_services || 1,
           session_dates: Array.isArray(data.session_dates) ? data.session_dates : [],
           teams: Array.isArray(data.teams) ? data.teams : [],
           heart_messages: Array.isArray(data.heart_messages) ? data.heart_messages : []
@@ -469,6 +473,34 @@ const App = () => {
   // Resolved counts the whole app uses (settings override the constants).
   const sessionCount = programSettings.total_sessions || TOTAL_SESSIONS;
   const gratitudeCount = programSettings.total_gratitude_sessions || TOTAL_GRATITUDE_SESSIONS;
+  const quizCount = programSettings.num_quizzes || 3;
+  const serviceCount = programSettings.num_services || 1;
+
+  // Compute quiz % from an array of /10 scores (average of taken quizzes).
+  const quizPctFromArray = (arr) => {
+    const taken = (arr || []).map(Number).filter(v => !isNaN(v) && v !== null);
+    if (!taken.length) return 0;
+    return Math.round((taken.reduce((a, b) => a + b, 0) / taken.length) / 10 * 100 * 100) / 100;
+  };
+  // Compute service % from an array of /100 scores (average of done projects).
+  const servicePctFromArray = (arr) => {
+    const taken = (arr || []).map(Number).filter(v => !isNaN(v) && v !== null);
+    if (!taken.length) return 0;
+    return Math.round(taken.reduce((a, b) => a + b, 0) / taken.length * 100) / 100;
+  };
+  // Migrate old quiz1/2/3 + service_pct into arrays if arrays are empty (backward compat).
+  const getQuizArray = (student) => {
+    const arr = student['QuizScores'];
+    if (Array.isArray(arr) && arr.length) return arr;
+    const old = [student['Quiz1'], student['Quiz2'], student['Quiz3']].filter(v => v != null && v !== '');
+    return old.length ? old.map(Number) : [];
+  };
+  const getServiceArray = (student) => {
+    const arr = student['ServiceScores'];
+    if (Array.isArray(arr) && arr.length) return arr;
+    const old = student['ServicePct'];
+    return (old != null && old !== '') ? [Number(old)] : [];
+  };
   const sessionDates = programSettings.session_dates || [];
   const dateForSession = (n) => (sessionDates[n - 1] || '');
 
@@ -482,6 +514,8 @@ const App = () => {
         end_date: next.end_date,
         total_sessions: parseInt(next.total_sessions, 10) || TOTAL_SESSIONS,
         total_gratitude_sessions: parseInt(next.total_gratitude_sessions, 10) || TOTAL_GRATITUDE_SESSIONS,
+        num_quizzes: parseInt(next.num_quizzes, 10) || 3,
+        num_services: parseInt(next.num_services, 10) || 1,
         session_dates: next.session_dates || [],
         teams: next.teams || [],
         heart_messages: next.heart_messages || [],
@@ -546,6 +580,7 @@ const App = () => {
         'Contact': r.contact_number,
         'FB': r.fb_account,
         'Quiz1': r.quiz1, 'Quiz2': r.quiz2, 'Quiz3': r.quiz3, 'ServicePct': r.service_pct,
+        'QuizScores': Array.isArray(r.quiz_scores) ? r.quiz_scores : [], 'ServiceScores': Array.isArray(r.service_scores) ? r.service_scores : [],
         'HJ Quiz': r.hj_quiz,
         'Percentage': r.percentage,
       }));
@@ -1014,16 +1049,18 @@ const App = () => {
         const { error } = await supabase.from('attendance_marks').upsert(records, { onConflict: 'student_id,session_number' });
         if (error) { alert('Failed to save marks: ' + error.message); return; }
       }
-      // 2. Quiz + service scores.
+      // 2. Quiz + service scores (flexible arrays).
       const se = inlineScoreEdits[sid] || {};
-      const q = ['quiz1','quiz2','quiz3'].map(k => se[k] === '' || se[k] == null ? null : Number(se[k]));
-      const taken = q.filter(v => v != null && !isNaN(v));
-      const avgPct = taken.length ? Math.round((taken.reduce((a,b)=>a+b,0)/taken.length)/10*100*100)/100 : 0;
-      const svc = se.service_pct === '' || se.service_pct == null ? null : Math.min(100, Number(se.service_pct));
+      const quizzes = (se.quizzes || []).map(v => v === '' || v == null ? null : Number(v)).filter(v => v != null && !isNaN(v));
+      const services = (se.services || []).map(v => v === '' || v == null ? null : Math.min(100, Number(v))).filter(v => v != null && !isNaN(v));
+      const avgPct = quizzes.length ? Math.round((quizzes.reduce((a,b)=>a+b,0)/quizzes.length)/10*100*100)/100 : 0;
+      const svcPct = services.length ? Math.round(services.reduce((a,b)=>a+b,0)/services.length*100)/100 : 0;
       await supabase.from('students').update({
-        quiz1: q[0], quiz2: q[1], quiz3: q[2], quiz_score: avgPct, hj_quiz: avgPct,
-        service_pct: svc, hj_service_pct: svc == null ? 0 : svc,
-        service_week_score: svc == null ? 0 : Math.round(svc/100*50*100)/100
+        quiz_scores: quizzes, service_scores: services,
+        quiz1: quizzes[0] ?? null, quiz2: quizzes[1] ?? null, quiz3: quizzes[2] ?? null,
+        quiz_score: avgPct, hj_quiz: avgPct,
+        service_pct: services[0] ?? null, hj_service_pct: svcPct,
+        service_week_score: Math.round(svcPct/100*50*100)/100
       }).eq('student_id', sid);
       // 3. Refresh data + recompute grades.
       await recomputeAllGrades();
@@ -1513,6 +1550,7 @@ const App = () => {
         'Contact': r.contact_number,
         'FB': r.fb_account,
         'Quiz1': r.quiz1, 'Quiz2': r.quiz2, 'Quiz3': r.quiz3, 'ServicePct': r.service_pct,
+        'QuizScores': Array.isArray(r.quiz_scores) ? r.quiz_scores : [], 'ServiceScores': Array.isArray(r.service_scores) ? r.service_scores : [],
           'HJ Quiz': r.hj_quiz,
           'Percentage': r.percentage,
         }));
@@ -4011,11 +4049,15 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 </div>
               </div>
             );
-            const se = inlineScoreEdits[sid] || { quiz1: student['Quiz1'] ?? '', quiz2: student['Quiz2'] ?? '', quiz3: student['Quiz3'] ?? '', service_pct: student['ServicePct'] ?? '' };
-            const setSE = (field, val) => setInlineScoreEdits(prev => ({ ...prev, [sid]: { ...se, [field]: val } }));
+            const se = inlineScoreEdits[sid] || {
+              quizzes: (() => { const a = getQuizArray(student).slice(); while (a.length < quizCount) a.push(''); return a.slice(0, quizCount); })(),
+              services: (() => { const a = getServiceArray(student).slice(); while (a.length < serviceCount) a.push(''); return a.slice(0, serviceCount); })()
+            };
+            const setQ = (i, val) => setInlineScoreEdits(prev => { const cur = prev[sid] || se; const q = [...(cur.quizzes||[])]; q[i] = val; return { ...prev, [sid]: { ...cur, quizzes: q } }; });
+            const setSv = (i, val) => setInlineScoreEdits(prev => { const cur = prev[sid] || se; const sv = [...(cur.services||[])]; sv[i] = val; return { ...prev, [sid]: { ...cur, services: sv } }; });
             return (
             <div key={idx} className="bg-white rounded-2xl shadow-lg overflow-hidden">
-              <div onClick={() => { setExpandedStudent(isExpanded ? null : sid); if (!isExpanded && !inlineScoreEdits[sid]) setInlineScoreEdits(prev => ({ ...prev, [sid]: { quiz1: student['Quiz1'] ?? '', quiz2: student['Quiz2'] ?? '', quiz3: student['Quiz3'] ?? '', service_pct: student['ServicePct'] ?? '' } })); }}
+              <div onClick={() => { setExpandedStudent(isExpanded ? null : sid); }}
                 className="flex items-center gap-3 cursor-pointer p-4">
                 <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="sm" />
                 <div className="flex-1">
@@ -4034,20 +4076,22 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   <EditGrid field="attendance" color="#7C3AED" label="📅 Attendance" />
                   <EditGrid field="hj_shirt" color="#0D9488" label="🫂 One Heart One Shirt" />
                   <EditGrid field="gratitude" color="#E11D48" label="💗 Gratitude" />
-                  <div className="flex gap-2 mt-3 mb-2">
-                    <div className="flex-1">
-                      <p className="text-[10px] text-gray-500 font-bold mb-1">💡 Quiz (each /10)</p>
-                      <div className="flex gap-1">
-                        {['quiz1','quiz2','quiz3'].map(k => (
-                          <input key={k} type="number" min="0" max="10" value={se[k] ?? ''} onChange={e => setSE(k, e.target.value)}
-                            className="w-full h-9 text-center border-2 border-amber-200 rounded-lg font-bold text-gray-700 text-sm" />
-                        ))}
-                      </div>
+                  <div className="mt-3 mb-2">
+                    <p className="text-[10px] text-gray-500 font-bold mb-1">💡 Quiz (each /10)</p>
+                    <div className="flex gap-1 flex-wrap mb-2">
+                      {(se.quizzes||[]).map((val, i) => (
+                        <input key={i} type="number" min="0" max="10" value={val ?? ''} onChange={e => setQ(i, e.target.value)}
+                          style={{width:48}} className="h-9 text-center border-2 border-amber-200 rounded-lg font-bold text-gray-700 text-sm" />
+                      ))}
+                      {(!se.quizzes || se.quizzes.length === 0) && <span className="text-xs text-gray-400">No quizzes this program</span>}
                     </div>
-                    <div style={{width:90}}>
-                      <p className="text-[10px] text-gray-500 font-bold mb-1">💙 Service /100</p>
-                      <input type="number" min="0" max="100" value={se.service_pct ?? ''} onChange={e => setSE('service_pct', e.target.value)}
-                        className="w-full h-9 text-center border-2 border-blue-200 rounded-lg font-bold text-gray-700 text-sm" />
+                    <p className="text-[10px] text-gray-500 font-bold mb-1">💙 Service (each /100)</p>
+                    <div className="flex gap-1 flex-wrap">
+                      {(se.services||[]).map((val, i) => (
+                        <input key={i} type="number" min="0" max="100" value={val ?? ''} onChange={e => setSv(i, e.target.value)}
+                          style={{width:60}} className="h-9 text-center border-2 border-blue-200 rounded-lg font-bold text-gray-700 text-sm" />
+                      ))}
+                      {(!se.services || se.services.length === 0) && <span className="text-xs text-gray-400">No service projects this program</span>}
                     </div>
                   </div>
                   <button onClick={() => saveInlineStudent(sid)} disabled={savingInline}
@@ -4177,6 +4221,8 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
       end_date: programSettings.end_date,
       total_sessions: programSettings.total_sessions,
       total_gratitude_sessions: programSettings.total_gratitude_sessions,
+      num_quizzes: programSettings.num_quizzes,
+      num_services: programSettings.num_services,
       session_dates: [...(programSettings.session_dates || [])],
       teams: (programSettings.teams || []).map(t => ({ ...t })),
       heart_messages: (programSettings.heart_messages || []).map(m => ({ ...m }))
@@ -4231,9 +4277,20 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 placeholder="2026-09-20" className="w-full p-3 border-2 border-purple-200 rounded-xl text-gray-700" />
             </div>
           </div>
+          <div className="mb-3">
+            <label className="text-sm font-bold text-gray-600 block mb-2">Program length (sessions)</label>
+            <div className="flex gap-2 mb-2">
+              {[7, 14, 21, 40].map(n => (
+                <button key={n} onClick={() => upd({ total_sessions: n, total_gratitude_sessions: n })}
+                  className={`flex-1 py-2 rounded-xl font-bold text-sm ${parseInt(f.total_sessions,10) === n ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'}`}>
+                  {n} days
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-bold text-gray-600 block mb-1">Total sessions</label>
+              <label className="text-sm font-bold text-gray-600 block mb-1">Total sessions (custom)</label>
               <input type="number" min="1" max="60" value={f.total_sessions}
                 onChange={e => upd({ total_sessions: e.target.value })}
                 className="w-full p-3 border-2 border-purple-200 rounded-xl font-bold text-gray-700" />
@@ -4243,6 +4300,20 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
               <input type="number" min="1" max="60" value={f.total_gratitude_sessions}
                 onChange={e => upd({ total_gratitude_sessions: e.target.value })}
                 className="w-full p-3 border-2 border-purple-200 rounded-xl font-bold text-gray-700" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <div>
+              <label className="text-sm font-bold text-gray-600 block mb-1">💡 Number of quizzes</label>
+              <input type="number" min="0" max="20" value={f.num_quizzes}
+                onChange={e => upd({ num_quizzes: e.target.value })}
+                className="w-full p-3 border-2 border-amber-200 rounded-xl font-bold text-gray-700" />
+            </div>
+            <div>
+              <label className="text-sm font-bold text-gray-600 block mb-1">💙 Number of service projects</label>
+              <input type="number" min="0" max="20" value={f.num_services}
+                onChange={e => upd({ num_services: e.target.value })}
+                className="w-full p-3 border-2 border-blue-200 rounded-xl font-bold text-gray-700" />
             </div>
           </div>
           <div className="bg-purple-50 rounded-xl p-3 mt-3 text-xs text-purple-700">
@@ -4437,11 +4508,15 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 </div>
               </div>
             );
-            const se = inlineScoreEdits[sid] || { quiz1: student['Quiz1'] ?? '', quiz2: student['Quiz2'] ?? '', quiz3: student['Quiz3'] ?? '', service_pct: student['ServicePct'] ?? '' };
-            const setSE = (field, val) => setInlineScoreEdits(prev => ({ ...prev, [sid]: { ...se, [field]: val } }));
+            const se = inlineScoreEdits[sid] || {
+              quizzes: (() => { const a = getQuizArray(student).slice(); while (a.length < quizCount) a.push(''); return a.slice(0, quizCount); })(),
+              services: (() => { const a = getServiceArray(student).slice(); while (a.length < serviceCount) a.push(''); return a.slice(0, serviceCount); })()
+            };
+            const setQ = (i, val) => setInlineScoreEdits(prev => { const cur = prev[sid] || se; const q = [...(cur.quizzes||[])]; q[i] = val; return { ...prev, [sid]: { ...cur, quizzes: q } }; });
+            const setSv = (i, val) => setInlineScoreEdits(prev => { const cur = prev[sid] || se; const sv = [...(cur.services||[])]; sv[i] = val; return { ...prev, [sid]: { ...cur, services: sv } }; });
             return (
             <div key={idx} className="bg-white rounded-2xl shadow-lg overflow-hidden">
-              <div onClick={() => { setExpandedStudent(isExpanded ? null : sid); if (!isExpanded && !inlineScoreEdits[sid]) setInlineScoreEdits(prev => ({ ...prev, [sid]: { quiz1: student['Quiz1'] ?? '', quiz2: student['Quiz2'] ?? '', quiz3: student['Quiz3'] ?? '', service_pct: student['ServicePct'] ?? '' } })); }}
+              <div onClick={() => { setExpandedStudent(isExpanded ? null : sid); }}
                 className="flex items-center gap-3 cursor-pointer p-4">
                 <Avatar firstName={student['First Name']} lastName={student['Last Name']} photoUrl={student['Photo']} size="sm" />
                 <div className="flex-1">
@@ -4460,20 +4535,22 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   <EditGrid field="attendance" color="#7C3AED" label="📅 Attendance" />
                   <EditGrid field="hj_shirt" color="#0D9488" label="🫂 One Heart One Shirt" />
                   <EditGrid field="gratitude" color="#E11D48" label="💗 Gratitude" />
-                  <div className="flex gap-2 mt-3 mb-2">
-                    <div className="flex-1">
-                      <p className="text-[10px] text-gray-500 font-bold mb-1">💡 Quiz (each /10)</p>
-                      <div className="flex gap-1">
-                        {['quiz1','quiz2','quiz3'].map(k => (
-                          <input key={k} type="number" min="0" max="10" value={se[k] ?? ''} onChange={e => setSE(k, e.target.value)}
-                            className="w-full h-9 text-center border-2 border-amber-200 rounded-lg font-bold text-gray-700 text-sm" />
-                        ))}
-                      </div>
+                  <div className="mt-3 mb-2">
+                    <p className="text-[10px] text-gray-500 font-bold mb-1">💡 Quiz (each /10)</p>
+                    <div className="flex gap-1 flex-wrap mb-2">
+                      {(se.quizzes||[]).map((val, i) => (
+                        <input key={i} type="number" min="0" max="10" value={val ?? ''} onChange={e => setQ(i, e.target.value)}
+                          style={{width:48}} className="h-9 text-center border-2 border-amber-200 rounded-lg font-bold text-gray-700 text-sm" />
+                      ))}
+                      {(!se.quizzes || se.quizzes.length === 0) && <span className="text-xs text-gray-400">No quizzes this program</span>}
                     </div>
-                    <div style={{width:90}}>
-                      <p className="text-[10px] text-gray-500 font-bold mb-1">💙 Service /100</p>
-                      <input type="number" min="0" max="100" value={se.service_pct ?? ''} onChange={e => setSE('service_pct', e.target.value)}
-                        className="w-full h-9 text-center border-2 border-blue-200 rounded-lg font-bold text-gray-700 text-sm" />
+                    <p className="text-[10px] text-gray-500 font-bold mb-1">💙 Service (each /100)</p>
+                    <div className="flex gap-1 flex-wrap">
+                      {(se.services||[]).map((val, i) => (
+                        <input key={i} type="number" min="0" max="100" value={val ?? ''} onChange={e => setSv(i, e.target.value)}
+                          style={{width:60}} className="h-9 text-center border-2 border-blue-200 rounded-lg font-bold text-gray-700 text-sm" />
+                      ))}
+                      {(!se.services || se.services.length === 0) && <span className="text-xs text-gray-400">No service projects this program</span>}
                     </div>
                   </div>
                   <button onClick={() => saveInlineStudent(sid)} disabled={savingInline}
