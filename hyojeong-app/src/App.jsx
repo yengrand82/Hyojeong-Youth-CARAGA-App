@@ -337,11 +337,39 @@ const HyojiHelper = ({ page, studentData, earnedBadges, BADGES, growthPercentage
 const heartLevelFor = (grade) => {
   const g = Math.round(parseFloat(grade) || 0);
   return [
-    { name: 'Seeking Heart', icon: '🕊️', min: 0, color: '#F59E0B' },
-    { name: 'Faithful Heart', icon: '🙏', min: 26, color: '#10B981' },
-    { name: 'Loving Heart', icon: '💜', min: 51, color: '#8B5CF6' },
-    { name: 'Filial Heart', icon: '👑', min: 76, color: '#EC4899' }
+    { name: 'Seeking Heart', icon: '🕊️', min: 0, color: '#F59E0B', cheer: 'Every great heart starts here. Keep showing up — you are growing! 🌱' },
+    { name: 'Faithful Heart', icon: '🙏', min: 26, color: '#10B981', cheer: 'Your faithfulness is blooming. Keep walking forward with heart! 💚' },
+    { name: 'Loving Heart', icon: '💜', min: 51, color: '#8B5CF6', cheer: 'Love is moving through you. You inspire those around you! 💜' },
+    { name: 'Filial Heart', icon: '👑', min: 76, color: '#EC4899', cheer: 'You shine with a true filial heart. What a beautiful example you are! 👑' }
   ].filter(l => g >= l.min).pop();
+};
+
+// Wholesome, faith-aligned mottos a student can choose from (admin-approved list).
+const MOTTO_OPTIONS = [
+  'Living for the sake of others 💗',
+  'Love in action 💛',
+  'A grateful heart, every day 🙏',
+  'I shine so others can shine 🌟',
+  'Small acts, great love ✨',
+  'Faithful in the little things 🌱',
+  'Kindness is my superpower 💪',
+  'I choose joy 😊',
+  'Together we grow 🤝',
+  'My heart belongs to Heaven 🕊️'
+];
+
+// Blocklist for student-written mottos — profanity + negative/harmful words.
+// Kept simple and broad; admin can always edit a student's motto if needed.
+const MOTTO_BLOCKLIST = [
+  'fuck','shit','bitch','ass','damn','hell','crap','dick','piss','bastard','slut','whore','cunt','fag','retard',
+  'sex','sexy','porn','nude','naked','kill','die','death','dead','suicide','hate','stupid','idiot','dumb','ugly',
+  'loser','worthless','useless','hopeless','kill myself','kms','wanna die','i hate','drugs','weed','marijuana',
+  'putang','puta','gago','tanga','bobo','ulol','tarantado','pakyu','yawa','bilat','pisti','animal ka'
+];
+
+const mottoHasBadWord = (text) => {
+  const t = ' ' + (text || '').toLowerCase().replace(/[^a-z\u00f1\s]/g, ' ') + ' ';
+  return MOTTO_BLOCKLIST.some(w => t.includes(' ' + w + ' ') || t.includes(w));
 };
 
 const App = () => {
@@ -444,7 +472,10 @@ const App = () => {
     address: '',
     contactNumber: '',
     fbAccount: '',
-    photoUrl: ''
+    photoUrl: '',
+    motto: '',
+    newPassword: '',
+    currentPassword: ''
   });
 
   // Students loaded on login click only
@@ -586,6 +617,7 @@ const App = () => {
         'Status': r.status || 'active',
         'Contact': r.contact_number,
         'FB': r.fb_account,
+        'Motto': r.motto,
         'Quiz1': r.quiz1, 'Quiz2': r.quiz2, 'Quiz3': r.quiz3, 'ServicePct': r.service_pct,
         'QuizScores': Array.isArray(r.quiz_scores) ? r.quiz_scores : [], 'ServiceScores': Array.isArray(r.service_scores) ? r.service_scores : [],
         'HJ Quiz': r.hj_quiz,
@@ -926,7 +958,10 @@ const App = () => {
       address: studentData['Address'] || '',
       contactNumber: studentData['Contact'] || '',
       fbAccount: studentData['FB'] || '',
-      photoUrl: studentData['Photo'] || ''
+      photoUrl: studentData['Photo'] || '',
+      motto: studentData['Motto'] || '',
+      newPassword: '',
+      currentPassword: ''
     });
     setEditingProfile(true);
   };
@@ -992,16 +1027,43 @@ const App = () => {
   const handleSaveProfile = async () => {
     try {
       setLoading(true);
-      // Save profile fields to Supabase
+
+      // Filter student-written motto for bad/negative words.
+      if (tempProfile.motto && !MOTTO_OPTIONS.includes(tempProfile.motto) && mottoHasBadWord(tempProfile.motto)) {
+        alert('Let\'s keep your motto kind and positive 💜 Please remove any unkind or negative words and try again.');
+        setLoading(false);
+        return;
+      }
+
+      // Optional password change — requires the current password to match.
+      const wantsPwChange = (tempProfile.newPassword || '').trim().length > 0;
+      if (wantsPwChange) {
+        const current = studentData['Password'] || '';
+        if ((tempProfile.currentPassword || '') !== current) {
+          alert('Your current password is incorrect. Please try again, or ask your team leader for help.');
+          setLoading(false);
+          return;
+        }
+        if ((tempProfile.newPassword || '').trim().length < 4) {
+          alert('Your new password should be at least 4 characters.');
+          setLoading(false);
+          return;
+        }
+      }
+
+      const updateFields = {
+        date_of_birth: tempProfile.dateOfBirth || null,
+        address: tempProfile.address,
+        contact_number: tempProfile.contactNumber || null,
+        fb_account: tempProfile.fbAccount || null,
+        photo_url: tempProfile.photoUrl,
+        motto: tempProfile.motto || null
+      };
+      if (wantsPwChange) updateFields.password = tempProfile.newPassword.trim();
+
       const { error } = await supabase
         .from('students')
-        .update({
-          date_of_birth: tempProfile.dateOfBirth || null,
-          address: tempProfile.address,
-          contact_number: tempProfile.contactNumber || null,
-          fb_account: tempProfile.fbAccount || null,
-          photo_url: tempProfile.photoUrl
-        })
+        .update(updateFields)
         .eq('student_id', studentData['Student ID']);
 
       if (error) {
@@ -1017,10 +1079,12 @@ const App = () => {
         'Address': tempProfile.address,
         'Contact': tempProfile.contactNumber,
         'FB': tempProfile.fbAccount,
-        'Photo': tempProfile.photoUrl
+        'Photo': tempProfile.photoUrl,
+        'Motto': tempProfile.motto,
+        ...(wantsPwChange ? { 'Password': tempProfile.newPassword.trim() } : {})
       }));
       setEditingProfile(false);
-      alert('✅ Profile updated successfully!');
+      alert(wantsPwChange ? '✅ Profile and password updated! Remember your new password. 💗' : '✅ Profile updated successfully!');
     } catch (err) {
       console.error('Error updating profile:', err);
       alert('Failed to update profile. Please try again.');
@@ -1761,6 +1825,7 @@ const App = () => {
         'Status': r.status || 'active',
         'Contact': r.contact_number,
         'FB': r.fb_account,
+        'Motto': r.motto,
         'Quiz1': r.quiz1, 'Quiz2': r.quiz2, 'Quiz3': r.quiz3, 'ServicePct': r.service_pct,
         'QuizScores': Array.isArray(r.quiz_scores) ? r.quiz_scores : [], 'ServiceScores': Array.isArray(r.service_scores) ? r.service_scores : [],
           'HJ Quiz': r.hj_quiz,
@@ -2779,10 +2844,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 </div>
               </div>
               <div style={{display:'flex', alignItems:'center', gap:10}}>
-                          <div style={{textAlign:'center'}}>
-                            <div style={{fontSize:26}} className="animate-bounce-slow">🔥</div>
-                            <p style={{fontSize:12, fontWeight:600, color:'#E85D04', margin:0}}>{streakCount} entries</p>
-                          </div>
                           <button onClick={handleLogout} style={{fontSize:12, fontWeight:600, color:'#7C3AED', background:'#F3E8FF', border:'none', padding:'8px 12px', borderRadius:12, cursor:'pointer'}}>Logout</button>
                         </div>
             </div>
@@ -3388,19 +3449,22 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 
   // PROFILE PAGE
   if (currentPage === 'profile' && studentData) {
+    const _g = Math.round(parseFloat(studentData['HJ Grade']) || 0);
+    const _lv = heartLevelFor(_g);
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
-        <div className="p-4">
+        <div className="p-4 max-w-lg mx-auto">
           <h1 className="text-3xl font-black text-white mb-4 drop-shadow-lg">✨ My HJ Profile ✨</h1>
           
-          {/* Main Profile Card - More Vibrant! */}
-          <div className="bg-gradient-to-br from-white to-purple-50 rounded-3xl shadow-2xl p-8 border-4 border-white mb-4">
-            {/* Edit Button */}
-            <div className="flex justify-end mb-4">
+          {/* Main Profile Card */}
+          <div className="rounded-3xl overflow-hidden mb-4" style={{boxShadow:'0 12px 40px rgba(124,58,237,0.18)'}}>
+            {/* Colored header band tied to heart level */}
+            <div className="relative px-6 pt-5 pb-20" style={{background:`linear-gradient(135deg, ${_lv.color}, ${_lv.color}AA)`}}>
+              <div className="flex justify-end">
               {!editingProfile ? (
                 <button
                   onClick={handleEditProfile}
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-xl font-bold shadow-lg"
+                  className="bg-white/25 backdrop-blur text-white px-5 py-2 rounded-full font-bold shadow-sm text-sm border border-white/30"
                 >
                   ✏️ Edit Profile
                 </button>
@@ -3408,30 +3472,63 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 <div className="flex gap-2">
                   <button
                     onClick={() => setEditingProfile(false)}
-                    className="bg-gray-200 text-gray-700 px-4 py-2 rounded-xl font-bold"
+                    className="bg-white/25 text-white px-4 py-2 rounded-full font-bold border border-white/30"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSaveProfile}
                     disabled={loading}
-                    className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2 rounded-xl font-bold disabled:opacity-50"
+                    className="bg-white text-gray-800 px-6 py-2 rounded-full font-bold disabled:opacity-50 shadow-sm"
                   >
                     {loading ? 'Saving...' : '💾 Save'}
                   </button>
                 </div>
               )}
+              </div>
             </div>
 
-            {/* Larger Photo with Fun Border */}
-            <div className="flex justify-center mb-6">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 rounded-3xl blur-xl opacity-50"></div>
-                <div className="relative">
+            {/* White content area */}
+            <div className="bg-white px-6 pb-6 relative">
+              {/* Photo overlapping the band */}
+              <div className="flex justify-center" style={{marginTop:-64, marginBottom:12}}>
+                <div className="rounded-3xl p-1.5 bg-white shadow-lg">
                   <Avatar firstName={studentData['First Name']} lastName={studentData['Last Name']} photoUrl={editingProfile ? tempProfile.photoUrl : studentData['Photo']} size="lg" />
                 </div>
               </div>
-            </div>
+
+            {/* Hero stats — grade, heart level, badges */}
+            {!editingProfile && (() => {
+              const g = Math.round(parseFloat(studentData['HJ Grade']) || 0);
+              const lv = heartLevelFor(g);
+              return (
+                <div className="mb-5">
+                  <p className="text-center text-2xl font-black text-gray-800 mb-1">{studentData['First Name']} {studentData['Last Name']}</p>
+                  <p className="text-center text-sm font-bold text-purple-500 mb-2">{studentData['Student ID']} · {studentData['TEAM'] || studentData['Category'] || ''}</p>
+                  {studentData['Motto'] && (
+                    <p className="text-center text-sm italic text-gray-500 mb-4">"{studentData['Motto']}"</p>
+                  )}
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <div className="rounded-2xl p-3 text-center border-2" style={{background:'#F3EEFE', borderColor:'#C4B5FD'}}>
+                      <p className="text-2xl font-black" style={{color:'#7C3AED'}}>{g}%</p>
+                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Grade</p>
+                    </div>
+                    <div className="rounded-2xl p-3 text-center border-2" style={{background:`${lv.color}1F`, borderColor:`${lv.color}66`}}>
+                      <p className="text-2xl">{lv.icon}</p>
+                      <p className="text-[11px] font-bold uppercase tracking-wide" style={{color:lv.color}}>{lv.name.replace(' Heart','')}</p>
+                    </div>
+                    <div className="rounded-2xl p-3 text-center border-2" style={{background:'#FCE9F1', borderColor:'#F9A8D4'}}>
+                      <p className="text-2xl font-black" style={{color:'#DB2777'}}>{earnedBadges.length}<span className="text-sm text-gray-400">/{BADGES.length}</span></p>
+                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Hearts</p>
+                    </div>
+                  </div>
+                  {/* Encouragement tied to heart level */}
+                  <div className="rounded-2xl p-4 text-center border-2" style={{background:`${lv.color}12`, borderColor:`${lv.color}55`}}>
+                    <p className="text-sm font-bold leading-relaxed" style={{color:'#4B5563'}}>{lv.cheer}</p>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Heart Champion Badge - Shows when all 10 badges unlocked */}
             {earnedBadges.length === BADGES.length && (
@@ -3461,136 +3558,176 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 
             {editingProfile ? (
               /* Editing Mode */
-              <div className="space-y-4">
-                <div className="bg-purple-50 rounded-2xl p-4 border-2 border-purple-200">
-                  <p className="text-xs text-purple-600 font-bold uppercase tracking-wide mb-1">👤 Full Name</p>
-                  <p className="text-xl font-black text-gray-400">{studentData['First Name']} {studentData['Last Name']}</p>
-                  <p className="text-xs text-gray-500 mt-1">Name cannot be changed</p>
+              <div className="space-y-3">
+                <div className="rounded-2xl p-3 text-center border-2" style={{background:'#F3EEFE', borderColor:'#C4B5FD'}}>
+                  <p className="text-base font-black text-gray-700">{studentData['First Name']} {studentData['Last Name']}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{studentData['Student ID']} · name & ID can't be changed</p>
                 </div>
 
-                <div className="bg-blue-50 rounded-2xl p-4 border-2 border-blue-200">
-                  <p className="text-xs text-blue-600 font-bold uppercase tracking-wide mb-1">🆔 Student ID</p>
-                  <p className="text-lg font-black text-gray-400">{studentData['Student ID']}</p>
-                  <p className="text-xs text-gray-500 mt-1">ID cannot be changed</p>
-                </div>
-
-                <div className="bg-yellow-50 rounded-2xl p-4 border-2 border-yellow-200">
-                  <label className="text-xs text-orange-600 font-bold uppercase tracking-wide mb-2 block">📅 Birthday</label>
+                <div>
+                  <label className="text-xs text-gray-500 font-bold uppercase tracking-wide mb-1 block">📅 Birthday</label>
                   <input
                     type="date"
                     value={tempProfile.dateOfBirth}
                     onChange={(e) => setTempProfile(p => ({...p, dateOfBirth: e.target.value}))}
-                    className="w-full px-4 py-3 border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-orange-300"
+                    className="w-full px-4 py-3 bg-white border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-500"
                   />
                 </div>
 
-                <div className="bg-pink-50 rounded-2xl p-4 border-2 border-pink-200">
-                  <label className="text-xs text-pink-600 font-bold uppercase tracking-wide mb-2 block">📍 Address</label>
+                <div>
+                  <label className="text-xs text-gray-500 font-bold uppercase tracking-wide mb-1 block">📍 Address</label>
                   <textarea
                     value={tempProfile.address}
                     onChange={(e) => setTempProfile(p => ({...p, address: e.target.value}))}
                     placeholder="Enter your address"
                     rows="2"
-                    className="w-full px-4 py-3 border-2 border-pink-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-pink-300 resize-none"
+                    className="w-full px-4 py-3 bg-white border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-500 resize-none"
                   />
                 </div>
 
-                <div className="bg-teal-50 rounded-2xl p-4 border-2 border-teal-200">
-                  <label className="text-xs text-teal-600 font-bold uppercase tracking-wide mb-2 block">📱 Contact Number</label>
+                <div>
+                  <label className="text-xs text-gray-500 font-bold uppercase tracking-wide mb-1 block">📱 Contact Number</label>
                   <input
                     type="text"
                     value={tempProfile.contactNumber}
                     onChange={(e) => setTempProfile(p => ({...p, contactNumber: e.target.value}))}
                     placeholder="e.g., 09XX XXX XXXX"
-                    className="w-full px-4 py-3 border-2 border-teal-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-teal-300"
+                    className="w-full px-4 py-3 bg-white border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-500"
                   />
                 </div>
 
-                <div className="bg-blue-50 rounded-2xl p-4 border-2 border-blue-200">
-                  <label className="text-xs text-blue-600 font-bold uppercase tracking-wide mb-2 block">👤 Facebook Account</label>
+                <div>
+                  <label className="text-xs text-gray-500 font-bold uppercase tracking-wide mb-1 block">👤 Facebook Account</label>
                   <input
                     type="text"
                     value={tempProfile.fbAccount}
                     onChange={(e) => setTempProfile(p => ({...p, fbAccount: e.target.value}))}
                     placeholder="Your Facebook name or link"
-                    className="w-full px-4 py-3 border-2 border-blue-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-300"
+                    className="w-full px-4 py-3 bg-white border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-500"
                   />
                 </div>
 
-                <div className="bg-indigo-50 rounded-2xl p-4 border-2 border-indigo-200">
-                  <label className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-2 block">📸 Photo URL</label>
+                <div>
+                  <label className="text-xs text-gray-500 font-bold uppercase tracking-wide mb-1 block">📸 Photo URL</label>
                   <input
                     type="text"
                     value={tempProfile.photoUrl}
                     onChange={(e) => setTempProfile(p => ({...p, photoUrl: e.target.value}))}
                     placeholder="https://..."
-                    className="w-full px-4 py-3 border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-300"
+                    className="w-full px-4 py-3 bg-white border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Google Drive or Imgur link</p>
+                  <p className="text-xs text-gray-400 mt-1">Google Drive or Imgur link</p>
+                </div>
+
+                {/* My Motto picker */}
+                <div className="bg-purple-50 rounded-2xl p-4 border-2 border-purple-300">
+                  <label className="text-xs text-purple-600 font-bold uppercase tracking-wide mb-2 block">💗 My Motto</label>
+                  <div className="flex flex-wrap gap-2">
+                    {MOTTO_OPTIONS.map(m => (
+                      <button key={m} type="button" onClick={() => setTempProfile(p => ({...p, motto: p.motto === m ? '' : m}))}
+                        className={`px-3 py-2 rounded-full text-xs font-bold ${tempProfile.motto === m ? 'bg-purple-500 text-white' : 'bg-white text-purple-600 border border-purple-200'}`}>
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2 mb-2">Tap one above, or write your own below:</p>
+                  <input
+                    type="text"
+                    maxLength={60}
+                    value={MOTTO_OPTIONS.includes(tempProfile.motto) ? '' : (tempProfile.motto || '')}
+                    onChange={(e) => setTempProfile(p => ({...p, motto: e.target.value}))}
+                    placeholder="Write your own motto..."
+                    className="w-full px-4 py-3 bg-white border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-500"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Keep it kind and positive 💜 (up to 60 characters)</p>
+                </div>
+
+                {/* Change password */}
+                <div className="bg-rose-50 rounded-2xl p-4 border-2 border-rose-300">
+                  <label className="text-xs text-rose-600 font-bold uppercase tracking-wide mb-2 block">🔑 Change My Password</label>
+                  <p className="text-xs text-gray-500 mb-2">Leave blank to keep your current password.</p>
+                  <input
+                    type="text"
+                    value={tempProfile.currentPassword}
+                    onChange={(e) => setTempProfile(p => ({...p, currentPassword: e.target.value}))}
+                    placeholder="Current password"
+                    className="w-full px-4 py-3 border-2 border-rose-300 rounded-xl mb-2 focus:outline-none focus:ring-4 focus:ring-rose-200"
+                  />
+                  <input
+                    type="text"
+                    value={tempProfile.newPassword}
+                    onChange={(e) => setTempProfile(p => ({...p, newPassword: e.target.value}))}
+                    placeholder="New password (at least 4 characters)"
+                    className="w-full px-4 py-3 border-2 border-rose-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-rose-200"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">Remember your new password! If you forget it, ask your team leader.</p>
                 </div>
               </div>
             ) : (
               /* View Mode */
-              <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-4 border-2 border-purple-200">
-                <p className="text-xs text-purple-600 font-bold uppercase tracking-wide mb-1">👤 Full Name</p>
-                <p className="text-xl font-black text-gray-800">{studentData['First Name']} {studentData['Last Name']}</p>
-              </div>
-              
-              <div className="bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl p-4 border-2 border-blue-200">
-                <p className="text-xs text-blue-600 font-bold uppercase tracking-wide mb-1">🆔 Student ID</p>
-                <p className="text-lg font-black text-gray-800">{studentData['Student ID']}</p>
-              </div>
-              
+              <div className="space-y-2">
               {studentData['Age'] && (
-                <div className="bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl p-4 border-2 border-green-200">
-                  <p className="text-xs text-green-600 font-bold uppercase tracking-wide mb-1">🎂 Age</p>
-                  <p className="text-lg font-black text-gray-800">{studentData['Age']} years</p>
+                <div className="flex items-center gap-3 bg-purple-50 rounded-2xl p-3 border-2 border-purple-200">
+                  <span className="text-xl">🎂</span>
+                  <div>
+                    <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wide">Age</p>
+                    <p className="text-base font-bold text-gray-800">{studentData['Age']} years</p>
+                  </div>
                 </div>
               )}
-              
+
               {studentData['Date of Birth'] && (
-                <div className="col-span-2 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-2xl p-4 border-2 border-yellow-200">
-                  <p className="text-xs text-orange-600 font-bold uppercase tracking-wide mb-1">📅 Birthday</p>
-                  <p className="text-lg font-black text-gray-800">{studentData['Date of Birth'] ? new Date(studentData['Date of Birth']).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}</p>
+                <div className="flex items-center gap-3 bg-purple-50 rounded-2xl p-3 border-2 border-purple-200">
+                  <span className="text-xl">📅</span>
+                  <div>
+                    <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wide">Birthday</p>
+                    <p className="text-base font-bold text-gray-800">{new Date(studentData['Date of Birth']).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  </div>
                 </div>
               )}
-              
+
               {studentData['Address'] && (
-                <div className="col-span-2 bg-gradient-to-br from-pink-100 to-rose-100 rounded-2xl p-4 border-2 border-pink-200">
-                  <p className="text-xs text-pink-600 font-bold uppercase tracking-wide mb-1">📍 Address</p>
-                  <p className="text-base font-bold text-gray-800">{studentData['Address']}</p>
-                </div>
-              )}
-              
-              {studentData['Category'] && (
-                <div className="col-span-2 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl p-4 border-2 border-indigo-200">
-                  <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-1">⭐ Category</p>
-                  <p className="text-lg font-black text-gray-800">{studentData['Category']}</p>
+                <div className="flex items-center gap-3 bg-purple-50 rounded-2xl p-3 border-2 border-purple-200">
+                  <span className="text-xl">📍</span>
+                  <div>
+                    <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wide">Address</p>
+                    <p className="text-base font-bold text-gray-800">{studentData['Address']}</p>
+                  </div>
                 </div>
               )}
 
               {studentData['Contact'] && (
-                <div className="col-span-2 bg-gradient-to-br from-teal-100 to-emerald-100 rounded-2xl p-4 border-2 border-teal-200">
-                  <p className="text-xs text-teal-600 font-bold uppercase tracking-wide mb-1">📱 Contact Number</p>
-                  <p className="text-base font-bold text-gray-800">{studentData['Contact']}</p>
+                <div className="flex items-center gap-3 bg-purple-50 rounded-2xl p-3 border-2 border-purple-200">
+                  <span className="text-xl">📱</span>
+                  <div>
+                    <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wide">Contact Number</p>
+                    <p className="text-base font-bold text-gray-800">{studentData['Contact']}</p>
+                  </div>
                 </div>
               )}
 
               {studentData['FB'] && (
-                <div className="col-span-2 bg-gradient-to-br from-blue-100 to-sky-100 rounded-2xl p-4 border-2 border-blue-200">
-                  <p className="text-xs text-blue-600 font-bold uppercase tracking-wide mb-1">👤 Facebook Account</p>
-                  <p className="text-base font-bold text-gray-800">{studentData['FB']}</p>
+                <div className="flex items-center gap-3 bg-purple-50 rounded-2xl p-3 border-2 border-purple-200">
+                  <span className="text-xl">👤</span>
+                  <div>
+                    <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wide">Facebook Account</p>
+                    <p className="text-base font-bold text-gray-800">{studentData['FB']}</p>
+                  </div>
                 </div>
+              )}
+
+              {!studentData['Age'] && !studentData['Date of Birth'] && !studentData['Address'] && !studentData['Contact'] && !studentData['FB'] && (
+                <p className="text-center text-gray-400 text-sm py-2">Tap "Edit Profile" to add your details 💗</p>
               )}
             </div>
             )}
+            </div>
           </div>
 
           <WeeklyAffirmation />
 
           {/* Growth Goals Section */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-4 border-white mb-4">
+          <div className="rounded-3xl p-6 mb-4" style={{background:'linear-gradient(135deg,#FFFFFF,#F5F0FF)', boxShadow:'0 8px 30px rgba(124,58,237,0.12)'}}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Target className="w-6 h-6 text-purple-600" />
