@@ -406,6 +406,16 @@ const App = () => {
   const [archiving, setArchiving] = useState(false);
   const [startingProgram, setStartingProgram] = useState(false);
   const [newProgramForm, setNewProgramForm] = useState(null);
+  const [encourageFor, setEncourageFor] = useState(null);
+  const [encourageText, setEncourageText] = useState('');
+  const [sendingEncourage, setSendingEncourage] = useState(false);
+  const [myEncouragements, setMyEncouragements] = useState([]);
+  const [myReflections, setMyReflections] = useState([]);
+  const [reflectionText, setReflectionText] = useState('');
+  const [savingReflection, setSavingReflection] = useState(false);
+  const [absenceFor, setAbsenceFor] = useState(null);
+  const [absenceReason, setAbsenceReason] = useState('');
+  const [detailReflections, setDetailReflections] = useState([]);
   const [expandedStudent, setExpandedStudent] = useState(null); // which student row is expanded in admin list
   const [inlineMarkEdits, setInlineMarkEdits] = useState({}); // { 'sid-session': {attendance,hj_shirt,gratitude} } unsaved edits
   const [inlineScoreEdits, setInlineScoreEdits] = useState({}); // { sid: {quiz1,quiz2,quiz3,service_pct} }
@@ -820,6 +830,8 @@ const App = () => {
 
   const loadStudentProgressForAdmin = async (studId) => {
     try {
+      // Also load this student's private reflections so caring adults can support them.
+      loadMyReflectionsForDetail(studId);
       const { data: row, error } = await supabase
         .from('students')
         .select('total_points, affirmation, goal1, goal1_status, goal2, goal2_status, goal3, goal3_status')
@@ -1090,6 +1102,112 @@ const App = () => {
       alert('Failed to update profile. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Send a private encouragement message to one student (leader/admin).
+  const sendEncouragement = async () => {
+    if (!encourageFor || !encourageText.trim()) return;
+    try {
+      setSendingEncourage(true);
+      const fromName = isAdmin ? 'Admin' : (leadTeam ? `Team ${leadTeam} Leader` : 'Leader');
+      const fromRole = isAdmin ? 'admin' : 'leader';
+      const { error } = await supabase.from('encouragements').insert({
+        student_id: encourageFor['Student ID'] || encourageFor.student_id,
+        message: encourageText.trim(),
+        from_name: fromName,
+        from_role: fromRole
+      });
+      if (error) { alert('Could not send: ' + error.message); return; }
+      setEncourageFor(null);
+      setEncourageText('');
+      alert('💌 Encouragement sent! It will appear on their home page.');
+    } catch (err) {
+      console.error('Send encouragement error:', err);
+      alert('Something went wrong sending the encouragement.');
+    } finally {
+      setSendingEncourage(false);
+    }
+  };
+
+  // Load a student's encouragements (shown on their home).
+  const loadMyEncouragements = async (sid) => {
+    try {
+      const { data, error } = await supabase
+        .from('encouragements')
+        .select('*')
+        .eq('student_id', sid)
+        .order('created_at', { ascending: false });
+      if (error) { console.error('Load encouragements error:', error); return; }
+      setMyEncouragements(data || []);
+    } catch (err) { console.error('Load encouragements error:', err); }
+  };
+
+  // Load reflections for the admin/leader detail view.
+  const loadMyReflectionsForDetail = async (sid) => {
+    try {
+      const { data, error } = await supabase
+        .from('reflections')
+        .select('*')
+        .eq('student_id', sid)
+        .order('created_at', { ascending: false });
+      if (error) { console.error('Load detail reflections error:', error); setDetailReflections([]); return; }
+      setDetailReflections(data || []);
+    } catch (err) { console.error('Load detail reflections error:', err); setDetailReflections([]); }
+  };
+
+  // Load a student's private reflections.
+  const loadMyReflections = async (sid) => {
+    try {
+      const { data, error } = await supabase
+        .from('reflections')
+        .select('*')
+        .eq('student_id', sid)
+        .order('created_at', { ascending: false });
+      if (error) { console.error('Load reflections error:', error); return; }
+      setMyReflections(data || []);
+    } catch (err) { console.error('Load reflections error:', err); }
+  };
+
+  // Student saves a private reflection.
+  const saveReflection = async () => {
+    if (!reflectionText.trim() || !studentData) return;
+    try {
+      setSavingReflection(true);
+      const sid = studentData['Student ID'];
+      const { error } = await supabase.from('reflections').insert({
+        student_id: sid, body: reflectionText.trim()
+      });
+      if (error) { alert('Could not save: ' + error.message); return; }
+      setReflectionText('');
+      await loadMyReflections(sid);
+    } catch (err) {
+      console.error('Save reflection error:', err);
+      alert('Something went wrong saving your reflection.');
+    } finally {
+      setSavingReflection(false);
+    }
+  };
+
+  // Leader/admin records why a student was absent for a session.
+  const saveAbsenceNote = async () => {
+    if (!absenceFor) return;
+    try {
+      const sid = absenceFor['Student ID'] || absenceFor.student_id;
+      const noter = isAdmin ? 'admin' : (leadTeam ? `lead:${leadTeam}` : 'leader');
+      const { error } = await supabase.from('absence_notes').upsert({
+        student_id: sid,
+        session_number: parseInt(attendanceSession, 10) || null,
+        reason: absenceReason.trim(),
+        noted_by: noter
+      }, { onConflict: 'student_id,session_number' });
+      if (error) { alert('Could not save note: ' + error.message); return; }
+      setAbsenceFor(null);
+      setAbsenceReason('');
+      alert('📝 Absence note saved.');
+    } catch (err) {
+      console.error('Save absence note error:', err);
+      alert('Something went wrong saving the note.');
     }
   };
 
@@ -1861,7 +1979,9 @@ const App = () => {
       loadMyGratitudeEntries(student['Student ID']),
       loadStudentProgress(student['Student ID']),
       loadMyAttendanceMarks(student['Student ID']),
-      loadAnnouncements()
+      loadAnnouncements(),
+      loadMyEncouragements(student['Student ID']),
+      loadMyReflections(student['Student ID'])
     ]);
     setLoading(false);
     setCurrentPage('home');
@@ -2859,6 +2979,23 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             <p style={{fontSize:12, color:'#9D174D', margin:0, fontWeight:600}}>— True Parents · {todaysMessage.theme}</p>
           </div>
 
+          {myEncouragements.length > 0 && (
+            <div style={{background:'linear-gradient(135deg, #DBEAFE 0%, #E0E7FF 100%)', borderRadius:16, padding:'16px 18px', marginBottom:12, boxShadow:'0 2px 8px rgba(0,0,0,0.06)', border:'2px solid #A5B4FC'}}>
+              <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+                <span style={{fontSize:18}}>💌</span>
+                <p style={{fontSize:11, fontWeight:700, color:'#4338CA', textTransform:'uppercase', letterSpacing:'0.08em', margin:0}}>A note just for you</p>
+              </div>
+              <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                {myEncouragements.slice(0, 4).map(e => (
+                  <div key={e.id} style={{background:'rgba(255,255,255,0.7)', borderRadius:10, padding:'10px 12px'}}>
+                    <p style={{fontSize:14, color:'#1E3A8A', margin:'0 0 4px', lineHeight:1.5}}>{e.message}</p>
+                    <p style={{fontSize:11, color:'#6366F1', margin:0, fontWeight:600}}>— {e.from_name || 'Your leader'} 💙</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {(() => {
             const myTeam = (studentData['TEAM'] || '').toUpperCase();
             const visible = announcements.filter(a => a.audience === 'all' || (a.audience || '').toUpperCase() === myTeam).slice(0, 5);
@@ -3843,8 +3980,34 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
               </div>
             )}
           </div>
+
+          {/* My Quiet Heart — private reflections */}
+          <div className="rounded-3xl p-6 mb-4" style={{background:'linear-gradient(135deg,#FFFFFF,#Fef6f9)', boxShadow:'0 8px 30px rgba(219,39,119,0.10)'}}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-2xl">🕊️</span>
+              <h2 className="text-xl font-black text-gray-800">My Quiet Heart</h2>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">A space to write whatever is on your heart — a prayer, a worry, a thank-you. Your leaders care about you and may read these to support you. 💗</p>
+            <textarea value={reflectionText} onChange={e => setReflectionText(e.target.value)} rows="3" maxLength={1000}
+              placeholder="Dear God, today I feel..."
+              className="w-full px-4 py-3 bg-white border-2 border-pink-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-pink-200 focus:border-pink-400 resize-none mb-2" />
+            <button onClick={saveReflection} disabled={savingReflection || !reflectionText.trim()}
+              className="w-full py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-bold disabled:opacity-50">
+              {savingReflection ? 'Saving…' : '💗 Save to my heart'}
+            </button>
+            {myReflections.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">My past reflections</p>
+                {myReflections.slice(0, 10).map(r => (
+                  <div key={r.id} className="bg-pink-50 rounded-xl p-3 border border-pink-100">
+                    <p className="text-xs text-pink-400 font-bold mb-1">{new Date(r.created_at).toLocaleDateString()}</p>
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{r.body}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-        <HyojiHelper page="profile" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={0} />
         <NavBar />
       </div>
     );
@@ -4200,6 +4363,31 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 </div>
               </div>
 
+              {/* Private reflections (read to support the student) */}
+              <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl p-4 border-2 border-pink-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-2xl">🕊️</span>
+                  <h3 className="text-lg font-black text-gray-800">Quiet Heart Reflections</h3>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">{selectedStudentDetail['First Name']}'s private writings. Read with care — reach out if something concerns you. 💗</p>
+                {detailReflections.length === 0 ? (
+                  <p className="text-sm text-gray-400 italic">No reflections written yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {detailReflections.map(r => (
+                      <div key={r.id} className="bg-white rounded-lg p-3 border border-pink-100">
+                        <p className="text-xs text-pink-400 font-bold mb-1">{new Date(r.created_at).toLocaleDateString()}</p>
+                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{r.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => { setEncourageFor(selectedStudentDetail); setEncourageText(''); }}
+                  className="w-full mt-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl font-bold text-sm">
+                  💌 Send an encouragement
+                </button>
+              </div>
+
               {/* Weekly Affirmation */}
               {selectedStudentProgress && selectedStudentProgress.affirmation && (
                 <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-4 border-2 border-yellow-200">
@@ -4465,6 +4653,10 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                     className="w-full mt-2 py-2 bg-white text-purple-600 border-2 border-purple-200 rounded-xl font-bold text-sm">
                     🖨️ Print / Save Report (PDF)
                   </button>
+                  <button onClick={() => { setEncourageFor(student); setEncourageText(''); }}
+                    className="w-full mt-2 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl font-bold text-sm">
+                    💌 Send Encouragement
+                  </button>
                   <button onClick={() => { setSelectedStudentDetail(student); loadStudentProgressForAdmin(sid); }}
                     className="w-full mt-2 py-2 bg-white text-purple-600 border-2 border-purple-200 rounded-xl font-bold text-sm">
                     Open full profile (photo, team, status…)
@@ -4476,6 +4668,24 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           })}
         </div>
       </div>
+      {encourageFor && (
+        <div onClick={() => setEncourageFor(null)} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', padding:16, zIndex:50}}>
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+            <p className="text-lg font-black text-gray-800 mb-1">💌 Encourage {encourageFor['First Name']}</p>
+            <p className="text-xs text-gray-500 mb-3">A private note of encouragement — only {encourageFor['First Name']} will see it on their home page.</p>
+            <textarea value={encourageText} onChange={e => setEncourageText(e.target.value)} rows="3" maxLength={300}
+              placeholder="e.g. I saw how kindly you helped today. Keep shining! 💙"
+              className="w-full px-4 py-3 bg-white border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-200 resize-none mb-3" />
+            <div className="flex gap-2">
+              <button onClick={() => setEncourageFor(null)} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold">Cancel</button>
+              <button onClick={sendEncouragement} disabled={sendingEncourage || !encourageText.trim()}
+                className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl font-bold disabled:opacity-50">
+                {sendingEncourage ? 'Sending…' : 'Send 💌'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -5038,6 +5248,10 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                     className="w-full mt-2 py-2 bg-white text-purple-600 border-2 border-purple-200 rounded-xl font-bold text-sm">
                     🖨️ Print / Save Report (PDF)
                   </button>
+                  <button onClick={() => { setEncourageFor(student); setEncourageText(''); }}
+                    className="w-full mt-2 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl font-bold text-sm">
+                    💌 Send Encouragement
+                  </button>
                 </div>
               )}
             </div>
@@ -5045,6 +5259,24 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           })}
         </div>
       </div>
+      {encourageFor && (
+        <div onClick={() => setEncourageFor(null)} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', padding:16, zIndex:50}}>
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+            <p className="text-lg font-black text-gray-800 mb-1">💌 Encourage {encourageFor['First Name']}</p>
+            <p className="text-xs text-gray-500 mb-3">A private note of encouragement — only {encourageFor['First Name']} will see it on their home page.</p>
+            <textarea value={encourageText} onChange={e => setEncourageText(e.target.value)} rows="3" maxLength={300}
+              placeholder="e.g. I saw how kindly you helped today. Keep shining! 💙"
+              className="w-full px-4 py-3 bg-white border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-200 resize-none mb-3" />
+            <div className="flex gap-2">
+              <button onClick={() => setEncourageFor(null)} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold">Cancel</button>
+              <button onClick={sendEncouragement} disabled={sendingEncourage || !encourageText.trim()}
+                className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl font-bold disabled:opacity-50">
+                {sendingEncourage ? 'Sending…' : 'Send 💌'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     );
   }
@@ -5306,6 +5538,10 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-800 text-sm truncate">{s['First Name']} {s['Last Name']}</p>
                   <p className="text-xs text-purple-600">{sid}{s['TEAM'] ? <span className="text-gray-400"> · {s['TEAM']}</span> : <span className="text-gray-300"> · no team</span>}</p>
+                  {!m.attendance && (
+                    <button onClick={() => { setAbsenceFor(s); setAbsenceReason(''); }}
+                      className="text-[11px] text-amber-600 font-bold mt-0.5">📝 Why absent?</button>
+                  )}
                 </div>
                 <div className="w-14 flex justify-center"><Box on={m.attendance} onClick={() => toggleMark(sid, 'attendance')} /></div>
                 <div className="w-14 flex justify-center"><Box on={m.hj_shirt} onClick={() => toggleMark(sid, 'hj_shirt')} /></div>
@@ -5326,6 +5562,29 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           {savingAttendance ? 'Saving...' : `💾 Save Session ${attendanceSession}`}
         </button>
       </div>
+      {absenceFor && (
+        <div onClick={() => setAbsenceFor(null)} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', padding:16, zIndex:50}}>
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+            <p className="text-lg font-black text-gray-800 mb-1">📝 Why was {absenceFor['First Name']} absent?</p>
+            <p className="text-xs text-gray-500 mb-3">Session {attendanceSession}. This helps you care for them, and keeps attendance fair.</p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {['Sick','Family matter','School','Travel','No transport','Other'].map(r => (
+                <button key={r} type="button" onClick={() => setAbsenceReason(r)}
+                  className={`px-3 py-2 rounded-full text-xs font-bold ${absenceReason === r ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                  {r}
+                </button>
+              ))}
+            </div>
+            <textarea value={absenceReason} onChange={e => setAbsenceReason(e.target.value)} rows="2" maxLength={200}
+              placeholder="Add a note (optional)…"
+              className="w-full px-4 py-3 bg-white border-2 border-amber-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-amber-200 resize-none mb-3" />
+            <div className="flex gap-2">
+              <button onClick={() => setAbsenceFor(null)} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold">Cancel</button>
+              <button onClick={saveAbsenceNote} className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold">Save note</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     );
   }
