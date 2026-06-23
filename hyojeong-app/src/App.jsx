@@ -2373,7 +2373,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           { page: 'home', icon: Home, label: 'Home' }, 
           { page: 'badges', icon: Award, label: 'Hearts' }, 
           { page: 'gratitude', icon: Heart, label: 'Journal' },
-          { page: 'leaderboard', icon: Trophy, label: 'Ranks' },
+          { page: 'leaderboard', icon: Sparkles, label: 'HJ Garden' },
           { page: 'profile', icon: User, label: 'Profile' }
         ].map(({ page, icon: Icon, label }) => (
           <button key={page} onClick={() => setCurrentPage(page)} className={`flex flex-col items-center ${currentPage === page ? 'text-purple-600' : 'text-gray-400'}`}>
@@ -2733,21 +2733,21 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 
           {/* Header */}
           <div style={{background:'white', borderRadius:20, padding:'16px 20px', marginBottom:12, boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
-            <h1 style={{fontSize:22, fontWeight:800, color:'#1F2937', margin:0}}>🏆 Heart Champions</h1>
-            <p style={{fontSize:13, color:'#9CA3AF', margin:'2px 0 0'}}>Ranked by Growth Journey %</p>
+            <h1 style={{fontSize:22, fontWeight:800, color:'#1F2937', margin:0}}>🌷 Our Heart Garden</h1>
+            <p style={{fontSize:13, color:'#9CA3AF', margin:'2px 0 0'}}>Every heart is growing — see where everyone is blooming 💗</p>
           </div>
 
-          {/* My rank card */}
-          <div style={{background:'linear-gradient(135deg,#7C3AED,#EC4899)', borderRadius:20, padding:'14px 18px', marginBottom:12, color:'white'}}>
-            <p style={{fontSize:12, opacity:0.8, margin:0}}>Your rank</p>
-            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:4}}>
+          {/* My heart card */}
+          <div style={{background:'linear-gradient(135deg,#7C3AED,#EC4899)', borderRadius:20, padding:'16px 18px', marginBottom:12, color:'white'}}>
+            <p style={{fontSize:12, opacity:0.85, margin:0}}>My heart today</p>
+            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:6}}>
               <div style={{display:'flex', alignItems:'center', gap:12}}>
-                <div style={{width:44, height:44, borderRadius:'50%', background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:800}}>
-                  #{myRank}
+                <div style={{width:48, height:48, borderRadius:'50%', overflow:'hidden', background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+                  {studentData['Photo'] ? <img src={studentData['Photo']} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} /> : <span style={{fontSize:20, fontWeight:800}}>{(studentData['First Name']||'?')[0]}</span>}
                 </div>
                 <div>
                   <p style={{fontWeight:700, fontSize:16, margin:0}}>{studentData['First Name']} {studentData['Last Name']}</p>
-                  <p style={{fontSize:12, opacity:0.8, margin:0}}>{studentData['TEAM'] || 'No team'} · #{myTeamRank} in team</p>
+                  <p style={{fontSize:12, opacity:0.85, margin:0}}>{studentData['TEAM'] || 'No team'}</p>
                 </div>
               </div>
               <div style={{textAlign:'right'}}>
@@ -2755,97 +2755,75 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   const g = getGrade(studentData);
                   const lv = heartLevelFor(g);
                   return (<>
-                    <p style={{fontSize:26, margin:0, lineHeight:1}}>{lv.icon}</p>
-                    <p style={{fontSize:13, fontWeight:800, opacity:0.95, margin:'2px 0 0'}}>{lv.name}</p>
-                    <p style={{fontSize:15, fontWeight:800, opacity:0.9, margin:0}}>{g}%</p>
+                    <p style={{fontSize:30, margin:0, lineHeight:1}}>{lv.icon}</p>
+                    <p style={{fontSize:14, fontWeight:800, opacity:0.95, margin:'2px 0 0'}}>{lv.name}</p>
                   </>);
                 })()}
               </div>
             </div>
           </div>
 
-          {/* Tabs */}
-          <div style={{background:'white', borderRadius:16, padding:6, marginBottom:12, display:'flex', gap:6, boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
-            <button onClick={() => setLeaderboardTab('overall')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: leaderboardTab==='overall' ? '#7C3AED' : 'transparent', color: leaderboardTab==='overall' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
-              🌍 Overall
-            </button>
-            <button onClick={() => setLeaderboardTab('team')} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: leaderboardTab==='team' ? '#7C3AED' : 'transparent', color: leaderboardTab==='team' ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer'}}>
-              👥 By Team
-            </button>
-          </div>
-
-          {/* Team selector */}
-          {leaderboardTab === 'team' && (
-            <div style={{display:'flex', gap:8, marginBottom:12}}>
-              {['MARC', 'BASSEL', 'KYRRA'].map(team => (
-                <button key={team} onClick={() => setLeaderboardTeam(team)} style={{flex:1, padding:'8px 0', borderRadius:12, border:'none', background: leaderboardTeam===team ? '#EC4899' : 'white', color: leaderboardTeam===team ? 'white' : '#6B7280', fontWeight:600, fontSize:13, cursor:'pointer', boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
-                  {team}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Leaderboard list */}
-          <div style={{background:'white', borderRadius:20, overflow:'hidden', boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
-            {displayList.map((student, idx) => {
-              const isMe = student['Student ID'] === studentData['Student ID'];
-              const grade = getGrade(student);
-              const isMedal = idx < 3;
-
-              return (
-                <div key={student['Student ID']} style={{
-                  display:'flex', alignItems:'center', gap:12, padding:'12px 16px',
-                  background: isMe ? '#FDF4FF' : 'white',
-                  borderBottom: idx < displayList.length-1 ? '1px solid #F3F4F6' : 'none',
-                  borderLeft: isMe ? '4px solid #7C3AED' : '4px solid transparent'
-                }}>
-                  {/* Rank */}
-                  <div style={{width:32, textAlign:'center', flexShrink:0}}>
-                    {isMedal ? (
-                      <span style={{fontSize:22}}>{medals[idx]}</span>
-                    ) : (
-                      <span style={{fontSize:14, fontWeight:700, color: isMe ? '#7C3AED' : '#9CA3AF'}}>#{idx+1}</span>
-                    )}
-                  </div>
-
-                  {/* Photo */}
-                  <div style={{width:40, height:40, borderRadius:'50%', overflow:'hidden', flexShrink:0, border: isMedal ? `2px solid ${medalColors[idx]}` : '2px solid #F3F4F6'}}>
-                    {student['Photo'] ? (
-                      <img src={student['Photo']} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} />
-                    ) : (
-                      <div style={{width:'100%', height:'100%', background:'linear-gradient(135deg,#C4B5FD,#F9A8D4)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:700, color:'white'}}>
-                        {(student['First Name']||'?')[0]}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Name */}
-                  <div style={{flex:1, minWidth:0}}>
-                    <p style={{fontWeight: isMe ? 700 : 500, fontSize:14, color: isMe ? '#7C3AED' : '#1F2937', margin:0, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
-                      {student['First Name']} {student['Last Name']} {isMe ? '(You)' : ''}
-                    </p>
-                    <p style={{fontSize:11, color:'#9CA3AF', margin:0}}>{student['TEAM'] || 'No team'}</p>
-                  </div>
-
-                  {/* Heart Level + grade */}
-                  <div style={{textAlign:'right', flexShrink:0, minWidth:90}}>
-                    {(() => {
-                      const lv = heartLevelFor(grade);
-                      return (
-                        <div style={{display:'flex', alignItems:'center', justifyContent:'flex-end', gap:5}}>
-                          <span style={{fontSize:18}}>{lv.icon}</span>
-                          <div style={{textAlign:'left'}}>
-                            <span style={{fontSize:11, fontWeight:700, color: isMedal ? medalColors[idx] : lv.color, lineHeight:1.1, display:'block'}}>{lv.name}</span>
-                            <span style={{fontSize:12, fontWeight:800, color: isMedal ? medalColors[idx] : '#6B7280', lineHeight:1.1}}>{grade}%</span>
-                          </div>
+          {/* Heart Garden — grouped by heart level, no ranks/percentages */}
+          {(() => {
+            const levels = [
+              { name: 'Filial Heart', icon: '👑', min: 76, color: '#EC4899', bg: '#FCE7F3', blurb: 'Shining with a true filial heart' },
+              { name: 'Loving Heart', icon: '💜', min: 51, color: '#8B5CF6', bg: '#F3E8FF', blurb: 'Love is moving through them' },
+              { name: 'Faithful Heart', icon: '🙏', min: 26, color: '#10B981', bg: '#D1FAE5', blurb: 'Growing faithful, step by step' },
+              { name: 'Seeking Heart', icon: '🕊️', min: 0, color: '#F59E0B', bg: '#FEF3C7', blurb: 'Beginning a beautiful journey' }
+            ];
+            // Group active students by their heart level.
+            const inLevel = (s, lv, idx) => {
+              const g = getGrade(s);
+              const next = levels[idx - 1];
+              return g >= lv.min && (!next || g < next.min);
+            };
+            // Sort names alphabetically within a group (no score order → no "top/bottom").
+            const byName = (a, b) => (`${a['First Name']} ${a['Last Name']}`).localeCompare(`${b['First Name']} ${b['Last Name']}`);
+            return (
+              <div style={{display:'flex', flexDirection:'column', gap:12}}>
+                {levels.map((lv, li) => {
+                  const members = sorted.filter(s => inLevel(s, lv, li)).sort(byName);
+                  if (members.length === 0) return null;
+                  return (
+                    <div key={lv.name} style={{background:'white', borderRadius:20, overflow:'hidden', boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
+                      <div style={{background:lv.bg, padding:'12px 16px', display:'flex', alignItems:'center', gap:10}}>
+                        <span style={{fontSize:24}}>{lv.icon}</span>
+                        <div style={{flex:1}}>
+                          <p style={{fontSize:15, fontWeight:800, color:lv.color, margin:0}}>{lv.name}s</p>
+                          <p style={{fontSize:11, color:'#6B7280', margin:0}}>{lv.blurb}</p>
                         </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                        <span style={{fontSize:13, fontWeight:700, color:lv.color, background:'white', borderRadius:12, padding:'2px 10px'}}>{members.length}</span>
+                      </div>
+                      <div>
+                        {members.map((student, idx) => {
+                          const isMe = student['Student ID'] === studentData['Student ID'];
+                          return (
+                            <div key={student['Student ID']} style={{
+                              display:'flex', alignItems:'center', gap:12, padding:'10px 16px',
+                              background: isMe ? '#FDF4FF' : 'white',
+                              borderBottom: idx < members.length-1 ? '1px solid #F9FAFB' : 'none',
+                              borderLeft: isMe ? `4px solid ${lv.color}` : '4px solid transparent'
+                            }}>
+                              <div style={{width:38, height:38, borderRadius:'50%', overflow:'hidden', flexShrink:0, border:`2px solid ${lv.bg}`}}>
+                                {student['Photo'] ? <img src={student['Photo']} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} /> : <div style={{width:'100%',height:'100%',background:'linear-gradient(135deg,#C4B5FD,#F9A8D4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white'}}>{(student['First Name']||'?')[0]}</div>}
+                              </div>
+                              <div style={{flex:1, minWidth:0}}>
+                                <p style={{fontWeight: isMe ? 700 : 500, fontSize:14, color: isMe ? lv.color : '#1F2937', margin:0, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+                                  {student['First Name']} {student['Last Name']} {isMe ? '(You)' : ''}
+                                </p>
+                                <p style={{fontSize:11, color:'#9CA3AF', margin:0}}>{student['TEAM'] || 'No team'}</p>
+                              </div>
+                              <span style={{fontSize:20, flexShrink:0}}>{lv.icon}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
         </div>
         <HyojiHelper page="leaderboard" studentData={studentData} earnedBadges={earnedBadges} BADGES={BADGES} growthPercentage={0} />
