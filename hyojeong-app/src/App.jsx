@@ -5,6 +5,9 @@ import { supabase } from './supabaseClient';
 const TOTAL_SESSIONS = 21; // Meeting sessions (attendance) per program
 const TOTAL_GRATITUDE_SESSIONS = 20; // Gratitude journals per program. Feb-May 2026 = 20; set to 21 for next program.
 
+// Registration form link for new people (the "Join Us" button on the login screen)
+const JOIN_FORM_URL = "https://forms.gle/2NJinTjRg5i7gPg5A";
+
 // Inspirational Quotes - True Parents & Bible Verses
 const QUOTES = [
   // True Parents Quotes
@@ -2883,6 +2886,23 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                     Login as Admin
                   </button>
                 </>
+              )}
+
+              {/* Join Us — for new people who don't have an account yet */}
+              {loginRole === 'member' && (
+                <div className="mt-6 pt-5 border-t-2 border-dashed border-purple-200 text-center">
+                  <p className="text-sm text-gray-600 font-semibold mb-1">New here? 🌱</p>
+                  <p className="text-xs text-gray-400 mb-3">Come grow with us — living for the sake of others.</p>
+                  <a
+                    href={JOIN_FORM_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block w-full px-6 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all"
+                  >
+                    💚 Join Hyojeong Youth
+                  </a>
+                  <p className="text-xs text-gray-400 mt-2">Fill out our quick registration form. A leader will welcome you in!</p>
+                </div>
               )}
             </div>
           )}
