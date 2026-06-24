@@ -1683,6 +1683,24 @@ const App = () => {
     setPendingEdits(prev => ({ ...prev, [sid]: { ...(prev[sid] || {}), ...patch } }));
   };
 
+  const copyWelcomeMessage = async (reg) => {
+    const name = (reg.first_name || '').trim() || 'there';
+    const msg =
+      `Hi ${name}! 🌱 Welcome to Hyojeong Youth Caraga!\n\n` +
+      `Your registration has been approved. 🎉 Here's your login:\n\n` +
+      `🆔 Student ID: ${reg.student_id}\n` +
+      `🔑 Password: hyojeong2026\n\n` +
+      `Open the app at hjcaraga.org, log in, and please change your password after.\n\n` +
+      `We can't wait to welcome you at our next gathering. You belong here. 💜`;
+    try {
+      await navigator.clipboard.writeText(msg);
+      alert('Welcome message copied! 📋\nNow paste it to ' + name + ' on Facebook Messenger.');
+    } catch (err) {
+      // fallback: show the message so it can be copied manually
+      window.prompt('Copy this welcome message:', msg);
+    }
+  };
+
   const approvePending = async (reg) => {
     const sid = reg.student_id;
     const edit = pendingEdits[sid] || {};
@@ -2901,7 +2919,15 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   >
                     💚 Join Hyojeong Youth
                   </a>
-                  <p className="text-xs text-gray-400 mt-2">Fill out our quick registration form. A leader will welcome you in!</p>
+                  <div className="mt-4 bg-purple-50 rounded-xl p-4 text-left">
+                    <p className="text-xs font-bold text-purple-600 mb-2 text-center">✨ What happens after you sign up:</p>
+                    <div className="space-y-1.5 text-xs text-gray-600">
+                      <p>1️⃣ Fill out the registration form</p>
+                      <p>2️⃣ An administrator reviews & approves you</p>
+                      <p>3️⃣ You'll get a welcome message on Facebook with your login</p>
+                      <p>4️⃣ Log back in here and start your heart journey! 🌱</p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -5985,7 +6011,14 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 </div>
               </div>
 
-              <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => copyWelcomeMessage(reg)}
+                className="mt-4 w-full bg-blue-50 text-blue-600 font-bold rounded-xl py-3 border-2 border-blue-200 flex items-center justify-center gap-2"
+              >
+                📋 Copy Welcome Message (for Facebook)
+              </button>
+
+              <div className="mt-2 flex gap-2">
                 <button
                   disabled={busy}
                   onClick={() => approvePending(reg)}
