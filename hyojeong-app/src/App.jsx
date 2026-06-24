@@ -620,6 +620,8 @@ const App = () => {
         'First Name': r.first_name,
         'Last Name': r.last_name,
         'Photo': r.photo_url,
+        'PhotoStatus': r.photo_status || 'none',
+        'PhotoPending': r.photo_pending,
         'Date of Birth': r.date_of_birth,
         'Age': r.age,
         'Category': r.category,
@@ -1073,7 +1075,6 @@ const App = () => {
         address: tempProfile.address,
         contact_number: tempProfile.contactNumber || null,
         fb_account: tempProfile.fbAccount || null,
-        photo_url: tempProfile.photoUrl,
         motto: tempProfile.motto || null
       };
       if (wantsPwChange) updateFields.password = tempProfile.newPassword.trim();
@@ -1096,7 +1097,6 @@ const App = () => {
         'Address': tempProfile.address,
         'Contact': tempProfile.contactNumber,
         'FB': tempProfile.fbAccount,
-        'Photo': tempProfile.photoUrl,
         'Motto': tempProfile.motto,
         ...(wantsPwChange ? { 'Password': tempProfile.newPassword.trim() } : {})
       }));
@@ -1690,11 +1690,10 @@ const App = () => {
         .update({
           status: 'active',
           team: edit.team || null,
-          team_id: edit.team || null,
           category: edit.category || reg.category || 'Unassigned',
         })
         .eq('student_id', sid);
-      if (error) { console.error('Approve error:', error); alert('Could not approve. Try again.'); return; }
+      if (error) { console.error('Approve error:', error); alert('Could not approve: ' + (error.message || 'unknown error')); return; }
       // remove from local list + refresh master roster
       setPendingRegs(prev => prev.filter(r => r.student_id !== sid));
       if (typeof loadStudents === 'function') await loadStudents();
@@ -2010,6 +2009,8 @@ const App = () => {
           'First Name': r.first_name,
           'Last Name': r.last_name,
           'Photo': r.photo_url,
+          'PhotoStatus': r.photo_status || 'none',
+          'PhotoPending': r.photo_pending,
           'Date of Birth': r.date_of_birth,
           'Age': r.age,
           'Category': r.category,
@@ -2259,10 +2260,125 @@ const App = () => {
 
   const getPhotoUrl = (url) => {
     if (!url) return null;
+    if (url.startsWith('data:image')) return url; // compressed photo stored in DB
     if (url.includes('i.imgur.com') || url.includes('drive.google.com/thumbnail')) return url;
     if (url.includes('/file/d/')) return `https://drive.google.com/thumbnail?id=${url.split('/file/d/')[1].split('/')[0]}&sz=w400`;
     return url;
   };
+
+  // ===== Photo upload (Option B: compress on phone, store small data URL) =====
+  const [photoUploading, setPhotoUploading] = useState(false);
+
+  // Resize + compress an image File to a small square-ish JPEG data URL.
+  const compressImageFile = (file, maxSize = 400, quality = 0.7) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > height) {
+            if (width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
+          } else {
+            if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Student picks a photo -> compress -> save to photo_pending (status: pending)
+  const handlePhotoPick = async (file) => {
+    if (!file || !studentData) return;
+    if (!file.type || file.type.indexOf('image') !== 0) { alert('Please choose an image file.'); return; }
+    try {
+      setPhotoUploading(true);
+      let dataUrl = await compressImageFile(file, 400, 0.7);
+      // if still big, compress harder
+      if (dataUrl.length > 200000) dataUrl = await compressImageFile(file, 320, 0.55);
+      const sid = studentData['Student ID'];
+      const { error } = await supabase
+        .from('students')
+        .update({ photo_pending: dataUrl, photo_status: 'pending' })
+        .eq('student_id', sid);
+      if (error) { console.error('Photo save error:', error); alert('Could not upload photo. Please try again.'); return; }
+      // reflect locally
+      setStudentData(prev => ({ ...prev, 'PhotoPending': dataUrl, 'PhotoStatus': 'pending' }));
+    } catch (err) {
+      console.error('Photo compress/upload error:', err);
+      alert('Could not process that photo. Try a different one.');
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  // ===== Admin photo approvals =====
+  const [photoApprovals, setPhotoApprovals] = useState([]);
+  const [loadingPhotoApprovals, setLoadingPhotoApprovals] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(null);
+
+  const loadPhotoApprovals = async () => {
+    try {
+      setLoadingPhotoApprovals(true);
+      const { data, error } = await supabase
+        .from('students')
+        .select('student_id, first_name, last_name, photo_pending, team, team_id')
+        .eq('photo_status', 'pending')
+        .order('first_name', { ascending: true });
+      if (error) { console.error('Load photo approvals error:', error); return; }
+      setPhotoApprovals(data || []);
+    } catch (err) {
+      console.error('Load photo approvals error:', err);
+    } finally {
+      setLoadingPhotoApprovals(false);
+    }
+  };
+
+  const approvePhoto = async (reg) => {
+    const sid = reg.student_id;
+    setPhotoBusy(sid);
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ photo_url: reg.photo_pending, photo_pending: null, photo_status: 'approved' })
+        .eq('student_id', sid);
+      if (error) { console.error('Approve photo error:', error); alert('Could not approve. Try again.'); return; }
+      setPhotoApprovals(prev => prev.filter(r => r.student_id !== sid));
+      if (typeof loadStudents === 'function') await loadStudents();
+    } catch (err) {
+      console.error('Approve photo error:', err); alert('Could not approve. Try again.');
+    } finally {
+      setPhotoBusy(null);
+    }
+  };
+
+  const rejectPhoto = async (reg) => {
+    const sid = reg.student_id;
+    if (!window.confirm(`Reject this photo? ${reg.first_name || ''} can upload a new one.`)) return;
+    setPhotoBusy(sid);
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ photo_pending: null, photo_status: 'rejected' })
+        .eq('student_id', sid);
+      if (error) { console.error('Reject photo error:', error); alert('Could not reject. Try again.'); return; }
+      setPhotoApprovals(prev => prev.filter(r => r.student_id !== sid));
+    } catch (err) {
+      console.error('Reject photo error:', err); alert('Could not reject. Try again.');
+    } finally {
+      setPhotoBusy(null);
+    }
+  };
+
 
   const getColorFromName = (firstName, lastName) => {
     const name = `${firstName || ''}${lastName || ''}`;
@@ -3802,16 +3918,38 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                 </div>
 
                 <div>
-                  <label className="text-xs text-gray-500 font-bold uppercase tracking-wide mb-1 block">📸 Photo URL</label>
-                  <input
-                    type="text"
-                    value={tempProfile.photoUrl}
-                    onChange={(e) => setTempProfile(p => ({...p, photoUrl: e.target.value}))}
-                    placeholder="https://..."
-                    className="w-full px-4 py-3 bg-white border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-500"
-                  />
-                  <p className="text-xs text-gray-400 mt-1">Google Drive or Imgur link</p>
+                  <label className="text-xs text-gray-500 font-bold uppercase tracking-wide mb-1 block">📸 My Photo</label>
+                  {studentData['PhotoStatus'] === 'pending' ? (
+                    <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4 text-center">
+                      {studentData['PhotoPending'] && (
+                        <img src={studentData['PhotoPending']} alt="" className="w-24 h-24 rounded-2xl object-cover mx-auto mb-2 border-4 border-white shadow" />
+                      )}
+                      <p className="text-sm font-bold text-amber-700">Photo submitted! 🌱</p>
+                      <p className="text-xs text-amber-600 mt-1">Waiting for a leader to approve it.</p>
+                      <label className="inline-block mt-3 text-xs font-bold text-purple-600 cursor-pointer underline">
+                        Choose a different photo
+                        <input type="file" accept="image/*" className="hidden"
+                          onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) handlePhotoPick(f); e.target.value=''; }} />
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="bg-white border-2 border-purple-300 rounded-xl p-4 text-center">
+                      {studentData['Photo'] && (
+                        <img src={getPhotoUrl(studentData['Photo'])} alt="" className="w-24 h-24 rounded-2xl object-cover mx-auto mb-2 border-4 border-white shadow" />
+                      )}
+                      {studentData['PhotoStatus'] === 'rejected' && (
+                        <p className="text-xs text-rose-500 font-bold mb-2">Your last photo wasn't approved. Please try another one. 💜</p>
+                      )}
+                      <label className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-white cursor-pointer bg-gradient-to-r from-purple-500 to-pink-500 shadow ${photoUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                        {photoUploading ? 'Uploading…' : (studentData['Photo'] ? '📸 Change Photo' : '📸 Add My Photo')}
+                        <input type="file" accept="image/*" className="hidden"
+                          onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) handlePhotoPick(f); e.target.value=''; }} />
+                      </label>
+                      <p className="text-xs text-gray-400 mt-2">Pick a photo from your phone. A leader will approve it before it shows.</p>
+                    </div>
+                  )}
                 </div>
+
 
                 {/* My Motto picker */}
                 <div className="bg-purple-50 rounded-2xl p-4 border-2 border-purple-300">
@@ -4144,6 +4282,13 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             <div className="flex items-center gap-3">
               <UserPlus className="w-6 h-6" />
               <span className="font-bold">🌱 New Registrations{pendingRegs.length > 0 ? ` (${pendingRegs.length})` : ''}</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => { loadPhotoApprovals(); setCurrentPage('admin-photos'); }} className="w-full bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <User className="w-6 h-6" />
+              <span className="font-bold">📸 Photo Approvals{photoApprovals.length > 0 ? ` (${photoApprovals.length})` : ''}</span>
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
@@ -5654,6 +5799,64 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
   }
 
   // ADMIN PAST PROGRAMS (archive list + single-archive viewer)
+  if (currentPage === 'admin-photos' && isAdmin) {
+    return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+      <div className="p-4 max-w-xl mx-auto">
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-3xl font-black text-white">📸 Photo Approvals</h1>
+        </div>
+
+        <p className="text-white/90 text-sm mb-4">
+          Students uploaded these photos. Approve to make a photo show on their profile, or reject so they can try another. Nothing shows until you approve.
+        </p>
+
+        {loadingPhotoApprovals && (
+          <div className="bg-white rounded-2xl shadow-lg p-6 text-center text-gray-500">Loading…</div>
+        )}
+
+        {!loadingPhotoApprovals && photoApprovals.length === 0 && (
+          <div className="bg-white rounded-2xl shadow-lg p-6 text-center text-gray-500">
+            No photos waiting for approval. 🎉
+          </div>
+        )}
+
+        {!loadingPhotoApprovals && photoApprovals.map(reg => {
+          const busy = photoBusy === reg.student_id;
+          return (
+            <div key={reg.student_id} className="bg-white rounded-2xl shadow-lg p-4 mb-4 flex flex-col items-center">
+              {reg.photo_pending && (
+                <img src={reg.photo_pending} alt="" className="w-40 h-40 rounded-2xl object-cover border-4 border-white shadow-lg" />
+              )}
+              <p className="font-black text-gray-800 text-lg mt-3">{reg.first_name} {reg.last_name}</p>
+              <p className="text-xs text-gray-400">{reg.student_id}{(reg.team || reg.team_id) ? ` · ${reg.team || reg.team_id}` : ''}</p>
+              <div className="mt-4 flex gap-2 w-full">
+                <button
+                  disabled={busy}
+                  onClick={() => approvePhoto(reg)}
+                  className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl py-3 shadow disabled:opacity-50"
+                >
+                  {busy ? '…' : '✓ Approve Photo'}
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={() => rejectPhoto(reg)}
+                  className="px-4 bg-gray-100 text-gray-500 font-bold rounded-xl py-3 disabled:opacity-50"
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+    );
+  }
+
   if (currentPage === 'admin-pending' && isAdmin) {
     const teamOptions = (programSettings.teams || []).map(t => t.name).filter(Boolean);
     const ageFromDob = (iso) => {
