@@ -408,6 +408,11 @@ const App = () => {
   const [newProgramForm, setNewProgramForm] = useState(null);
   const [encourageFor, setEncourageFor] = useState(null);
   const [encourageText, setEncourageText] = useState('');
+  // Pending registrations review (from Google Form bridge)
+  const [pendingRegs, setPendingRegs] = useState([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+  const [pendingEdits, setPendingEdits] = useState({}); // { student_id: { team, category } }
+  const [pendingBusy, setPendingBusy] = useState(null); // student_id currently being approved/rejected
   const [sendingEncourage, setSendingEncourage] = useState(false);
   const [myEncouragements, setMyEncouragements] = useState([]);
   const [myReflections, setMyReflections] = useState([]);
@@ -1644,6 +1649,80 @@ const App = () => {
   };
 
   // Load the list of archived programs.
+  // ===== Pending Registrations (Google Form bridge) =====
+  const loadPendingRegs = async () => {
+    try {
+      setLoadingPending(true);
+      const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+      if (error) { console.error('Load pending error:', error); return; }
+      setPendingRegs(data || []);
+      // seed edit defaults (category from form, team blank)
+      const seed = {};
+      (data || []).forEach(r => {
+        seed[r.student_id] = {
+          team: r.team || r.team_id || '',
+          category: r.category || 'Unassigned',
+        };
+      });
+      setPendingEdits(seed);
+    } catch (err) {
+      console.error('Load pending error:', err);
+    } finally {
+      setLoadingPending(false);
+    }
+  };
+
+  const setPendingEdit = (sid, patch) => {
+    setPendingEdits(prev => ({ ...prev, [sid]: { ...(prev[sid] || {}), ...patch } }));
+  };
+
+  const approvePending = async (reg) => {
+    const sid = reg.student_id;
+    const edit = pendingEdits[sid] || {};
+    setPendingBusy(sid);
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({
+          status: 'active',
+          team: edit.team || null,
+          team_id: edit.team || null,
+          category: edit.category || reg.category || 'Unassigned',
+        })
+        .eq('student_id', sid);
+      if (error) { console.error('Approve error:', error); alert('Could not approve. Try again.'); return; }
+      // remove from local list + refresh master roster
+      setPendingRegs(prev => prev.filter(r => r.student_id !== sid));
+      if (typeof loadStudents === 'function') await loadStudents();
+    } catch (err) {
+      console.error('Approve error:', err); alert('Could not approve. Try again.');
+    } finally {
+      setPendingBusy(null);
+    }
+  };
+
+  const rejectPending = async (reg) => {
+    const sid = reg.student_id;
+    if (!window.confirm(`Reject and remove ${reg.first_name || ''} ${reg.last_name || ''}? This permanently deletes their registration.`)) return;
+    setPendingBusy(sid);
+    try {
+      const { error } = await supabase
+        .from('students')
+        .delete()
+        .eq('student_id', sid);
+      if (error) { console.error('Reject error:', error); alert('Could not reject. Try again.'); return; }
+      setPendingRegs(prev => prev.filter(r => r.student_id !== sid));
+    } catch (err) {
+      console.error('Reject error:', err); alert('Could not reject. Try again.');
+    } finally {
+      setPendingBusy(null);
+    }
+  };
+
   const loadArchives = async () => {
     try {
       const { data, error } = await supabase
@@ -4061,6 +4140,13 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
+          <button onClick={() => { loadPendingRegs(); setCurrentPage('admin-pending'); }} className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <UserPlus className="w-6 h-6" />
+              <span className="font-bold">🌱 New Registrations{pendingRegs.length > 0 ? ` (${pendingRegs.length})` : ''}</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
           <button onClick={() => { loadArchives(); setViewingArchive(null); setCurrentPage('admin-archives'); }} className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Clock className="w-6 h-6" />
@@ -5568,6 +5654,138 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
   }
 
   // ADMIN PAST PROGRAMS (archive list + single-archive viewer)
+  if (currentPage === 'admin-pending' && isAdmin) {
+    const teamOptions = (programSettings.teams || []).map(t => t.name).filter(Boolean);
+    const ageFromDob = (iso) => {
+      if (!iso) return null;
+      const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (!m) return null;
+      const by = +m[1], bm = +m[2], bd = +m[3];
+      const now = new Date();
+      let a = now.getFullYear() - by;
+      const had = (now.getMonth() + 1 > bm) || (now.getMonth() + 1 === bm && now.getDate() >= bd);
+      if (!had) a--;
+      return (a >= 0 && a <= 120) ? a : null;
+    };
+    return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+      <div className="p-4 max-w-xl mx-auto">
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => setCurrentPage('admin-dashboard')} className="text-white font-bold">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-3xl font-black text-white">🌱 New Registrations</h1>
+        </div>
+
+        <p className="text-white/90 text-sm mb-4">
+          These came in from the registration form. Review each one, set their team and category, then Approve to add them to the program — or Reject to remove.
+        </p>
+
+        {loadingPending && (
+          <div className="bg-white rounded-2xl shadow-lg p-6 text-center text-gray-500">Loading…</div>
+        )}
+
+        {!loadingPending && pendingRegs.length === 0 && (
+          <div className="bg-white rounded-2xl shadow-lg p-6 text-center text-gray-500">
+            No new registrations waiting. 🎉<br />New form sign-ups will appear here automatically.
+          </div>
+        )}
+
+        {!loadingPending && pendingRegs.map(reg => {
+          const edit = pendingEdits[reg.student_id] || {};
+          const realAge = ageFromDob(reg.date_of_birth);
+          const shownAge = realAge !== null ? realAge : reg.age;
+          const veryYoung = shownAge !== null && shownAge !== undefined && Number(shownAge) <= 8;
+          const adult = shownAge !== null && shownAge !== undefined && Number(shownAge) >= 25;
+          const busy = pendingBusy === reg.student_id;
+          return (
+            <div key={reg.student_id} className="bg-white rounded-2xl shadow-lg p-4 mb-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-black text-gray-800 text-lg">
+                    {reg.first_name} {reg.last_name}
+                  </p>
+                  <p className="text-xs text-gray-400">{reg.student_id}</p>
+                </div>
+                <div className="text-right">
+                  <span className="inline-block bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded-full">
+                    Age {shownAge ?? '?'}
+                  </span>
+                </div>
+              </div>
+
+              {(veryYoung || adult) && (
+                <div className={`mt-2 text-xs font-bold rounded-lg px-3 py-2 ${veryYoung ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {veryYoung ? '⚠️ Very young — confirm this is a child member and check guardian details.' : 'ℹ️ Age 25+ — confirm member vs. parent/guardian.'}
+                </div>
+              )}
+
+              <div className="mt-3 grid grid-cols-1 gap-1 text-sm text-gray-600">
+                {reg.date_of_birth && <p>🎂 <span className="text-gray-500">Born:</span> {reg.date_of_birth}</p>}
+                {reg.address && <p>🏠 <span className="text-gray-500">Address:</span> {reg.address}</p>}
+                {reg.contact_number && <p>📞 <span className="text-gray-500">Contact:</span> {reg.contact_number}</p>}
+                {reg.fb_account && <p>💬 <span className="text-gray-500">FB:</span> {reg.fb_account}</p>}
+              </div>
+
+              {(reg.goal1 || reg.goal2 || reg.goal3) && (
+                <div className="mt-3 bg-purple-50 rounded-xl p-3 text-sm text-gray-700 space-y-1">
+                  {reg.goal1 && <p><span className="font-bold text-purple-600">Why join:</span> {reg.goal1}</p>}
+                  {reg.goal2 && <p><span className="font-bold text-purple-600">Looking for:</span> {reg.goal2}</p>}
+                  {reg.goal3 && <p><span className="font-bold text-purple-600">Involvement:</span> {reg.goal3}</p>}
+                </div>
+              )}
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">Category</label>
+                  <select
+                    value={edit.category || 'Unassigned'}
+                    onChange={(e) => setPendingEdit(reg.student_id, { category: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+                  >
+                    <option value="Kids">Kids</option>
+                    <option value="Teens">Teens</option>
+                    <option value="Young Adult">Young Adult</option>
+                    <option value="Unassigned">Unassigned</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">Team</label>
+                  <select
+                    value={edit.team || ''}
+                    onChange={(e) => setPendingEdit(reg.student_id, { team: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+                  >
+                    <option value="">— no team yet —</option>
+                    {teamOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-4 flex gap-2">
+                <button
+                  disabled={busy}
+                  onClick={() => approvePending(reg)}
+                  className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl py-3 shadow disabled:opacity-50"
+                >
+                  {busy ? '…' : '✓ Approve'}
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={() => rejectPending(reg)}
+                  className="px-4 bg-gray-100 text-gray-500 font-bold rounded-xl py-3 disabled:opacity-50"
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+    );
+  }
+
   if (currentPage === 'admin-archives' && isAdmin) {
     const heartFor = (g) => heartLevelFor(Math.round(parseFloat(g) || 0));
     return (
