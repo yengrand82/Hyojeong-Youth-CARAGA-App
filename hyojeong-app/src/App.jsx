@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Home, User, BookOpen, Award, ChevronRight, Calendar, TrendingUp, Users, Heart, MessageSquare, RefreshCw, Trophy, ArrowLeft, X, Sparkles, Gift, Target, UserPlus, Clock } from 'lucide-react';
 import { supabase } from './supabaseClient';
+import ZoomAttendance from './ZoomAttendance';
 
 const TOTAL_SESSIONS = 21; // Meeting sessions (attendance) per program
 const TOTAL_GRATITUDE_SESSIONS = 20; // Gratitude journals per program. Feb-May 2026 = 20; set to 21 for next program.
@@ -1301,6 +1302,52 @@ const App = () => {
     win.document.write(withPrint);
     win.document.close();
   };
+
+  // Build + open a printable per-session attendance report (present students only).
+  const printSessionAttendance = (sessionNumber, presentList, meetingDate) => {
+    // presentList is [{ id, name }] from the Zoom screen. Enrich with team from allStudents.
+    const byId = {};
+    (allStudents || []).forEach(s => { byId[(s['Student ID'] || '').toUpperCase()] = s; });
+    const dateLabel = (() => {
+      try {
+        return new Date(meetingDate + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+      } catch (e) { return meetingDate || ''; }
+    })();
+    const rows = (presentList || []).map((p, i) => {
+      const s = byId[(p.id || '').toUpperCase()] || {};
+      return `<tr>
+        <td style="padding:6px;border-bottom:1px solid #eee">${i + 1}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee">${p.name || ''}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee">${p.id || ''}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee">${s['TEAM'] || ''}</td>
+      </tr>`;
+    }).join('');
+    const html = `<html><head><title>Session ${sessionNumber} Attendance</title></head>
+      <body style="font-family:system-ui,sans-serif;padding:24px;color:#1F2937">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <img src="https://i.imgur.com/bhXEh9q.png" style="width:48px;height:48px;object-fit:contain" />
+          <div>
+            <h1 style="margin:0;font-size:22px;color:#1b2a4a">Hyojeong Youth Caraga</h1>
+            <div style="font-size:14px;color:#6B7280">Session ${sessionNumber} Attendance &middot; ${dateLabel}</div>
+          </div>
+        </div>
+        <p style="font-size:14px;margin:8px 0 16px"><strong>${(presentList || []).length}</strong> students present</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <thead>
+            <tr style="background:#f3f4f6;text-align:left">
+              <th style="padding:8px;border-bottom:2px solid #e5e7eb">#</th>
+              <th style="padding:8px;border-bottom:2px solid #e5e7eb">Name</th>
+              <th style="padding:8px;border-bottom:2px solid #e5e7eb">Student ID</th>
+              <th style="padding:8px;border-bottom:2px solid #e5e7eb">Team</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <p style="margin-top:24px;font-size:12px;color:#9CA3AF">Generated ${new Date().toLocaleString()}</p>
+      </body></html>`;
+    openPrintable(html, `Session ${sessionNumber} Attendance`);
+  };
+
 
   const printArchiveReport = (archive, students) => {
     const heartFor = (g) => heartLevelFor(Math.round(parseFloat(g) || 0));
@@ -4255,6 +4302,21 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
   }
 
   // ADMIN DASHBOARD
+  if (currentPage === 'zoom-attendance' && isAdmin) return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
+      <ZoomAttendance
+        students={allStudents.map(s => ({
+          student_id: s['Student ID'],
+          first_name: s['First Name'],
+          last_name: s['Last Name'],
+        }))}
+        onClose={() => setCurrentPage('admin-dashboard')}
+        onSaved={recomputeAllGrades}
+        onReport={printSessionAttendance}
+      />
+    </div>
+  );
+
   if (currentPage === 'admin-dashboard' && isAdmin) return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
       <div className="p-4">
@@ -4293,6 +4355,13 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             <div className="flex items-center gap-3">
               <Users className="w-6 h-6" />
               <span className="font-bold">View All Students</span>
+            </div>
+            <ChevronRight className="w-6 h-6" />
+          </button>
+          <button onClick={() => setCurrentPage('zoom-attendance')} className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Calendar className="w-6 h-6" />
+              <span className="font-bold">Zoom Attendance</span>
             </div>
             <ChevronRight className="w-6 h-6" />
           </button>
