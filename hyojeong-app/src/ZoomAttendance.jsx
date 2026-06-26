@@ -16,9 +16,21 @@ import { supabase } from "./supabaseClient"; // <-- adjust path if your client l
 
 const ID_REGEX = /HJ\s*-?\s*0*(\d{1,4})/i; // tolerant: HJ019, hj 19, HJ-019, HJ19
 
-// Shirt markers a student might type after their ID/name (case-insensitive).
-// e.g. "HJ019 shirt", "HJ022 naka shirt", "HJ031 naay shirt", "HJ045 ✓"
-const SHIRT_REGEX = /(naka[\s-]*shirt|naay[\s-]*shirt|\bshirt\b|✓|✔)/i;
+// Shirt markers a student might type (case-insensitive).
+// Positive: "shirt", "naka shirt", "naka hj shirt", "naay shirt", "✓"
+const SHIRT_REGEX = /(naka[\s-]*(hj[\s-]*)?shirt|naay[\s-]*(hj[\s-]*)?shirt|\bhj[\s-]*shirt\b|\bshirt\b|✓|✔)/i;
+
+// Negation: student explicitly says NOT wearing the shirt. This OVERRIDES a positive.
+// "no shirt", "no hj shirt", "wala shirt", "walay shirt", "way shirt", "wala", "walay"
+const NO_SHIRT_REGEX = /(no[\s-]*(hj[\s-]*)?shirt|wala[\s-]*y?[\s-]*(hj[\s-]*)?shirt|way[\s-]*(hj[\s-]*)?shirt|\bwala\b|\bwalay\b)/i;
+
+// Decide shirt status for a message: true only if a positive marker is present
+// AND no negation is present.
+function shirtStatus(text) {
+  if (!text) return false;
+  if (NO_SHIRT_REGEX.test(text)) return false; // negation wins
+  return SHIRT_REGEX.test(text);
+}
 
 // Normalise any matched ID to canonical form HJ### (zero-padded to 3 digits)
 function canonicalId(rawDigits) {
@@ -32,7 +44,9 @@ function canonicalId(rawDigits) {
 function normalizeName(raw) {
   if (!raw) return "";
   let s = String(raw).toLowerCase();
+  s = s.replace(NO_SHIRT_REGEX, " ");       // remove negation phrases
   s = s.replace(SHIRT_REGEX, " ");          // remove shirt markers
+  s = s.replace(/\bhj\b/g, " ");            // stray "hj" left over
   s = s.replace(/[.,_\-/]/g, " ");           // punctuation -> space
   s = s.replace(/[^a-z0-9ñ\s]/g, " ");       // strip stray symbols (keep ñ)
   s = s.replace(/\s+/g, " ").trim();
@@ -62,6 +76,44 @@ function parseLine(line) {
 
   // Last resort: a bare line (maybe just an ID typed alone)
   return { name: "", text: trimmed };
+}
+
+// Zoom exports come in two shapes:
+//   (A) single line:  "09:14:03 From Unice to Everyone: HJ019"
+//   (B) multi line:   "2026-06-26 10:30 From Yen to Everyone:"  then an
+//                     indented next line "\tKyrra Queliope - naka hj shirt"
+// flattenChat normalises shape (B) into shape (A) so the parser handles both.
+// A single header can own several following message lines (each becomes its own line).
+function flattenChat(raw) {
+  const lines = raw.split(/\r?\n/);
+  const out = [];
+  // Matches a header line ending right after "to Everyone:" (no message after it).
+  const headerEmpty = /(From\s+.*?\s+to\s+.*?:)\s*$/i;
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const m = line.match(headerEmpty);
+    if (m) {
+      const header = m[1]; // "...From NAME to Everyone:"
+      let j = i + 1;
+      let attached = 0;
+      // Consume following non-empty lines that are NOT themselves new headers.
+      while (j < lines.length) {
+        const next = lines[j];
+        if (next.trim() === "") { j++; continue; }
+        if (/From\s+.*?\s+to\s+.*?:/i.test(next)) break; // next person's header
+        out.push(`${header} ${next.trim()}`);
+        attached++;
+        j++;
+      }
+      if (attached === 0) out.push(line); // header with nothing after; keep as-is
+      i = j;
+    } else {
+      out.push(line);
+      i++;
+    }
+  }
+  return out.join("\n");
 }
 
 export default function ZoomAttendance({ students = [], onClose, onSaved, onReport }) {
@@ -117,7 +169,7 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
       return;
     }
 
-    const lines = rawChat.split(/\r?\n/);
+    const lines = flattenChat(rawChat).split(/\r?\n/);
     const matched = new Map(); // canonicalId -> { id, name, shirt }
     const unknown = new Map(); // canonicalId -> zoom name (looks like an ID but not in roster)
     const guests = new Map(); // displayName -> true
@@ -136,7 +188,7 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
       const p = parseLine(line);
       if (!p) continue;
 
-      const hasShirt = SHIRT_REGEX.test(p.text) || SHIRT_REGEX.test(p.name);
+      const hasShirt = shirtStatus(p.text) || shirtStatus(p.name);
 
       // 1) Prefer an explicit Student ID in the message text.
       const idMatch = p.text.match(ID_REGEX);
