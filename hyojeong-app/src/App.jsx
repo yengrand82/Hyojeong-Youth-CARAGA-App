@@ -4319,116 +4319,104 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 
   if (currentPage === 'admin-dashboard' && isAdmin) return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <img 
-              src="https://i.imgur.com/bhXEh9q.png" 
-              alt="Hyojeong Youth Caraga Logo" 
-              className="w-12 h-12 object-contain"
-            />
-            <h1 className="text-3xl font-black text-white">Admin Dashboard</h1>
+      <div className="p-4 max-w-md mx-auto">
+        {/* Header card with stats */}
+        <div className="rounded-3xl p-5 mb-5 relative overflow-hidden" style={{background:'#1b2a4a'}}>
+          <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full" style={{background:'rgba(201,162,39,0.16)'}}></div>
+          <div className="flex items-center justify-between relative">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-white grid place-items-center shrink-0 overflow-hidden">
+                <img src="https://i.imgur.com/bhXEh9q.png" alt="Hyojeong Youth Caraga Logo" className="w-full h-full object-contain" />
+              </div>
+              <div>
+                <h1 className="text-xl font-black text-white leading-tight">Admin Dashboard</h1>
+                <p className="text-xs font-bold" style={{color:'#aeb9d4'}}>Hyojeong Youth Caraga</p>
+              </div>
+            </div>
+            <button onClick={handleLogout} className="text-xs font-bold text-white px-3 py-2 rounded-lg" style={{background:'rgba(255,255,255,0.16)'}}>Logout</button>
           </div>
-          <button onClick={handleLogout} className="text-white font-bold bg-white/20 px-4 py-2 rounded-xl">Logout</button>
+          <div className="flex gap-8 mt-4 relative">
+            <div>
+              <p className="text-2xl font-black text-white leading-none">{allStudents.filter(s => (s['Status'] || 'active') === 'active').length}<span className="text-sm font-bold" style={{color:'#9aa6c4'}}> /{allStudents.length}</span></p>
+              <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{color:'#aeb9d4'}}>Active Students</p>
+            </div>
+            <div>
+              <p className="text-2xl font-black leading-none" style={{color:'#e9d9a3'}}>{allGratitudeEntries.length}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wide mt-1" style={{color:'#aeb9d4'}}>Gratitude Entries</p>
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-purple-200">
-            <Users className="w-8 h-8 text-purple-600 mb-2" />
-            <p className="text-sm text-gray-600 font-bold">Active Students</p>
-            <p className="text-3xl font-black text-purple-600">{allStudents.filter(s => (s['Status'] || 'active') === 'active').length}<span className="text-base text-gray-400 font-bold"> / {allStudents.length}</span></p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-lg border-4 border-pink-200">
-            <MessageSquare className="w-8 h-8 text-pink-600 mb-2" />
-            <p className="text-sm text-gray-600 font-bold">Gratitude Entries</p>
-            <p className="text-3xl font-black text-pink-600">{allGratitudeEntries.length}</p>
-          </div>
-        </div>
-        <div className="space-y-3">
-          <button onClick={() => setShowAddStudentForm(true)} className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <UserPlus className="w-6 h-6" />
-              <span className="font-bold">Add New Student</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
+
+        {/* TODAY */}
+        <p className="text-[11px] font-black tracking-wider uppercase text-gray-500 mb-2 ml-1">Today</p>
+        <button onClick={() => setCurrentPage('zoom-attendance')} className="w-full rounded-2xl p-4 mb-5 flex items-center gap-3 shadow-lg" style={{background:'linear-gradient(135deg,#c9a227,#bd9620)'}}>
+          <div className="w-10 h-10 rounded-xl grid place-items-center" style={{background:'rgba(255,255,255,0.25)'}}><Calendar className="w-5 h-5" style={{color:'#1b2a4a'}} /></div>
+          <span className="font-black text-left flex-1" style={{color:'#1b2a4a'}}>Zoom Attendance</span>
+          <ChevronRight className="w-5 h-5" style={{color:'#1b2a4a'}} />
+        </button>
+
+        {/* STUDENTS */}
+        <p className="text-[11px] font-black tracking-wider uppercase text-gray-500 mb-2 ml-1">Students</p>
+        <div className="grid grid-cols-2 gap-2.5 mb-5">
+          <button onClick={() => { loadAllMarks(); setCurrentPage('admin-students'); }} className="bg-white rounded-2xl p-3.5 border border-gray-200 text-left flex flex-col gap-2 min-h-[78px] active:scale-95 transition">
+            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{background:'#e7edfb'}}><Users className="w-4 h-4" style={{color:'#3257c4'}} /></div>
+            <span className="text-[13px] font-bold leading-tight" style={{color:'#1b2a4a'}}>View All Students</span>
           </button>
-          <button onClick={() => { loadAllMarks(); setCurrentPage('admin-students'); }} className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Users className="w-6 h-6" />
-              <span className="font-bold">View All Students</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
+          <button onClick={() => setShowAddStudentForm(true)} className="bg-white rounded-2xl p-3.5 border border-gray-200 text-left flex flex-col gap-2 min-h-[78px] active:scale-95 transition">
+            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{background:'#e3f5ea'}}><UserPlus className="w-4 h-4" style={{color:'#1f9e57'}} /></div>
+            <span className="text-[13px] font-bold leading-tight" style={{color:'#1b2a4a'}}>Add New Student</span>
           </button>
-          <button onClick={() => setCurrentPage('zoom-attendance')} className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Calendar className="w-6 h-6" />
-              <span className="font-bold">Zoom Attendance</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
+          <button onClick={() => { loadPendingRegs(); setCurrentPage('admin-pending'); }} className="bg-white rounded-2xl p-3.5 border border-gray-200 text-left flex flex-col gap-2 min-h-[78px] active:scale-95 transition relative">
+            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{background:'#e3f5ea'}}><UserPlus className="w-4 h-4" style={{color:'#1f9e57'}} /></div>
+            <span className="text-[13px] font-bold leading-tight" style={{color:'#1b2a4a'}}>New Registrations</span>
+            {pendingRegs.length > 0 && <span className="absolute top-2.5 right-2.5 text-[10px] font-black text-white px-1.5 py-0.5 rounded-full" style={{background:'#1f9e57'}}>{pendingRegs.length}</span>}
           </button>
-          <button onClick={() => setCurrentPage('admin-leaderboard')} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Trophy className="w-6 h-6" />
-              <span className="font-bold">View Leaderboards</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-          <button onClick={() => { setSetupForm(null); setCurrentPage('admin-setup'); }} className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Target className="w-6 h-6" />
-              <span className="font-bold">Program Setup</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-          <button onClick={() => { loadAnnouncements(); setCurrentPage('admin-announce'); }} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <MessageSquare className="w-6 h-6" />
-              <span className="font-bold">Announcements</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-          <button onClick={() => setCurrentPage('admin-gratitude')} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Heart className="w-6 h-6" />
-              <span className="font-bold">View Heart Journals</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-          <button onClick={() => { loadPendingRegs(); setCurrentPage('admin-pending'); }} className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <UserPlus className="w-6 h-6" />
-              <span className="font-bold">🌱 New Registrations{pendingRegs.length > 0 ? ` (${pendingRegs.length})` : ''}</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-          <button onClick={() => { loadPhotoApprovals(); setCurrentPage('admin-photos'); }} className="w-full bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <User className="w-6 h-6" />
-              <span className="font-bold">📸 Photo Approvals{photoApprovals.length > 0 ? ` (${photoApprovals.length})` : ''}</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-          <button onClick={() => { loadArchives(); setViewingArchive(null); setCurrentPage('admin-archives'); }} className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Clock className="w-6 h-6" />
-              <span className="font-bold">📜 Past Programs</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-          <button onClick={() => { setNewProgramForm({ archiveName: programSettings.program_name || 'Program', newName: '', startDate: '', endDate: '', sessions: 21, gratitudeSessions: 21, quizzes: 0, services: 0, confirm: '' }); setCurrentPage('admin-new-program'); }} className="w-full bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Sparkles className="w-6 h-6" />
-              <span className="font-bold">▶️ Start New Program</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-          <button onClick={handleRecomputeAll} disabled={recomputing} className="w-full bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <RefreshCw className={`w-6 h-6 ${recomputing ? 'animate-spin' : ''}`} />
-              <span className="font-bold">{recomputing ? 'Recomputing…' : 'Recompute All Grades'}</span>
-            </div>
-            <ChevronRight className="w-6 h-6" />
+          <button onClick={() => { loadPhotoApprovals(); setCurrentPage('admin-photos'); }} className="bg-white rounded-2xl p-3.5 border border-gray-200 text-left flex flex-col gap-2 min-h-[78px] active:scale-95 transition relative">
+            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{background:'#efe6fb'}}><User className="w-4 h-4" style={{color:'#7b3fc4'}} /></div>
+            <span className="text-[13px] font-bold leading-tight" style={{color:'#1b2a4a'}}>Photo Approvals</span>
+            {photoApprovals.length > 0 && <span className="absolute top-2.5 right-2.5 text-[10px] font-black text-white px-1.5 py-0.5 rounded-full" style={{background:'#7b3fc4'}}>{photoApprovals.length}</span>}
           </button>
         </div>
+
+        {/* ENGAGEMENT */}
+        <p className="text-[11px] font-black tracking-wider uppercase text-gray-500 mb-2 ml-1">Engagement</p>
+        <div className="grid grid-cols-2 gap-2.5 mb-5">
+          <button onClick={() => setCurrentPage('admin-leaderboard')} className="bg-white rounded-2xl p-3.5 border border-gray-200 text-left flex flex-col gap-2 min-h-[78px] active:scale-95 transition">
+            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{background:'#fdf0d8'}}><Trophy className="w-4 h-4" style={{color:'#b8860b'}} /></div>
+            <span className="text-[13px] font-bold leading-tight" style={{color:'#1b2a4a'}}>Leaderboards</span>
+          </button>
+          <button onClick={() => setCurrentPage('admin-gratitude')} className="bg-white rounded-2xl p-3.5 border border-gray-200 text-left flex flex-col gap-2 min-h-[78px] active:scale-95 transition">
+            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{background:'#fde7ef'}}><Heart className="w-4 h-4" style={{color:'#c43066'}} /></div>
+            <span className="text-[13px] font-bold leading-tight" style={{color:'#1b2a4a'}}>Heart Journals</span>
+          </button>
+          <button onClick={() => { loadAnnouncements(); setCurrentPage('admin-announce'); }} className="bg-white rounded-2xl p-3.5 border border-gray-200 text-left flex flex-col gap-2 min-h-[78px] active:scale-95 transition">
+            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{background:'#fde7ef'}}><MessageSquare className="w-4 h-4" style={{color:'#c43066'}} /></div>
+            <span className="text-[13px] font-bold leading-tight" style={{color:'#1b2a4a'}}>Announcements</span>
+          </button>
+        </div>
+
+        {/* PROGRAM */}
+        <p className="text-[11px] font-black tracking-wider uppercase text-gray-500 mb-2 ml-1">Program</p>
+        <div className="grid grid-cols-2 gap-2.5 mb-5">
+          <button onClick={() => { setSetupForm(null); setCurrentPage('admin-setup'); }} className="bg-white rounded-2xl p-3.5 border border-gray-200 text-left flex flex-col gap-2 min-h-[78px] active:scale-95 transition">
+            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{background:'#efe6fb'}}><Target className="w-4 h-4" style={{color:'#7b3fc4'}} /></div>
+            <span className="text-[13px] font-bold leading-tight" style={{color:'#1b2a4a'}}>Program Setup</span>
+          </button>
+          <button onClick={() => { loadArchives(); setViewingArchive(null); setCurrentPage('admin-archives'); }} className="bg-white rounded-2xl p-3.5 border border-gray-200 text-left flex flex-col gap-2 min-h-[78px] active:scale-95 transition">
+            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{background:'#e7edfb'}}><Clock className="w-4 h-4" style={{color:'#3257c4'}} /></div>
+            <span className="text-[13px] font-bold leading-tight" style={{color:'#1b2a4a'}}>Past Programs</span>
+          </button>
+          <button onClick={() => { setNewProgramForm({ archiveName: programSettings.program_name || 'Program', newName: '', startDate: '', endDate: '', sessions: 21, gratitudeSessions: 21, quizzes: 0, services: 0, confirm: '' }); setCurrentPage('admin-new-program'); }} className="bg-white rounded-2xl p-3.5 border border-gray-200 text-left flex flex-col gap-2 min-h-[78px] active:scale-95 transition col-span-2 flex-row items-center">
+            <div className="w-8 h-8 rounded-lg grid place-items-center shrink-0" style={{background:'#fde7ef'}}><Sparkles className="w-4 h-4" style={{color:'#c43066'}} /></div>
+            <span className="text-[13px] font-bold leading-tight" style={{color:'#1b2a4a'}}>Start New Program</span>
+          </button>
+        </div>
+
+        {/* MAINTENANCE */}
+        <button onClick={handleRecomputeAll} disabled={recomputing} className="w-full rounded-2xl p-3.5 flex items-center justify-center gap-2 border border-gray-200 bg-white/70 disabled:opacity-60">
+          <RefreshCw className={`w-4 h-4 text-gray-500 ${recomputing ? 'animate-spin' : ''}`} />
+          <span className="text-[13px] font-bold text-gray-600">{recomputing ? 'Recomputing…' : 'Recompute All Grades'}</span>
+        </button>
       </div>
 
       {/* Add New Student Modal */}
@@ -5608,30 +5596,41 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
   if (currentPage === 'lead-dashboard' && leadTeam) {
     return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-300 to-blue-400 pb-20">
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-black text-white">Team {leadTeam}</h1>
-          <button onClick={handleLogout} className="bg-white/30 text-white font-bold px-4 py-2 rounded-xl text-sm">Logout</button>
+      <div className="p-4 max-w-md mx-auto">
+        {/* Header card */}
+        <div className="rounded-3xl p-5 mb-5 relative overflow-hidden" style={{background:'#1b2a4a'}}>
+          <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full" style={{background:'rgba(201,162,39,0.16)'}}></div>
+          <div className="flex items-center justify-between relative">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-white grid place-items-center shrink-0 overflow-hidden">
+                <img src="https://i.imgur.com/bhXEh9q.png" alt="Hyojeong Youth Caraga Logo" className="w-full h-full object-contain" />
+              </div>
+              <div>
+                <h1 className="text-xl font-black text-white leading-tight">Team {leadTeam}</h1>
+                <p className="text-xs font-bold" style={{color:'#aeb9d4'}}>Welcome, Team Lead 💝</p>
+              </div>
+            </div>
+            <button onClick={handleLogout} className="text-xs font-bold text-white px-3 py-2 rounded-lg" style={{background:'rgba(255,255,255,0.16)'}}>Logout</button>
+          </div>
+          <p className="text-sm font-bold mt-3 relative" style={{color:'#e9d9a3'}}>Mark your team's growth</p>
         </div>
-        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
-          <p className="text-sm text-gray-500">Welcome, Team Lead 💝</p>
-          <p className="text-lg font-black text-purple-600">Mark your team's growth</p>
-        </div>
-        <div className="space-y-3">
-          <button onClick={() => { loadAllMarks(); setCurrentPage('lead-students'); }}
-            className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3"><Users className="w-6 h-6" /><span className="font-bold">My Team Members</span></div>
-            <ChevronRight className="w-6 h-6" />
+
+        {/* Featured: Mark Attendance */}
+        <button onClick={() => { setAttendanceSession(1); loadAttendanceMarks(1); setCurrentPage('lead-attendance'); }} className="w-full rounded-2xl p-4 mb-3 flex items-center gap-3 shadow-lg" style={{background:'linear-gradient(135deg,#c9a227,#bd9620)'}}>
+          <div className="w-10 h-10 rounded-xl grid place-items-center" style={{background:'rgba(255,255,255,0.25)'}}><Calendar className="w-5 h-5" style={{color:'#1b2a4a'}} /></div>
+          <span className="font-black text-left flex-1" style={{color:'#1b2a4a'}}>Mark Attendance</span>
+          <ChevronRight className="w-5 h-5" style={{color:'#1b2a4a'}} />
+        </button>
+
+        {/* Other actions */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <button onClick={() => { loadAllMarks(); setCurrentPage('lead-students'); }} className="bg-white rounded-2xl p-3.5 border border-gray-200 text-left flex flex-col gap-2 min-h-[78px] active:scale-95 transition">
+            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{background:'#e7edfb'}}><Users className="w-4 h-4" style={{color:'#3257c4'}} /></div>
+            <span className="text-[13px] font-bold leading-tight" style={{color:'#1b2a4a'}}>My Team Members</span>
           </button>
-          <button onClick={() => { setAttendanceSession(1); loadAttendanceMarks(1); setCurrentPage('lead-attendance'); }}
-            className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3"><Calendar className="w-6 h-6" /><span className="font-bold">Mark Attendance (whole session)</span></div>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-          <button onClick={() => { loadAnnouncements(); setCurrentPage('lead-announce'); }}
-            className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3"><MessageSquare className="w-6 h-6" /><span className="font-bold">Announcements</span></div>
-            <ChevronRight className="w-6 h-6" />
+          <button onClick={() => { loadAnnouncements(); setCurrentPage('lead-announce'); }} className="bg-white rounded-2xl p-3.5 border border-gray-200 text-left flex flex-col gap-2 min-h-[78px] active:scale-95 transition">
+            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{background:'#fde7ef'}}><MessageSquare className="w-4 h-4" style={{color:'#c43066'}} /></div>
+            <span className="text-[13px] font-bold leading-tight" style={{color:'#1b2a4a'}}>Announcements</span>
           </button>
         </div>
       </div>
