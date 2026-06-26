@@ -16,11 +16,29 @@ import { supabase } from "./supabaseClient"; // <-- adjust path if your client l
 
 const ID_REGEX = /HJ\s*-?\s*0*(\d{1,4})/i; // tolerant: HJ019, hj 19, HJ-019, HJ19
 
+// Shirt markers a student might type after their ID/name (case-insensitive).
+// e.g. "HJ019 shirt", "HJ022 naka shirt", "HJ031 naay shirt", "HJ045 ✓"
+const SHIRT_REGEX = /(naka[\s-]*shirt|naay[\s-]*shirt|\bshirt\b|✓|✔)/i;
+
 // Normalise any matched ID to canonical form HJ### (zero-padded to 3 digits)
 function canonicalId(rawDigits) {
   const n = parseInt(rawDigits, 10);
   if (Number.isNaN(n)) return null;
   return "HJ" + String(n).padStart(3, "0");
+}
+
+// Normalise a name for comparison: lowercase, strip punctuation, collapse spaces,
+// drop any shirt words, and sort the word tokens so order doesn't matter.
+function normalizeName(raw) {
+  if (!raw) return "";
+  let s = String(raw).toLowerCase();
+  s = s.replace(SHIRT_REGEX, " ");          // remove shirt markers
+  s = s.replace(/[.,_\-/]/g, " ");           // punctuation -> space
+  s = s.replace(/[^a-z0-9ñ\s]/g, " ");       // strip stray symbols (keep ñ)
+  s = s.replace(/\s+/g, " ").trim();
+  if (!s) return "";
+  const tokens = s.split(" ").filter(Boolean).sort();
+  return tokens.join(" ");
 }
 
 // Pull the Zoom display name + message text out of a chat line.
@@ -67,6 +85,22 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
     return map;
   }, [students]);
 
+  // Build a normalized-full-name index for strict name matching.
+  // Value is either a single student, or the string "AMBIGUOUS" if 2+ share that name.
+  const nameIndex = useMemo(() => {
+    const map = new Map();
+    students.forEach((s) => {
+      const full = normalizeName(`${s.first_name || ""} ${s.last_name || ""}`);
+      if (!full) return;
+      if (map.has(full)) {
+        map.set(full, "AMBIGUOUS");
+      } else {
+        map.set(full, s);
+      }
+    });
+    return map;
+  }, [students]);
+
   function handleFile(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -84,29 +118,65 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
     }
 
     const lines = rawChat.split(/\r?\n/);
-    const matched = new Map(); // canonicalId -> { id, name }
+    const matched = new Map(); // canonicalId -> { id, name, shirt }
     const unknown = new Map(); // canonicalId -> zoom name (looks like an ID but not in roster)
     const guests = new Map(); // displayName -> true
+
+    // Helper: record a present student, OR-ing in shirt if any line marks it.
+    const addMatched = (canon, fullName, shirt) => {
+      if (matched.has(canon)) {
+        const prev = matched.get(canon);
+        matched.set(canon, { ...prev, shirt: prev.shirt || shirt });
+      } else {
+        matched.set(canon, { id: canon, name: fullName, shirt });
+      }
+    };
 
     for (const line of lines) {
       const p = parseLine(line);
       if (!p) continue;
 
+      const hasShirt = SHIRT_REGEX.test(p.text) || SHIRT_REGEX.test(p.name);
+
+      // 1) Prefer an explicit Student ID in the message text.
       const idMatch = p.text.match(ID_REGEX);
       if (idMatch) {
         const canon = canonicalId(idMatch[1]);
         if (!canon) continue;
         if (roster.has(canon)) {
           const stu = roster.get(canon);
-          matched.set(canon, {
-            id: canon,
-            name: `${stu.first_name || ""} ${stu.last_name || ""}`.trim(),
-          });
+          addMatched(canon, `${stu.first_name || ""} ${stu.last_name || ""}`.trim(), hasShirt);
         } else {
           unknown.set(canon, p.name || "(unknown)");
         }
+        continue;
+      }
+
+      // 2) No ID. Try a STRICT full-name match against the message text,
+      //    then against the Zoom display name. Only auto-match a single,
+      //    unambiguous roster name; anything else becomes a guest.
+      const textKey = normalizeName(p.text);
+      const nameKey = normalizeName(p.name);
+      let hit = null;
+      let ambiguous = false;
+
+      for (const key of [textKey, nameKey]) {
+        if (!key) continue;
+        if (nameIndex.has(key)) {
+          const v = nameIndex.get(key);
+          if (v === "AMBIGUOUS") { ambiguous = true; }
+          else { hit = v; break; }
+        }
+      }
+
+      if (hit) {
+        const canon = hit.student_id.toUpperCase();
+        addMatched(canon, `${hit.first_name || ""} ${hit.last_name || ""}`.trim(), hasShirt);
+      } else if (ambiguous) {
+        // Name matches more than one student -> needs human review.
+        unknown.set("NAME:" + (p.text || p.name), p.text || p.name);
       } else {
-        // No ID in this line -> treat the Zoom display name as a guest
+        // Genuinely no match -> guest (their typed name / Zoom name).
         const guestName = p.name || p.text;
         if (guestName) guests.set(guestName, true);
       }
@@ -114,7 +184,11 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
 
     setParsed({
       matched: [...matched.values()],
-      unknown: [...unknown.entries()].map(([id, name]) => ({ id, name })),
+      unknown: [...unknown.entries()].map(([key, name]) =>
+        key.startsWith("NAME:")
+          ? { id: "(name)", name: `${name} — matches more than one student` }
+          : { id: key, name }
+      ),
       guests: [...guests.keys()].map((display_name) => ({ display_name })),
     });
   }
@@ -134,18 +208,38 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
     setSaving(true);
     try {
       // 1) Upsert attendance for matched students.
-      //    onConflict relies on the unique (student_id, session_number) constraint.
-      const rows = parsed.matched.map((m) => ({
-        student_id: m.id,
-        session_number: sn,
-        attendance: true,
-        marked_by: "zoom",
-      }));
+      //    To avoid wiping an existing shirt mark, we split into two upserts:
+      //    - shirt-wearers: set attendance=true AND hj_shirt=true
+      //    - everyone else: set attendance=true only (hj_shirt left untouched)
+      const withShirt = parsed.matched.filter((m) => m.shirt);
+      const noShirt = parsed.matched.filter((m) => !m.shirt);
 
-      const { error: attErr } = await supabase
-        .from("attendance_marks")
-        .upsert(rows, { onConflict: "student_id,session_number" });
-      if (attErr) throw attErr;
+      if (withShirt.length > 0) {
+        const shirtRows = withShirt.map((m) => ({
+          student_id: m.id,
+          session_number: sn,
+          attendance: true,
+          hj_shirt: true,
+          marked_by: "zoom",
+        }));
+        const { error: e1 } = await supabase
+          .from("attendance_marks")
+          .upsert(shirtRows, { onConflict: "student_id,session_number" });
+        if (e1) throw e1;
+      }
+
+      if (noShirt.length > 0) {
+        const plainRows = noShirt.map((m) => ({
+          student_id: m.id,
+          session_number: sn,
+          attendance: true,
+          marked_by: "zoom",
+        }));
+        const { error: e2 } = await supabase
+          .from("attendance_marks")
+          .upsert(plainRows, { onConflict: "student_id,session_number" });
+        if (e2) throw e2;
+      }
 
       // 2) Save guests (if any). Ignore duplicates via upsert on (display_name, session_number).
       let guestsSaved = 0;
@@ -176,11 +270,12 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
 
       setResult({
         present: parsed.matched.length,
+        shirts: parsed.matched.filter((m) => m.shirt).length,
         guests: guestsSaved,
         unknown: parsed.unknown.length,
         session: sn,
         gradesUpdated,
-        presentList: parsed.matched, // [{ id, name }]
+        presentList: parsed.matched, // [{ id, name, shirt }]
         date: meetingDate,
       });
     } catch (err) {
@@ -204,7 +299,7 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
         <div>
           <h2 style={styles.title}>Zoom Attendance</h2>
           <p style={styles.subtitle}>
-            Paste or upload the Hoondokhae chat. Students who typed their ID get marked present.
+            Paste or upload the Hoondokhae chat. Students type their ID (or full name) to be marked present — add “shirt”, “naka shirt”, or “naay shirt” for the HJ shirt.
           </p>
         </div>
         {onClose && (
@@ -241,7 +336,7 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
       <textarea
         value={rawChat}
         onChange={(e) => setRawChat(e.target.value)}
-        placeholder={"Paste the Zoom chat here...\n\n09:14:03 From Unice Kiera to Everyone: HJ019"}
+        placeholder={"Paste the Zoom chat here...\n\n09:14:03 From Unice Kiera to Everyone: HJ019 naka shirt\n09:14:10 From Princess Abejay to Everyone: HJ001"}
         style={styles.textarea}
       />
 
@@ -272,7 +367,7 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
             bg="#eaf6ef"
             title={`Present (${parsed.matched.length})`}
             empty="No students matched yet."
-            items={parsed.matched.map((m) => `${m.id} — ${m.name}`)}
+            items={parsed.matched.map((m) => `${m.id} — ${m.name}${m.shirt ? "  👕 shirt" : ""}`)}
           />
           <Section
             color="#9a6b00"
@@ -308,6 +403,7 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
             <strong>{result.present}</strong> students marked present for session{" "}
             <strong>{result.session}</strong>.
           </p>
+          <p style={styles.resultLine}><strong>{result.shirts}</strong> marked with HJ shirt 👕</p>
           <p style={styles.resultLine}><strong>{result.guests}</strong> guests logged.</p>
           {result.gradesUpdated ? (
             <p style={{ ...styles.resultLine, color: "#2e7d4f" }}>Grades recomputed for all students.</p>
