@@ -116,7 +116,104 @@ function flattenChat(raw) {
   return out.join("\n");
 }
 
+// --- Real-world messy-chat helpers ---------------------------------------
+// Students often join from phones whose Zoom name is the device model
+// (e.g. "Infinix X6525", "TECNO KL4"), and type their full info on one line:
+// "Jeremy delossantos age: 13 manay purok3 (GK) Butuan City". Several kids may
+// also share one device, each typing their name on its own line.
+
+// Words that are address/metadata, never a person's name.
+const NOISE_WORDS = new Set([
+  "purok","prk","brgy","barangay","city","butuan","bayugan","agusan","norte","sur",
+  "del","mahay","poblacion","loreto","gk","years","old","age","from","to","everyone",
+  "street","st","zone","sitio","manay","yrs","yr",
+]);
+// Device-model fragments to strip out.
+const DEVICE_WORDS = /(infinix|tecno|samsung|sm-?[a-z0-9]+|x\d{3,}|kl\d|redmi|xiaomi|oppo|vivo|realme|huawei|iphone|itel|cherry|nokia)/ig;
+
+// From a raw line, pull the tokens that look like parts of a person's name,
+// stripping age ("age: 13", "-16"), parentheticals ("(GK)"), devices, and noise words.
+function extractNameTokens(line) {
+  let s = String(line || "");
+  s = s.replace(/age\s*:?\s*\d+/ig, " ");      // "age: 13", "Age:11"
+  s = s.replace(/[-–]\s*\d+\b/g, " ");          // trailing "-16", "–9"
+  s = s.replace(/\([^)]*\)/g, " ");             // "(GK)"
+  s = s.replace(DEVICE_WORDS, " ");             // device models
+  const raw = s.split(/[\s,.;:]+/).filter(Boolean);
+  const out = [];
+  for (const tok of raw) {
+    const low = tok.toLowerCase().replace(/[^a-zñ]/gi, "");
+    if (!low) continue;
+    if (NOISE_WORDS.has(low)) continue;
+    if (/\d/.test(tok)) continue;               // skip tokens containing digits
+    if (low.length < 2 && out.length > 0) continue; // stray single letters
+    out.push(tok);
+  }
+  return out;
+}
+
+// True (returns tokens) only if the line plausibly contains a person's name.
+// Needs >=2 name tokens, OR a single short line that is one alphabetic token.
+function looksLikePerson(line) {
+  const toks = extractNameTokens(line);
+  if (toks.length >= 2) return toks;
+  if (toks.length === 1 && String(line).trim().split(/\s+/).length <= 2) return toks;
+  return null;
+}
+
+// Explode a chat into individual content lines. Strips the "HH:MM From <device> :"
+// or "From <name> to Everyone:" prefix; every remaining non-empty line is its own
+// person (handles several kids sharing one device, each on a separate line).
+function explodeLines(raw) {
+  const out = [];
+  for (const rawline of String(raw || "").split(/\r?\n/)) {
+    const t = rawline.trim();
+    if (!t) continue;
+    let m = t.match(/^\d{1,2}:\d{2}(?::\d{2})?\s+From\s+.*?:\s*(.*)$/i);
+    if (m) { if (m[1].trim()) out.push(m[1].trim()); continue; }
+    m = t.match(/From\s+.*?\s+to\s+.*?:\s*(.*)$/i);
+    if (m) { if (m[1].trim()) out.push(m[1].trim()); continue; }
+    m = t.match(/From\s+.*?:\s*(.*)$/i);
+    if (m) { if (m[1].trim()) out.push(m[1].trim()); continue; }
+    out.push(t); // continuation line = its own person
+  }
+  return out;
+}
+
+// Tokenize a string into lowercase alphabetic word tokens (for name matching).
+function nameTokensLower(raw) {
+  return String(raw || "").toLowerCase().replace(/[^a-zñ\s]/g, " ").split(/\s+/).filter(Boolean);
+}
+
+// Conversational filler words (Bisaya/Tagalog/English). A line that is mostly
+// these is chat-chatter, not a name/registration.
+const CHATTER_WORDS = new Set([
+  "ako","ko","ky","kay","lag","kaayu","teh","tehh","dli","ku","mka","mca","paminaw","sa","story",
+  "off","cam","on","mag","magstudy","study","pray","everyday","be","friendly","na","ni","si","ang",
+  "ug","og","nga","man","gud","lang","ra","pa","jud","gyud","kaau","unsa","asa","kinsa","wala",
+  "oo","dili","hindi","yes","no","ok","okay","po","opo","salamat","thank","you","hello","hi","hey",
+  "te","ate","kuya","maam","sir","good","morning","afternoon","evening","amen","praise","yan","ta",
+]);
+
+// True if the line is a URL/link.
+function isLink(line) {
+  return /https?:\/\/|www\.|\.org|\.com|\.net/i.test(String(line || ""));
+}
+
+// True if the line is mostly conversational filler (so we skip it as a "guest").
+// "Name:" lines are registration info and are never treated as chatter.
+function isChatter(line) {
+  if (/name\s*:/i.test(line)) return false;
+  const toks = String(line || "").toLowerCase().replace(/[^a-zñ\s]/g, " ").split(/\s+/).filter(Boolean);
+  if (toks.length === 0) return true;
+  const chat = toks.filter((t) => CHATTER_WORDS.has(t)).length;
+  if (chat / toks.length >= 0.5) return true;
+  if (toks.length === 1 && CHATTER_WORDS.has(toks[0])) return true;
+  return false;
+}
+
 export default function ZoomAttendance({ students = [], onClose, onSaved, onReport }) {
+
   const [rawChat, setRawChat] = useState("");
   const [sessionNumber, setSessionNumber] = useState("");
   const [meetingDate, setMeetingDate] = useState(() => {
@@ -153,6 +250,33 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
     return map;
   }, [students]);
 
+  // Build first-name/last-name token sets per student, for partial matching
+  // (matches when a typed line contains one of the student's first-name tokens
+  // AND one of their last-name tokens, and points to exactly one student).
+  const tokenIndex = useMemo(() => {
+    return students.map((s) => ({
+      s,
+      first: nameTokensLower(s.first_name),
+      last: nameTokensLower(s.last_name),
+    }));
+  }, [students]);
+
+  // Partial match: typed tokens must include >=1 of the student's first tokens
+  // AND >=1 of their last tokens. Returns the student only if exactly one matches;
+  // "AMBIGUOUS" if several; null if none.
+  function partialNameMatch(typedTokens) {
+    const set = new Set(typedTokens);
+    const hits = [];
+    for (const { s, first, last } of tokenIndex) {
+      const hasFirst = first.some((t) => set.has(t));
+      const hasLast = last.some((t) => set.has(t));
+      if (hasFirst && hasLast) hits.push(s);
+    }
+    if (hits.length === 1) return hits[0];
+    if (hits.length > 1) return "AMBIGUOUS";
+    return null;
+  }
+
   function handleFile(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -169,10 +293,12 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
       return;
     }
 
-    const lines = flattenChat(rawChat).split(/\r?\n/);
+    // Explode the chat: each content line = one person (handles shared devices,
+    // multi-line messages, and device-name display names).
+    const lines = explodeLines(rawChat);
     const matched = new Map(); // canonicalId -> { id, name, shirt }
-    const unknown = new Map(); // canonicalId -> zoom name (looks like an ID but not in roster)
-    const guests = new Map(); // displayName -> true
+    const unknown = new Map(); // review bucket: ambiguous names / typo IDs
+    const guests = new Map(); // full info line -> true
 
     // Helper: record a present student, OR-ing in shirt if any line marks it.
     const addMatched = (canon, fullName, shirt) => {
@@ -185,62 +311,60 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
     };
 
     for (const line of lines) {
-      const p = parseLine(line);
-      if (!p) continue;
+      const hasShirt = shirtStatus(line);
 
-      const hasShirt = shirtStatus(p.text) || shirtStatus(p.name);
-
-      // 1) Prefer an explicit Student ID in the message text.
-      const idMatch = p.text.match(ID_REGEX);
+      // 1) Explicit Student ID anywhere in the line.
+      const idMatch = line.match(ID_REGEX);
       if (idMatch) {
         const canon = canonicalId(idMatch[1]);
-        if (!canon) continue;
-        if (roster.has(canon)) {
+        if (canon && roster.has(canon)) {
           const stu = roster.get(canon);
           addMatched(canon, `${stu.first_name || ""} ${stu.last_name || ""}`.trim(), hasShirt);
-        } else {
-          unknown.set(canon, p.name || "(unknown)");
+          continue;
         }
+        // ID-looking but not in roster -> review (only if it's basically just an ID)
+        if (canon && line.trim().length <= 8) {
+          unknown.set("ID:" + canon, { id: canon, name: "typed in chat" });
+          continue;
+        }
+        // otherwise fall through to name handling (the line has more than an ID)
+      }
+
+      // Drop links and conversational chatter (only reaches here if no roster ID matched).
+      if (isLink(line) || isChatter(line)) continue;
+
+      // 2) Does the line plausibly contain a person's name?
+      const personToks = looksLikePerson(line);
+      if (!personToks) continue; // pure address/device/fragment -> drop
+
+      // 2a) Exact full-name match.
+      const fullKey = normalizeName(personToks.join(" "));
+      if (fullKey && nameIndex.has(fullKey)) {
+        const v = nameIndex.get(fullKey);
+        if (v !== "AMBIGUOUS") {
+          addMatched(v.student_id.toUpperCase(), `${v.first_name || ""} ${v.last_name || ""}`.trim(), hasShirt);
+          continue;
+        }
+      }
+
+      // 2b) Partial match: first-name token AND last-name token, unique student.
+      const pm = partialNameMatch(nameTokensLower(personToks.join(" ")));
+      if (pm && pm !== "AMBIGUOUS") {
+        addMatched(pm.student_id.toUpperCase(), `${pm.first_name || ""} ${pm.last_name || ""}`.trim(), hasShirt);
+        continue;
+      }
+      if (pm === "AMBIGUOUS") {
+        unknown.set("NAME:" + line.trim(), { id: "(name)", name: `${line.trim()} — matches more than one student` });
         continue;
       }
 
-      // 2) No ID. Try a STRICT full-name match against the message text,
-      //    then against the Zoom display name. Only auto-match a single,
-      //    unambiguous roster name; anything else becomes a guest.
-      const textKey = normalizeName(p.text);
-      const nameKey = normalizeName(p.name);
-      let hit = null;
-      let ambiguous = false;
-
-      for (const key of [textKey, nameKey]) {
-        if (!key) continue;
-        if (nameIndex.has(key)) {
-          const v = nameIndex.get(key);
-          if (v === "AMBIGUOUS") { ambiguous = true; }
-          else { hit = v; break; }
-        }
-      }
-
-      if (hit) {
-        const canon = hit.student_id.toUpperCase();
-        addMatched(canon, `${hit.first_name || ""} ${hit.last_name || ""}`.trim(), hasShirt);
-      } else if (ambiguous) {
-        // Name matches more than one student -> needs human review.
-        unknown.set("NAME:" + (p.text || p.name), p.text || p.name);
-      } else {
-        // Genuinely no match -> guest (their typed name / Zoom name).
-        const guestName = p.name || p.text;
-        if (guestName) guests.set(guestName, true);
-      }
+      // 3) No match -> guest, keeping the FULL original line (name + age + address).
+      guests.set(line.trim(), true);
     }
 
     setParsed({
       matched: [...matched.values()],
-      unknown: [...unknown.entries()].map(([key, name]) =>
-        key.startsWith("NAME:")
-          ? { id: "(name)", name: `${name} — matches more than one student` }
-          : { id: key, name }
-      ),
+      unknown: [...unknown.values()],
       guests: [...guests.keys()].map((display_name) => ({ display_name })),
     });
   }
@@ -425,9 +549,9 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
             color="#9a6b00"
             bg="#fdf3da"
             title={`Needs review (${parsed.unknown.length})`}
-            empty="No unmatched IDs."
-            hint="These look like IDs but aren't in your roster (typos or not registered)."
-            items={parsed.unknown.map((u) => `${u.id} — typed by ${u.name}`)}
+            empty="Nothing to review."
+            hint="Unmatched IDs or names matching more than one student — handle these manually."
+            items={parsed.unknown.map((u) => (u.id && u.id !== "(name)" ? `${u.id} — ${u.name}` : u.name))}
           />
           <Section
             color="#1f3a93"
