@@ -72,15 +72,6 @@ const StickerArt = ({ sticker, size = 30 }) => {
 };
 
 // Gentle praise — always positive, never guilt or pressure.
-const MYSTERY_BOX_HUGS = [
-  "Hyoji sends you a warm hug! 💗",
-  "You already have this Hyoji — here's some love instead! 🤗",
-  "Hyoji is so happy to see you again today! 💛",
-  "A little hug from Hyoji for showing up! 🌸",
-  "Hyoji says: keep shining, dear friend! ✨",
-  "Same sweet Hyoji, double the love! 💕"
-];
-
 const MYSTERY_BOX_PRAISE = [
   "Your faithful heart shines today! 🌟",
   "Heaven smiles when you show up with love. 💗",
@@ -781,25 +772,13 @@ const App = () => {
     if (sessionNum == null) return;
     const studId = studentData && studentData['Student ID'];
     if (!studId) return;
-    // Which stickers does the student already own?
-    const ownedIds = new Set((myBoxOpens || [])
-      .filter(b => b.reward_type === 'sticker')
-      .map(b => b.reward_id));
-    const unowned = MYSTERY_BOX_STICKERS.filter(s => !ownedIds.has(s.id));
     // 50/50 sticker vs praise; stickers are collectible.
     const giveSticker = Math.random() < 0.5;
     let reward;
-    if (giveSticker && unowned.length > 0) {
-      // Brand-new sticker to collect.
-      const s = unowned[Math.floor(Math.random() * unowned.length)];
+    if (giveSticker) {
+      const s = MYSTERY_BOX_STICKERS[Math.floor(Math.random() * MYSTERY_BOX_STICKERS.length)];
       reward = { type: 'sticker', id: s.id, label: s.name, art: s.art, color: s.color };
-    } else if (giveSticker && unowned.length === 0) {
-      // Already collected them all -> warm hug, never an empty repeat.
-      const owned = MYSTERY_BOX_STICKERS[Math.floor(Math.random() * MYSTERY_BOX_STICKERS.length)];
-      const msg = MYSTERY_BOX_HUGS[Math.floor(Math.random() * MYSTERY_BOX_HUGS.length)];
-      reward = { type: 'hug', id: owned.id, label: msg, art: '💗', color: owned.color };
     } else {
-      // Praise message (also used as the kind landing for non-sticker draws).
       const msg = MYSTERY_BOX_PRAISE[Math.floor(Math.random() * MYSTERY_BOX_PRAISE.length)];
       reward = { type: 'praise', id: 'praise', label: msg, art: '💌', color: '#FBCFE8' };
     }
@@ -3648,7 +3627,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             {boxReward ? (
               <div style={{animation:'mbReveal 0.5s ease-out'}}>
                 <div style={{marginBottom:8, display:'flex', justifyContent:'center'}}>
-                  {(boxReward.type === 'sticker' || boxReward.type === 'hug')
+                  {boxReward.type === 'sticker'
                     ? <StickerArt sticker={MYSTERY_BOX_STICKERS.find(s => s.id === boxReward.id) || boxReward} size={92} />
                     : <span style={{fontSize:72, lineHeight:1.1}}>{boxReward.art}</span>}
                 </div>
