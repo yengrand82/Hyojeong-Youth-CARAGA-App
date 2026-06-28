@@ -398,6 +398,7 @@ const App = () => {
   const [quizTeamFilter, setQuizTeamFilter] = useState('ALL');
   const [allMarks, setAllMarks] = useState([]); // every student's attendance marks (for admin list)
   const [studentTeamFilter, setStudentTeamFilter] = useState('ALL'); // team filter on All Students page
+  const [studentSearch, setStudentSearch] = useState(''); // name/ID search on All Students page
   const [announcements, setAnnouncements] = useState([]);
   const [announceText, setAnnounceText] = useState('');
   const [announceTitle, setAnnounceTitle] = useState('');
@@ -4859,6 +4860,13 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             </button>
           ))}
         </div>
+        <input
+          type="text"
+          value={studentSearch}
+          onChange={(e) => setStudentSearch(e.target.value)}
+          placeholder="🔍 Search by name or ID..."
+          className="w-full mb-4 px-4 py-3 rounded-xl border-2 border-white/60 bg-white/90 text-gray-700 font-bold placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-white/40"
+        />
         <button
           onClick={() => {
             const filtered = [...allStudents]
@@ -4875,6 +4883,13 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           {[...allStudents]
             .filter(s => studentStatusFilter === 'all' || (s['Status'] || 'active') === studentStatusFilter)
             .filter(s => studentTeamFilter === 'ALL' || (s['TEAM'] || '').toUpperCase() === studentTeamFilter.toUpperCase())
+            .filter(s => {
+              const q = studentSearch.trim().toLowerCase();
+              if (!q) return true;
+              const name = `${s['First Name']||''} ${s['Last Name']||''}`.toLowerCase();
+              const id = (s['Student ID']||'').toLowerCase();
+              return name.includes(q) || id.includes(q);
+            })
             .sort((a,b) => `${a['Last Name']||''} ${a['First Name']||''}`.trim().localeCompare(`${b['Last Name']||''} ${b['First Name']||''}`.trim())).map((student, idx) => {
             const sid = student['Student ID'];
             const sMarks = allMarks.filter(m => m.student_id === sid);
