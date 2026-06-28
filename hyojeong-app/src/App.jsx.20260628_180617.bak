@@ -1851,7 +1851,6 @@ const App = () => {
         .order('created_at', { ascending: true });
       if (error) { console.error('Load pending error:', error); return; }
       setPendingRegs(data || []);
-      if ((allStudents || []).length === 0 && typeof loadStudents === 'function') { try { await loadStudents(); } catch (e) {} }
       // seed edit defaults (category from form, team blank)
       const seed = {};
       (data || []).forEach(r => {
@@ -1870,52 +1869,6 @@ const App = () => {
 
   const setPendingEdit = (sid, patch) => {
     setPendingEdits(prev => ({ ...prev, [sid]: { ...(prev[sid] || {}), ...patch } }));
-  };
-
-  // --- Duplicate registration detection (name + birthday) ---
-  const normalizeName = (s) => (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
-  const normalizeDob = (s) => (s || '').toString().trim().slice(0, 10); // YYYY-MM-DD
-
-  // Find an existing ACTIVE student matching this pending reg by name + DOB.
-  // Returns the matching roster record, or null. Never matches the reg itself.
-  const findExistingMatch = (reg) => {
-    const fn = normalizeName(reg.first_name);
-    const ln = normalizeName(reg.last_name);
-    const dob = normalizeDob(reg.date_of_birth);
-    if (!fn || !ln) return null;
-    const list = allStudents || [];
-    for (const s of list) {
-      if (s['Student ID'] === reg.student_id) continue;      // skip self
-      if ((s['Status'] || 'active') === 'pending') continue;  // only existing accounts
-      const sameName = normalizeName(s['First Name']) === fn && normalizeName(s['Last Name']) === ln;
-      if (!sameName) continue;
-      // If both have a DOB, require it to match; if either is missing, name match is enough to flag.
-      const sDob = normalizeDob(s['Date of Birth']);
-      if (dob && sDob && dob !== sDob) continue;
-      return s;
-    }
-    return null;
-  };
-
-  // Copy a friendly "you already have an account" message to paste on Messenger.
-  const copyAlreadyRegisteredMessage = async (reg, existing) => {
-    const name = (reg.first_name || '').trim() || 'there';
-    const sid = (existing && existing['Student ID']) || '(your existing ID)';
-    const msg =
-      `Hi ${name}! 🌱 Thank you for signing up again — but good news, ` +
-      `you already have an account with us! 💜\n\n` +
-      `There's no need to register a second time. Here's your login:\n\n` +
-      `🆔 Student ID: ${sid}\n` +
-      `🔑 Password: hyojeong2026 (or the one you set)\n\n` +
-      `Just open the app at hjcaraga.org and log in. If you forgot your password, ` +
-      `message me and I'll help you. 😊\n\n` +
-      `We're so happy you're part of Hyojeong Youth Caraga. You belong here! 🎉`;
-    try {
-      await navigator.clipboard.writeText(msg);
-      alert('Message copied! 📋\nNow paste it to ' + name + ' on Facebook Messenger, then Reject this duplicate.');
-    } catch (err) {
-      window.prompt('Copy this message:', msg);
-    }
   };
 
   const copyWelcomeMessage = async (reg) => {
@@ -6333,7 +6286,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
 
         {!loadingPending && pendingRegs.map(reg => {
           const edit = pendingEdits[reg.student_id] || {};
-          const existingMatch = findExistingMatch(reg);
           const realAge = ageFromDob(reg.date_of_birth);
           const shownAge = realAge !== null ? realAge : reg.age;
           const veryYoung = shownAge !== null && shownAge !== undefined && Number(shownAge) <= 8;
@@ -6358,12 +6310,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
               {(veryYoung || adult) && (
                 <div className={`mt-2 text-xs font-bold rounded-lg px-3 py-2 ${veryYoung ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
                   {veryYoung ? '⚠️ Very young — confirm this is a child member and check guardian details.' : 'ℹ️ Age 25+ — confirm member vs. parent/guardian.'}
-                </div>
-              )}
-
-              {existingMatch && (
-                <div className="mt-2 text-xs font-bold rounded-lg px-3 py-2 bg-red-100 text-red-700">
-                  ⚠️ May already be registered as {existingMatch['First Name']} {existingMatch['Last Name']} ({existingMatch['Student ID']}). Consider rejecting this duplicate instead of approving.
                 </div>
               )}
 
@@ -6408,15 +6354,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   </select>
                 </div>
               </div>
-
-              {existingMatch && (
-                <button
-                  onClick={() => copyAlreadyRegisteredMessage(reg, existingMatch)}
-                  className="mt-4 w-full bg-red-50 text-red-600 font-bold rounded-xl py-3 border-2 border-red-200 flex items-center justify-center gap-2"
-                >
-                  📋 Copy "Already Registered" Message
-                </button>
-              )}
 
               <button
                 onClick={() => copyWelcomeMessage(reg)}
