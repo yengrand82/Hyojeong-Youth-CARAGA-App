@@ -2205,6 +2205,17 @@ const App = () => {
       const delGrat = await supabase.from('gratitude').delete().neq('student_id', '___none___');
       if (delGrat.error) { alert('Could not clear gratitude: ' + delGrat.error.message); setStartingProgram(false); return false; }
 
+      // clear new feature tables (Mystery Box, reflections, encouragements, absence notes).
+      // These are best-effort: a failure here should not abort the whole reset, but we log it.
+      try {
+        await supabase.from('mystery_box_opens').delete().neq('student_id', '___none___');
+        await supabase.from('reflections').delete().neq('student_id', '___none___');
+        await supabase.from('encouragements').delete().neq('student_id', '___none___');
+        await supabase.from('absence_notes').delete().neq('student_id', '___none___');
+      } catch (e) {
+        console.error('Note: some feature tables could not be cleared:', e);
+      }
+
       // 3) Reset every student's grade/score fields to 0 (keep the students themselves).
       const resetRes = await supabase.from('students').update({
         hj_grade: 0, hj_attendance: 0, hj_service_pct: 0, hj_gratitude_pct: 0, hj_shirt_pct: 0, hj_quiz: 0,
