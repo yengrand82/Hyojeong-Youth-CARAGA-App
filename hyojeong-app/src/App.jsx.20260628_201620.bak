@@ -450,17 +450,6 @@ const App = () => {
   const [savingScores, setSavingScores] = useState(false);
   const [quizTeamFilter, setQuizTeamFilter] = useState('ALL');
   const [quizSearch, setQuizSearch] = useState('');
-  const [hideEnteredQuiz, setHideEnteredQuiz] = useState(false);
-  // Enter/Tab in a score box -> focus the next score box.
-  const quizBoxKeyDown = (ev) => {
-    if (ev.key === 'Enter') {
-      ev.preventDefault();
-      const boxes = Array.from(document.querySelectorAll('input[data-qz]'));
-      const idx = boxes.indexOf(ev.target);
-      if (idx > -1 && idx + 1 < boxes.length) boxes[idx + 1].focus();
-      else if (ev.target) ev.target.blur();
-    }
-  };
   // --- Quiz answer-sheet scanner (assisted; admin confirms before saving) ---
   const [quizKey, setQuizKey] = useState('');            // e.g. "B,C,C,D,B,A,B,A,C,B"
   const [quizTargetCol, setQuizTargetCol] = useState('quiz1'); // quiz1|quiz2|quiz3
@@ -6110,12 +6099,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
         const id = (s['Student ID']||'').toLowerCase();
         return name.includes(q) || id.includes(q);
       })
-      .filter(s => {
-        if (!hideEnteredQuiz) return true;
-        const e = scoreEdits[s['Student ID']] || {};
-        const has = v => v !== '' && v != null;
-        return !(has(e.quiz1) || has(e.quiz2) || has(e.quiz3));
-      })
       .sort((a,b) => `${a['Last Name']||''} ${a['First Name']||''}`.localeCompare(`${b['Last Name']||''} ${b['First Name']||''}`));
     const teams = ['ALL', ...((programSettings.teams || []).map(t => t.name).filter(Boolean))];
     return (
@@ -6129,7 +6112,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           </div>
         </div>
         <div className="bg-white/90 rounded-xl p-3 mb-3 text-sm text-gray-600">Enter each quiz out of <b>10</b>. There are 3 quizzes for the whole program. Heart Knowledge = average of quizzes taken.</div>
-        {false /* scanner-hidden: needs backend, re-enable with isAdmin after building it */ && (
+        {isAdmin && (
           <div className="bg-white rounded-xl p-3 mb-3 border-2 border-purple-200">
             <p className="text-xs font-black text-purple-700 uppercase tracking-wide mb-2">📷 Scan Answer Sheets (assisted)</p>
             <label className="block text-xs font-bold text-gray-500 mb-1">Answer key (in order, e.g. B,C,C,D,B,A,B,A,C,B)</label>
@@ -6161,10 +6144,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             <button onClick={() => setQuizSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg px-2">×</button>
           )}
         </div>
-        <label className="flex items-center gap-2 mb-2 text-white text-sm font-bold cursor-pointer select-none">
-          <input type="checkbox" checked={hideEnteredQuiz} onChange={e => setHideEnteredQuiz(e.target.checked)} className="w-4 h-4" />
-          Hide students already entered
-        </label>
         <div className="flex items-center px-3 mb-1">
           <div className="flex-1 text-xs font-bold text-white/90">Student</div>
           <div className="w-12 text-center text-xs font-bold text-white/90">Q1</div>
@@ -6176,9 +6155,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             const sid = s['Student ID'];
             const e = scoreEdits[sid] || {};
             const Box = (field) => (
-              <input type="number" min="0" max="10" data-qz value={e[field] ?? ''}
-                onChange={ev => setScoreField(sid, field, ev.target.value)}
-                onKeyDown={quizBoxKeyDown}
+              <input type="number" min="0" max="10" value={e[field] ?? ''} onChange={ev => setScoreField(sid, field, ev.target.value)}
                 className="w-11 h-10 text-center border-2 border-amber-200 rounded-lg font-bold text-gray-700" />
             );
             return (
@@ -6188,7 +6165,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   <p className="text-xs text-purple-600">{sid}</p>
                 </div>
                 {Box('quiz1')}{Box('quiz2')}{Box('quiz3')}
-                {false /* scanner-hidden */ && (
+                {isAdmin && (
                   <label className={`ml-1 px-2 h-10 flex items-center justify-center rounded-lg text-xs font-bold cursor-pointer ${scanBusy && scanningSid===sid ? 'bg-gray-200 text-gray-400' : 'bg-purple-100 text-purple-700'}`}>
                     {scanBusy && scanningSid===sid ? '…' : '📷 Scan'}
                     <input type="file" accept="image/*" className="hidden" disabled={scanBusy}

@@ -449,24 +449,6 @@ const App = () => {
   const [scoreEdits, setScoreEdits] = useState({}); // { studentId: {quiz1,quiz2,quiz3,service_pct} }
   const [savingScores, setSavingScores] = useState(false);
   const [quizTeamFilter, setQuizTeamFilter] = useState('ALL');
-  const [quizSearch, setQuizSearch] = useState('');
-  const [hideEnteredQuiz, setHideEnteredQuiz] = useState(false);
-  // Enter/Tab in a score box -> focus the next score box.
-  const quizBoxKeyDown = (ev) => {
-    if (ev.key === 'Enter') {
-      ev.preventDefault();
-      const boxes = Array.from(document.querySelectorAll('input[data-qz]'));
-      const idx = boxes.indexOf(ev.target);
-      if (idx > -1 && idx + 1 < boxes.length) boxes[idx + 1].focus();
-      else if (ev.target) ev.target.blur();
-    }
-  };
-  // --- Quiz answer-sheet scanner (assisted; admin confirms before saving) ---
-  const [quizKey, setQuizKey] = useState('');            // e.g. "B,C,C,D,B,A,B,A,C,B"
-  const [quizTargetCol, setQuizTargetCol] = useState('quiz1'); // quiz1|quiz2|quiz3
-  const [scanningSid, setScanningSid] = useState(null);  // student currently scanning
-  const [scanBusy, setScanBusy] = useState(false);
-  const [scanReview, setScanReview] = useState(null);    // { sid, name, read:[], key:[], score10 }
   const [allMarks, setAllMarks] = useState([]); // every student's attendance marks (for admin list)
   const [studentTeamFilter, setStudentTeamFilter] = useState('ALL'); // team filter on All Students page
   const [studentSearch, setStudentSearch] = useState(''); // name/ID search on All Students page
@@ -1672,101 +1654,6 @@ const App = () => {
       };
     });
     setScoreEdits(edits);
-  };
-
-  // Parse the answer key string into an array of upper letters: "B, c ,T" -> ['B','C','T']
-  const parseQuizKey = (s) => (s || '')
-    .split(/[,\s]+/).map(x => x.trim().toUpperCase()).filter(Boolean);
-
-  // Read a student's answer-sheet photo via the vision API, then open review.
-  const scanQuizSheet = async (student, file) => {
-    const key = parseQuizKey(quizKey);
-    if (key.length === 0) { alert('Please enter the answer key first (e.g. B,C,C,D,B).'); return; }
-    if (!file) return;
-    const sid = student['Student ID'];
-    setScanningSid(sid);
-    setScanBusy(true);
-    try {
-      // file -> base64
-      const b64 = await new Promise((res, rej) => {
-        const r = new FileReader();
-        r.onload = () => res(String(r.result).split(',')[1]);
-        r.onerror = () => rej(new Error('read failed'));
-        r.readAsDataURL(file);
-      });
-      const media = file.type && file.type.startsWith('image/') ? file.type : 'image/jpeg';
-      const prompt =
-        'You are reading a handwritten multiple-choice / true-false quiz answer sheet. ' +
-        'There are ' + key.length + ' questions. For each question number from 1 to ' + key.length + ', ' +
-        'identify the single answer letter the student wrote (A, B, C, D, T, or F). ' +
-        'Watch out for misnumbering (a "1" that looks like "7"); use position/order to infer the intended question number. ' +
-        'If an answer is unreadable or missing, use "?". ' +
-        'Respond with ONLY a JSON array of ' + key.length + ' uppercase strings in question order, nothing else. ' +
-        'Example: ["B","C","A","D"]';
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'image', source: { type: 'base64', media_type: media, data: b64 } },
-              { type: 'text', text: prompt }
-            ]
-          }]
-        })
-      });
-      const data = await resp.json();
-      const textOut = (data.content || []).filter(c => c.type === 'text').map(c => c.text).join('').trim();
-      let read = [];
-      try {
-        read = JSON.parse(textOut.replace(/```json|```/g, '').trim());
-      } catch (e) {
-        // fallback: pull letters out of the text
-        read = (textOut.match(/[A-DTF?]/gi) || []).map(x => x.toUpperCase());
-      }
-      // normalize to key length
-      read = key.map((_, i) => (read[i] || '?').toString().toUpperCase().slice(0, 1));
-      const score10 = scoreFromReadKey(read, key);
-      setScanReview({
-        sid,
-        name: `${student['First Name'] || ''} ${student['Last Name'] || ''}`.trim(),
-        read, key, score10
-      });
-    } catch (err) {
-      console.error('Scan error:', err);
-      alert('Could not read the sheet. Please check your connection and try again, or enter the score manually.');
-    } finally {
-      setScanBusy(false);
-      setScanningSid(null);
-    }
-  };
-
-  // Count correct, return a score out of 10 (rounded to 1 decimal) to match the quiz boxes.
-  const scoreFromReadKey = (read, key) => {
-    if (!key.length) return 0;
-    let correct = 0;
-    for (let i = 0; i < key.length; i++) if ((read[i] || '') === key[i]) correct++;
-    return Math.round((correct / key.length) * 10 * 10) / 10;
-  };
-
-  // In the review table, let admin fix a misread answer.
-  const fixReviewAnswer = (i, val) => {
-    setScanReview(prev => {
-      if (!prev) return prev;
-      const read = [...prev.read];
-      read[i] = (val || '?').toUpperCase().slice(0, 1);
-      return { ...prev, read, score10: scoreFromReadKey(read, prev.key) };
-    });
-  };
-
-  // Accept the reviewed score into the chosen quiz column for that student.
-  const acceptScanScore = () => {
-    if (!scanReview) return;
-    setScoreField(scanReview.sid, quizTargetCol, scanReview.score10);
-    setScanReview(null);
   };
 
   const setScoreField = (studentId, field, value) => {
@@ -4800,29 +4687,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           </button>
         </div>
 
-        {/* SCORES (admin-dash-scores-section) */}
-        <p className="text-[11px] font-black tracking-wider uppercase text-gray-500 mb-2 ml-1">Scores</p>
-        <div className="grid grid-cols-2 gap-2.5 mb-5">
-          <button onClick={() => {
-              const roster = (allStudents || []).filter(s => (s['Status']||'active')==='active' && s['Student ID'] && /^HJ\d+$/i.test(s['Student ID']));
-              if (typeof loadScoreEdits === 'function') loadScoreEdits(roster);
-              setQuizTeamFilter('ALL');
-              setCurrentPage('admin-quizzes');
-            }} className="bg-white rounded-2xl p-3.5 border border-gray-200 text-left flex flex-col gap-2 min-h-[78px] active:scale-95 transition">
-            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{background:'#ede9fe'}}><span style={{fontSize:16}}>💡</span></div>
-            <span className="text-[13px] font-bold leading-tight" style={{color:'#1b2a4a'}}>Quiz Scores</span>
-          </button>
-          <button onClick={() => {
-              const roster = (allStudents || []).filter(s => (s['Status']||'active')==='active' && s['Student ID'] && /^HJ\d+$/i.test(s['Student ID']));
-              if (typeof loadScoreEdits === 'function') loadScoreEdits(roster);
-              setQuizTeamFilter('ALL');
-              setCurrentPage('admin-service');
-            }} className="bg-white rounded-2xl p-3.5 border border-gray-200 text-left flex flex-col gap-2 min-h-[78px] active:scale-95 transition">
-            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{background:'#dbeafe'}}><span style={{fontSize:16}}>💙</span></div>
-            <span className="text-[13px] font-bold leading-tight" style={{color:'#1b2a4a'}}>Service</span>
-          </button>
-        </div>
-
         {/* ENGAGEMENT */}
         <p className="text-[11px] font-black tracking-wider uppercase text-gray-500 mb-2 ml-1">Engagement</p>
         <div className="grid grid-cols-2 gap-2.5 mb-5">
@@ -6103,19 +5967,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
     const roster = [...allStudents]
       .filter(s => (s['Status']||'active')==='active' && s['Student ID'] && s['Student ID'].match(/^HJ\d+$/i))
       .filter(s => !teamFilter || teamFilter === 'ALL' || (s['TEAM']||'').toUpperCase() === teamFilter.toUpperCase())
-      .filter(s => {
-        const q = (quizSearch || '').trim().toLowerCase();
-        if (!q) return true;
-        const name = `${s['First Name']||''} ${s['Last Name']||''}`.toLowerCase();
-        const id = (s['Student ID']||'').toLowerCase();
-        return name.includes(q) || id.includes(q);
-      })
-      .filter(s => {
-        if (!hideEnteredQuiz) return true;
-        const e = scoreEdits[s['Student ID']] || {};
-        const has = v => v !== '' && v != null;
-        return !(has(e.quiz1) || has(e.quiz2) || has(e.quiz3));
-      })
       .sort((a,b) => `${a['Last Name']||''} ${a['First Name']||''}`.localeCompare(`${b['Last Name']||''} ${b['First Name']||''}`));
     const teams = ['ALL', ...((programSettings.teams || []).map(t => t.name).filter(Boolean))];
     return (
@@ -6129,24 +5980,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           </div>
         </div>
         <div className="bg-white/90 rounded-xl p-3 mb-3 text-sm text-gray-600">Enter each quiz out of <b>10</b>. There are 3 quizzes for the whole program. Heart Knowledge = average of quizzes taken.</div>
-        {false /* scanner-hidden: needs backend, re-enable with isAdmin after building it */ && (
-          <div className="bg-white rounded-xl p-3 mb-3 border-2 border-purple-200">
-            <p className="text-xs font-black text-purple-700 uppercase tracking-wide mb-2">📷 Scan Answer Sheets (assisted)</p>
-            <label className="block text-xs font-bold text-gray-500 mb-1">Answer key (in order, e.g. B,C,C,D,B,A,B,A,C,B)</label>
-            <input value={quizKey} onChange={e => setQuizKey(e.target.value)} placeholder="B,C,C,D,B,A,B,A,C,B"
-              className="w-full border-2 border-purple-200 rounded-lg px-3 py-2 text-sm font-mono mb-2" />
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-gray-500">Fill into:</span>
-              {['quiz1','quiz2','quiz3'].map((q, i) => (
-                <button key={q} onClick={() => setQuizTargetCol(q)}
-                  className={`px-3 py-1 rounded-full text-xs font-bold ${quizTargetCol===q ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                  Quiz {i+1}
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-gray-400 mt-2">Tap “Scan” on a student, upload their answer-sheet photo, then review &amp; confirm the score before it fills in. Always double-check — handwriting reading isn’t perfect.</p>
-          </div>
-        )}
         {!leadTeam && (
           <div className="flex gap-2 flex-wrap mb-3">
             {teams.map(t => (
@@ -6154,17 +5987,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             ))}
           </div>
         )}
-        <div className="relative mb-2">
-          <input value={quizSearch} onChange={e => setQuizSearch(e.target.value)} placeholder="🔍 Search name or ID…"
-            className="w-full rounded-xl px-3 py-2.5 text-sm border-2 border-white/40 bg-white/90 font-medium" />
-          {quizSearch && (
-            <button onClick={() => setQuizSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg px-2">×</button>
-          )}
-        </div>
-        <label className="flex items-center gap-2 mb-2 text-white text-sm font-bold cursor-pointer select-none">
-          <input type="checkbox" checked={hideEnteredQuiz} onChange={e => setHideEnteredQuiz(e.target.checked)} className="w-4 h-4" />
-          Hide students already entered
-        </label>
         <div className="flex items-center px-3 mb-1">
           <div className="flex-1 text-xs font-bold text-white/90">Student</div>
           <div className="w-12 text-center text-xs font-bold text-white/90">Q1</div>
@@ -6176,9 +5998,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             const sid = s['Student ID'];
             const e = scoreEdits[sid] || {};
             const Box = (field) => (
-              <input type="number" min="0" max="10" data-qz value={e[field] ?? ''}
-                onChange={ev => setScoreField(sid, field, ev.target.value)}
-                onKeyDown={quizBoxKeyDown}
+              <input type="number" min="0" max="10" value={e[field] ?? ''} onChange={ev => setScoreField(sid, field, ev.target.value)}
                 className="w-11 h-10 text-center border-2 border-amber-200 rounded-lg font-bold text-gray-700" />
             );
             return (
@@ -6188,52 +6008,12 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   <p className="text-xs text-purple-600">{sid}</p>
                 </div>
                 {Box('quiz1')}{Box('quiz2')}{Box('quiz3')}
-                {false /* scanner-hidden */ && (
-                  <label className={`ml-1 px-2 h-10 flex items-center justify-center rounded-lg text-xs font-bold cursor-pointer ${scanBusy && scanningSid===sid ? 'bg-gray-200 text-gray-400' : 'bg-purple-100 text-purple-700'}`}>
-                    {scanBusy && scanningSid===sid ? '…' : '📷 Scan'}
-                    <input type="file" accept="image/*" className="hidden" disabled={scanBusy}
-                      onChange={ev => { const f = ev.target.files && ev.target.files[0]; ev.target.value=''; if (f) scanQuizSheet(s, f); }} />
-                  </label>
-                )}
               </div>
             );
           })}
           {roster.length === 0 && <div className="bg-white rounded-xl p-6 text-center text-gray-500">No students in this team.</div>}
         </div>
       </div>
-      {scanReview && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setScanReview(null)}>
-          <div className="bg-white rounded-2xl p-4 w-full max-w-sm max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <p className="font-black text-gray-800 text-lg">Review scan</p>
-            <p className="text-sm text-purple-600 font-bold mb-1">{scanReview.name}</p>
-            <p className="text-xs text-gray-500 mb-3">Check each answer the app read. Tap a letter to fix it. Score fills into <b>Quiz {(['quiz1','quiz2','quiz3'].indexOf(quizTargetCol)+1)}</b>.</p>
-            <div className="space-y-1 mb-3">
-              {scanReview.read.map((r, i) => {
-                const ok = r === scanReview.key[i];
-                return (
-                  <div key={i} className="flex items-center gap-2 text-sm">
-                    <span className="w-7 text-gray-400 font-bold">{i+1}.</span>
-                    <input value={r} onChange={e => fixReviewAnswer(i, e.target.value)}
-                      className={`w-10 h-9 text-center border-2 rounded font-bold ${ok ? 'border-emerald-300 text-emerald-700 bg-emerald-50' : 'border-red-300 text-red-700 bg-red-50'}`} />
-                    <span className="text-xs text-gray-400">key: <b className="text-gray-600">{scanReview.key[i]}</b></span>
-                    <span className={`text-xs font-bold ${ok ? 'text-emerald-600' : 'text-red-500'}`}>{ok ? '✓' : '✗'}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="bg-purple-50 rounded-xl p-3 text-center mb-3">
-              <span className="text-2xl font-black text-purple-700">{scanReview.score10}</span>
-              <span className="text-sm text-gray-500"> / 10</span>
-              <span className="text-xs text-gray-400 block">{scanReview.read.filter((r,i)=>r===scanReview.key[i]).length} of {scanReview.key.length} correct</span>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={acceptScanScore} className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-black rounded-xl py-3">Use this score</button>
-              <button onClick={() => setScanReview(null)} className="px-4 bg-gray-100 text-gray-500 font-bold rounded-xl py-3">Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/20 to-transparent">
         <button onClick={saveQuizScores} disabled={savingScores} className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-black rounded-2xl py-4 shadow-xl text-lg">
           {savingScores ? 'Saving...' : '💾 Save Quiz Scores'}

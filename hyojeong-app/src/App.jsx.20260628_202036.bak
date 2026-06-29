@@ -6129,7 +6129,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           </div>
         </div>
         <div className="bg-white/90 rounded-xl p-3 mb-3 text-sm text-gray-600">Enter each quiz out of <b>10</b>. There are 3 quizzes for the whole program. Heart Knowledge = average of quizzes taken.</div>
-        {false /* scanner-hidden: needs backend, re-enable with isAdmin after building it */ && (
+        {isAdmin && (
           <div className="bg-white rounded-xl p-3 mb-3 border-2 border-purple-200">
             <p className="text-xs font-black text-purple-700 uppercase tracking-wide mb-2">📷 Scan Answer Sheets (assisted)</p>
             <label className="block text-xs font-bold text-gray-500 mb-1">Answer key (in order, e.g. B,C,C,D,B,A,B,A,C,B)</label>
@@ -6188,7 +6188,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   <p className="text-xs text-purple-600">{sid}</p>
                 </div>
                 {Box('quiz1')}{Box('quiz2')}{Box('quiz3')}
-                {false /* scanner-hidden */ && (
+                {isAdmin && (
                   <label className={`ml-1 px-2 h-10 flex items-center justify-center rounded-lg text-xs font-bold cursor-pointer ${scanBusy && scanningSid===sid ? 'bg-gray-200 text-gray-400' : 'bg-purple-100 text-purple-700'}`}>
                     {scanBusy && scanningSid===sid ? '…' : '📷 Scan'}
                     <input type="file" accept="image/*" className="hidden" disabled={scanBusy}
