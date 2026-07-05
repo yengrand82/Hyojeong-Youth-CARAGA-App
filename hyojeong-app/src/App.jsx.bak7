@@ -1563,8 +1563,8 @@ const App = () => {
         presentRows = dbMarks.map(m => {
           const s = byId[(m.student_id || '').toUpperCase()] || {};
           const nm = `${s['First Name'] || ''} ${s['Last Name'] || ''}`.trim();
-          return { id: m.student_id, name: nm || '(unknown)', last: (s['Last Name'] || '').toLowerCase(), first: (s['First Name'] || '').toLowerCase(), shirt: !!m.hj_shirt };
-        }).sort((a, b) => a.last.localeCompare(b.last) || a.first.localeCompare(b.first));
+          return { id: m.student_id, name: nm || '(unknown)', shirt: !!m.hj_shirt };
+        }).sort((a, b) => a.name.localeCompare(b.name));
       }
     } catch (e) { console.error('Present fetch for report failed:', e); }
     const wantAge = !!reportOpts.age, wantDob = !!reportOpts.dob, wantAddr = !!reportOpts.address,

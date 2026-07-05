@@ -511,7 +511,6 @@ const App = () => {
   const [attendanceTeamFilter, setAttendanceTeamFilter] = useState('ALL');
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [selectedStudentDetail, setSelectedStudentDetail] = useState(null);
-  const [studentInfoEdit, setStudentInfoEdit] = useState(null); // admin edit of name/nickname/dob/address
   const [selectedStudentProgress, setSelectedStudentProgress] = useState(null);
   const [showAddStudentForm, setShowAddStudentForm] = useState(false);
   const [newStudent, setNewStudent] = useState({
@@ -709,7 +708,6 @@ const App = () => {
         'HJ Service Pct': r.hj_service_pct,
         'HJ Shirt Pct': r.hj_shirt_pct,
         'Status': r.status || 'active',
-        'Nickname': r.nickname || '',
         'Contact': r.contact_number,
         'FB': r.fb_account,
         'Motto': r.motto,
@@ -1175,82 +1173,6 @@ const App = () => {
     }
   };
 
-  // Save core student info (admin edit): name, nickname, DOB (-> age/category), address.
-  const handleSaveStudentInfo = async (studId, edit) => {
-    try {
-      const first = (edit.firstName || '').trim();
-      const last = (edit.lastName || '').trim();
-      if (!first || !last) { alert('First and last name are required.'); return; }
-      const dob = (edit.dateOfBirth || '').trim() || null;
-      let age = null, category = null;
-      if (dob) {
-        const m = String(dob).match(/^(\d{4})-(\d{2})-(\d{2})/);
-        if (m) {
-          const now = new Date();
-          let a = now.getFullYear() - (+m[1]);
-          const had = (now.getMonth() + 1 > +m[2]) || (now.getMonth() + 1 === +m[2] && now.getDate() >= +m[3]);
-          if (!had) a--;
-          if (a >= 0 && a <= 120) { age = a; category = a < 13 ? 'Kids' : 'Teens'; }
-        }
-      }
-      const payload = {
-        first_name: first,
-        last_name: last,
-        nickname: (edit.nickname || '').trim() || null,
-        date_of_birth: dob,
-        address: (edit.address || '').trim() || null
-      };
-      if (age != null) { payload.age = age; payload.category = category; }
-      const { data, error } = await supabase.from('students')
-        .update(payload).eq('student_id', studId).select('student_id');
-      if (error) { alert('Failed to save info: ' + error.message); return; }
-      if (!data || data.length === 0) { alert('Save blocked by permissions (0 rows updated). Check the students UPDATE policy in Supabase.'); return; }
-      const patch = {
-        'First Name': first, 'Last Name': last,
-        'Nickname': (edit.nickname || '').trim(),
-        'Date of Birth': dob, 'Address': (edit.address || '').trim(),
-        ...(age != null ? { 'Age': age, 'Category': category } : {})
-      };
-      setAllStudents(prev => prev.map(s => s['Student ID'] === studId ? { ...s, ...patch } : s));
-      setSelectedStudentDetail(prev => prev && prev['Student ID'] === studId ? { ...prev, ...patch } : prev);
-      setStudentInfoEdit(null);
-      alert('✅ Student info updated!');
-    } catch (err) {
-      console.error('Save student info error:', err);
-      alert('Failed to save info.');
-    }
-  };
-
-  // Save quiz (flexible array, respects quizCount) + service from the detail card.
-  const handleSaveStudentScoresFlex = async (studId, quizVals, svc) => {
-    try {
-      const quizzes = (quizVals || []).map(v => v === '' || v == null ? null : Number(v)).filter(v => v != null && !isNaN(v));
-      const avgPct = quizzes.length ? Math.round((quizzes.reduce((a, b) => a + b, 0) / quizzes.length) / 10 * 100 * 100) / 100 : 0;
-      const svcPct = svc === '' || svc == null ? null : Math.min(100, Number(svc));
-      const { error } = await supabase.from('students').update({
-        quiz_scores: quizzes,
-        quiz1: quizzes[0] ?? null, quiz2: quizzes[1] ?? null, quiz3: quizzes[2] ?? null,
-        quiz_score: avgPct, hj_quiz: avgPct,
-        service_scores: svcPct == null ? [] : [svcPct],
-        service_pct: svcPct,
-        hj_service_pct: svcPct == null ? 0 : svcPct,
-        service_week_score: svcPct == null ? 0 : Math.round(svcPct / 100 * 50 * 100) / 100
-      }).eq('student_id', studId);
-      if (error) { alert('Failed to save scores: ' + error.message); return; }
-      const patch = {
-        'QuizScores': quizzes, 'ServiceScores': svcPct == null ? [] : [svcPct],
-        'Quiz1': quizzes[0] ?? null, 'Quiz2': quizzes[1] ?? null, 'Quiz3': quizzes[2] ?? null,
-        'ServicePct': svcPct, 'HJ Quiz': avgPct, 'HJ Service Pct': svcPct == null ? 0 : svcPct
-      };
-      setAllStudents(prev => prev.map(s => s['Student ID'] === studId ? { ...s, ...patch } : s));
-      setSelectedStudentDetail(prev => prev && prev['Student ID'] === studId ? { ...prev, ...patch } : prev);
-      alert('✅ Scores saved!');
-    } catch (err) {
-      console.error('Save student scores error:', err);
-      alert('Failed to save scores.');
-    }
-  };
-
   // Toggle a student's active/inactive status from the admin detail view.
   const handleToggleStatus = async (studId, newStatus) => {
     try {
@@ -1541,7 +1463,7 @@ const App = () => {
   };
 
   // Build + open a printable per-session attendance report (present students only).
-  const printSessionAttendance = async (sessionNumber, presentList, meetingDate, reportOpts = {}) => {
+  const printSessionAttendance = (sessionNumber, presentList, meetingDate) => {
     // presentList is [{ id, name }] from the Zoom screen. Enrich with team from allStudents.
     const byId = {};
     (allStudents || []).forEach(s => { byId[(s['Student ID'] || '').toUpperCase()] = s; });
@@ -1550,120 +1472,15 @@ const App = () => {
         return new Date(meetingDate + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
       } catch (e) { return meetingDate || ''; }
     })();
-    // Pull the present list from the database (includes inline/manual marks),
-    // falling back to the parse-time list if the query fails.
-    let presentRows = (presentList || []).map(p => ({ id: p.id, name: p.name, shirt: !!p.shirt }));
-    try {
-      const { data: dbMarks, error: dbErr } = await supabase
-        .from('attendance_marks')
-        .select('student_id, hj_shirt')
-        .eq('session_number', sessionNumber)
-        .eq('attendance', true);
-      if (!dbErr && dbMarks && dbMarks.length > 0) {
-        presentRows = dbMarks.map(m => {
-          const s = byId[(m.student_id || '').toUpperCase()] || {};
-          const nm = `${s['First Name'] || ''} ${s['Last Name'] || ''}`.trim();
-          return { id: m.student_id, name: nm || '(unknown)', last: (s['Last Name'] || '').toLowerCase(), first: (s['First Name'] || '').toLowerCase(), shirt: !!m.hj_shirt };
-        }).sort((a, b) => a.last.localeCompare(b.last) || a.first.localeCompare(b.first));
-      }
-    } catch (e) { console.error('Present fetch for report failed:', e); }
-    const wantAge = !!reportOpts.age, wantDob = !!reportOpts.dob, wantAddr = !!reportOpts.address,
-          wantContact = !!reportOpts.contact, wantGoals = !!reportOpts.goals,
-          wantAff = !!reportOpts.affirmation, wantGrat = !!reportOpts.gratitude;
-    const esc = (v) => String(v == null ? '' : v).replace(/</g, '&lt;');
-    let extraInfo = {};
-    if (wantAge || wantDob || wantAddr || wantContact || wantGoals || wantAff) {
-      try {
-        const ids = (presentRows || []).map(p => (p.id || '').toUpperCase());
-        const { data: exRows } = await supabase
-          .from('students')
-          .select('student_id, age, date_of_birth, address, contact_number, affirmation, goal1, goal2, goal3')
-          .in('student_id', ids);
-        (exRows || []).forEach(r => { extraInfo[(r.student_id || '').toUpperCase()] = r; });
-      } catch (e) { console.error('Extra info fetch failed:', e); }
-    }
-    let gratById = {};
-    if (wantGrat) {
-      try {
-        const { data: gRows } = await supabase
-          .from('gratitude')
-          .select('student_id, entry_text')
-          .eq('session_number', sessionNumber);
-        (gRows || []).forEach(r => { gratById[(r.student_id || '').toUpperCase()] = r.entry_text || ''; });
-      } catch (e) { console.error('Gratitude fetch failed:', e); }
-    }
-    const th = (t) => `<th style="padding:8px;border-bottom:2px solid #e5e7eb">${t}</th>`;
-    const extraHeads =
-      (wantAge ? th('Age') : '') + (wantDob ? th('Date of birth') : '') +
-      (wantAddr ? th('Address') : '') + (wantContact ? th('Contact') : '') +
-      (wantGoals ? th('Goals') : '') + (wantAff ? th('Affirmation') : '') +
-      (wantGrat ? th('Gratitude (this session)') : '');
-    const rows = (presentRows || []).map((p, i) => {
+    const rows = (presentList || []).map((p, i) => {
       const s = byId[(p.id || '').toUpperCase()] || {};
-      const ex = extraInfo[(p.id || '').toUpperCase()] || {};
-      const td = (t) => `<td style="padding:6px;border-bottom:1px solid #eee">${t}</td>`;
-      const goalsTxt = [ex.goal1, ex.goal2, ex.goal3].filter(Boolean).map(esc).join('; ');
-      const extraCells =
-        (wantAge ? td(esc(ex.age)) : '') + (wantDob ? td(esc(ex.date_of_birth)) : '') +
-        (wantAddr ? td(esc(ex.address)) : '') + (wantContact ? td(esc(ex.contact_number)) : '') +
-        (wantGoals ? td(goalsTxt) : '') + (wantAff ? td(esc(ex.affirmation)) : '') +
-        (wantGrat ? td(esc(gratById[(p.id || '').toUpperCase()])) : '');
       return `<tr>
-        ${td(i + 1)}
-        ${td(esc(p.name))}
-        ${td(esc(p.id))}
-        ${td(esc(s['TEAM']))}
-        ${extraCells}
+        <td style="padding:6px;border-bottom:1px solid #eee">${i + 1}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee">${p.name || ''}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee">${p.id || ''}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee">${s['TEAM'] || ''}</td>
       </tr>`;
     }).join('');
-    // Guests for this session, straight from the guests table (reflects any admin cleanup).
-    let guestsHtml = '';
-    try {
-      const { data: guestRows, error: gErr } = await supabase
-        .from('guests')
-        .select('display_name')
-        .eq('session_number', sessionNumber)
-        .order('display_name');
-      const cleanGuestName = (display) => {
-        let t = String(display || '').replace(/^\s*name\s*:\s*/i, '');
-        t = t.split(/\(\s*[A-Z][a-z]{2}\s+\d/)[0];
-        t = t.split(/\b(?:age|from)\b\s*:?/i)[0];
-        t = t.split(/\bpurok\b/i)[0];
-        t = t.replace(/\bp\s*-\s*\d+.*/i, '');
-        t = t.replace(/[-\u2013]\s*\d+\s*$/, '');
-        t = t.replace(/[|,;:.]+\s*$/, '').trim();
-        const letters = (t.match(/[a-z\u00e0-\u00ff\u00f1]/gi) || []).length;
-        return letters >= 3 ? t : null;
-      };
-      const seen = new Set();
-      const cleanedGuests = (guestRows || [])
-        .map((g) => cleanGuestName(g.display_name))
-        .filter((nm) => {
-          if (!nm) return false;
-          const k = nm.toLowerCase();
-          if (seen.has(k)) return false;
-          seen.add(k);
-          return true;
-        });
-      if (!gErr && cleanedGuests.length > 0) {
-        const gRows = cleanedGuests.map((nm, i) => `<tr>
-          <td style="padding:6px;border-bottom:1px solid #eee">${i + 1}</td>
-          <td style="padding:6px;border-bottom:1px solid #eee">${nm.replace(/</g, '&lt;')}</td>
-        </tr>`).join('');
-        guestsHtml = `
-        <h2 style="margin:28px 0 4px;font-size:17px;color:#1b2a4a">Guests</h2>
-        <p style="font-size:14px;margin:4px 0 12px"><strong>${cleanedGuests.length}</strong> guest(s) joined this session</p>
-        <table style="width:100%;border-collapse:collapse;font-size:14px">
-          <thead>
-            <tr style="background:#f3f4f6;text-align:left">
-              <th style="padding:8px;border-bottom:2px solid #e5e7eb">#</th>
-              <th style="padding:8px;border-bottom:2px solid #e5e7eb">Name</th>
-            </tr>
-          </thead>
-          <tbody>${gRows}</tbody>
-        </table>`;
-      }
-    } catch (e) { console.error('Guest fetch for report failed:', e); }
     const html = `<html><head><title>Session ${sessionNumber} Attendance</title></head>
       <body style="font-family:system-ui,sans-serif;padding:24px;color:#1F2937">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
@@ -1673,7 +1490,7 @@ const App = () => {
             <div style="font-size:14px;color:#6B7280">Session ${sessionNumber} Attendance &middot; ${dateLabel}</div>
           </div>
         </div>
-        <p style="font-size:14px;margin:8px 0 16px"><strong>${(presentRows || []).length}</strong> students present</p>
+        <p style="font-size:14px;margin:8px 0 16px"><strong>${(presentList || []).length}</strong> students present</p>
         <table style="width:100%;border-collapse:collapse;font-size:14px">
           <thead>
             <tr style="background:#f3f4f6;text-align:left">
@@ -1681,12 +1498,10 @@ const App = () => {
               <th style="padding:8px;border-bottom:2px solid #e5e7eb">Name</th>
               <th style="padding:8px;border-bottom:2px solid #e5e7eb">Student ID</th>
               <th style="padding:8px;border-bottom:2px solid #e5e7eb">Team</th>
-              ${extraHeads}
             </tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
-        ${guestsHtml}
         <p style="margin-top:24px;font-size:12px;color:#9CA3AF">Generated ${new Date().toLocaleString()}</p>
       </body></html>`;
     openPrintable(html, `Session ${sessionNumber} Attendance`);
@@ -2586,7 +2401,6 @@ const App = () => {
           'HJ Service Pct': r.hj_service_pct,
         'HJ Shirt Pct': r.hj_shirt_pct,
         'Status': r.status || 'active',
-        'Nickname': r.nickname || '',
         'Contact': r.contact_number,
         'FB': r.fb_account,
         'Motto': r.motto,
@@ -4928,7 +4742,6 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
           student_id: s['Student ID'],
           first_name: s['First Name'],
           last_name: s['Last Name'],
-          nickname: s['Nickname'] || '',
         }))}
         onClose={() => setCurrentPage('admin-dashboard')}
         onSaved={recomputeAllGrades}
@@ -5222,72 +5035,7 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
             <div className="p-6 space-y-4">
               {/* Basic Profile Info */}
               <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 border-2 border-indigo-200">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-black text-gray-800">👤 Basic Information</h3>
-                  {(!studentInfoEdit || studentInfoEdit._sid !== selectedStudentDetail['Student ID']) && (
-                    <button
-                      onClick={() => setStudentInfoEdit({
-                        _sid: selectedStudentDetail['Student ID'],
-                        firstName: selectedStudentDetail['First Name'] || '',
-                        lastName: selectedStudentDetail['Last Name'] || '',
-                        nickname: selectedStudentDetail['Nickname'] || '',
-                        dateOfBirth: selectedStudentDetail['Date of Birth'] || '',
-                        address: selectedStudentDetail['Address'] || ''
-                      })}
-                      className="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg font-bold text-xs">
-                      ✏️ Edit Info
-                    </button>
-                  )}
-                </div>
-                {studentInfoEdit && studentInfoEdit._sid === selectedStudentDetail['Student ID'] && (
-                  <div className="bg-white rounded-lg p-3 mb-3 border-2 border-indigo-300 space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-xs text-indigo-600 font-bold block mb-1">First name</label>
-                        <input value={studentInfoEdit.firstName}
-                          onChange={e => setStudentInfoEdit(p => ({ ...p, firstName: e.target.value }))}
-                          className="w-full p-2 border-2 border-indigo-200 rounded-lg font-bold text-gray-700 text-sm" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-indigo-600 font-bold block mb-1">Last name</label>
-                        <input value={studentInfoEdit.lastName}
-                          onChange={e => setStudentInfoEdit(p => ({ ...p, lastName: e.target.value }))}
-                          className="w-full p-2 border-2 border-indigo-200 rounded-lg font-bold text-gray-700 text-sm" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-xs text-indigo-600 font-bold block mb-1">Nickname (for Zoom chat)</label>
-                        <input value={studentInfoEdit.nickname} placeholder="e.g. KP, Shin"
-                          onChange={e => setStudentInfoEdit(p => ({ ...p, nickname: e.target.value }))}
-                          className="w-full p-2 border-2 border-indigo-200 rounded-lg font-bold text-gray-700 text-sm" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-indigo-600 font-bold block mb-1">Date of birth</label>
-                        <input type="date" value={studentInfoEdit.dateOfBirth}
-                          onChange={e => setStudentInfoEdit(p => ({ ...p, dateOfBirth: e.target.value }))}
-                          className="w-full p-2 border-2 border-indigo-200 rounded-lg font-bold text-gray-700 text-sm" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-indigo-600 font-bold block mb-1">Address</label>
-                      <input value={studentInfoEdit.address}
-                        onChange={e => setStudentInfoEdit(p => ({ ...p, address: e.target.value }))}
-                        className="w-full p-2 border-2 border-indigo-200 rounded-lg font-bold text-gray-700 text-sm" />
-                    </div>
-                    <p className="text-xs text-gray-400">Age and category recompute from the date of birth. Student ID cannot be changed.</p>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleSaveStudentInfo(selectedStudentDetail['Student ID'], studentInfoEdit)}
-                        className="flex-1 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-bold text-sm">
-                        💾 Save Info
-                      </button>
-                      <button onClick={() => setStudentInfoEdit(null)}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold text-sm">
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <h3 className="text-lg font-black text-gray-800 mb-3">👤 Basic Information</h3>
                 <div className="grid grid-cols-2 gap-3">
                   {selectedStudentDetail['Date of Birth'] && (
                     <div className="bg-white rounded-lg p-3">
@@ -5349,13 +5097,14 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                   </div>
                   <div className="col-span-2 bg-white rounded-lg p-3">
                     <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide mb-2">💡 Quiz Scores (each /10)</p>
-                    <div className="grid grid-cols-4 gap-2 mb-3">
-                      {Array.from({ length: quizCount }, (_, i) => (
-                        <div key={`${selectedStudentDetail['Student ID']}-q${i}`}>
-                          <label className="text-xs text-gray-500 block text-center mb-1">Q{i + 1}</label>
+                    <div className="flex gap-2 mb-3">
+                      {[['Quiz1','Q1'],['Quiz2','Q2'],['Quiz3','Q3']].map(([field,label]) => (
+                        <div key={field} className="flex-1">
+                          <label className="text-xs text-gray-500 block text-center mb-1">{label}</label>
                           <input type="number" min="0" max="10"
-                            defaultValue={getQuizArray(selectedStudentDetail)[i] ?? ''}
-                            id={`score-quiz-${i}`}
+                            key={`${selectedStudentDetail['Student ID']}-${field}`}
+                            defaultValue={selectedStudentDetail[field] ?? ''}
+                            id={`score-${field}`}
                             className="w-full h-10 text-center border-2 border-amber-200 rounded-lg font-bold text-gray-700" />
                         </div>
                       ))}
@@ -5368,9 +5117,11 @@ h1{color:#764ba2;font-size:48px;margin-bottom:20px}h2{color:#667eea;font-size:32
                       placeholder="0"
                       className="w-full h-10 text-center border-2 border-blue-200 rounded-lg font-bold text-gray-700 mb-3" />
                     <button
-                      onClick={() => handleSaveStudentScoresFlex(
+                      onClick={() => handleSaveStudentScores(
                         selectedStudentDetail['Student ID'],
-                        Array.from({ length: quizCount }, (_, i) => document.getElementById(`score-quiz-${i}`).value),
+                        document.getElementById('score-Quiz1').value,
+                        document.getElementById('score-Quiz2').value,
+                        document.getElementById('score-Quiz3').value,
                         document.getElementById('score-ServicePct').value
                       )}
                       className="w-full py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-bold text-sm">

@@ -129,7 +129,7 @@ const NOISE_WORDS = new Set([
   "street","st","zone","sitio","manay","yrs","yr",
 ]);
 // Device-model fragments to strip out.
-const DEVICE_WORDS = /\b(infinix|tecno|samsung|sm-?[a-z0-9]+|x\d{3,}|kl\d|redmi|xiaomi|oppo|vivo|realme|huawei|iphone|itel|cherry|nokia)\b/ig;
+const DEVICE_WORDS = /(infinix|tecno|samsung|sm-?[a-z0-9]+|x\d{3,}|kl\d|redmi|xiaomi|oppo|vivo|realme|huawei|iphone|itel|cherry|nokia)/ig;
 
 // From a raw line, pull the tokens that look like parts of a person's name,
 // stripping age ("age: 13", "-16"), parentheticals ("(GK)"), devices, and noise words.
@@ -225,10 +225,6 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
-  const [extraMarked, setExtraMarked] = useState({}); // rowKey -> { id, name }
-  const [markingKey, setMarkingKey] = useState(null);
-  const [showHistory, setShowHistory] = useState(false);
-  const [reportOpts, setReportOpts] = useState({});
   const fileRef = useRef(null);
 
   // Build a fast lookup of valid IDs -> student record
@@ -380,52 +376,6 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
     });
   }
 
-  function candidatesFor(line) {
-    const toks = new Set(nameTokensLower(line));
-    if (toks.size === 0) return [];
-    const hits = [];
-    for (const { s, first, last } of tokenIndex) {
-      if (first.some((t) => toks.has(t)) && last.some((t) => toks.has(t))) hits.push(s);
-    }
-    if (hits.length === 0) {
-      for (const { s, first, last } of tokenIndex) {
-        if (first.some((t) => toks.has(t)) || last.some((t) => toks.has(t))) hits.push(s);
-        if (hits.length >= 6) break;
-      }
-    }
-    return hits.slice(0, 6);
-  }
-
-  async function markPresentInline(rowKey, stu) {
-    setError("");
-    const sn = parseInt(sessionNumber, 10);
-    if (Number.isNaN(sn) || sn < 1) {
-      setError("Enter a valid session number (1 or higher) before marking.");
-      return;
-    }
-    setMarkingKey(rowKey);
-    try {
-      const { error: mErr } = await supabase
-        .from("attendance_marks")
-        .upsert(
-          [{ student_id: stu.student_id.toUpperCase(), session_number: sn, attendance: true, marked_by: "zoom-manual" }],
-          { onConflict: "student_id,session_number" }
-        );
-      if (mErr) throw mErr;
-      if (typeof onSaved === "function") {
-        try { await onSaved(); } catch (e) { console.error("Grade recompute failed:", e); }
-      }
-      setExtraMarked((prev) => ({
-        ...prev,
-        [rowKey]: { id: stu.student_id.toUpperCase(), name: `${stu.first_name || ""} ${stu.last_name || ""}`.trim() },
-      }));
-    } catch (err) {
-      setError(err.message || "Failed to mark present.");
-    } finally {
-      setMarkingKey(null);
-    }
-  }
-
   async function handleConfirm() {
     setError("");
     const sn = parseInt(sessionNumber, 10);
@@ -476,9 +426,8 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
 
       // 2) Save guests (if any). Ignore duplicates via upsert on (display_name, session_number).
       let guestsSaved = 0;
-      const guestsToSave = parsed.guests.filter((g) => !extraMarked["G:" + g.display_name]);
-      if (guestsToSave.length > 0) {
-        const guestRows = guestsToSave.map((g) => ({
+      if (parsed.guests.length > 0) {
+        const guestRows = parsed.guests.map((g) => ({
           display_name: g.display_name,
           session_number: sn,
           meeting_date: meetingDate,
@@ -524,7 +473,6 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
     setParsed(null);
     setResult(null);
     setError("");
-    setExtraMarked({});
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -537,21 +485,11 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
             Paste or upload the Hoondokhae chat. Students type their ID (or full name) to be marked present — add “shirt”, “naka shirt”, or “naay shirt” for the HJ shirt.
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button style={styles.ghostBtn} onClick={() => setShowHistory((v) => !v)}>
-            {showHistory ? "Back to marking" : "📋 Saved attendance"}
-          </button>
-          {onClose && (
-            <button style={styles.ghostBtn} onClick={onClose}>Close</button>
-          )}
-        </div>
+        {onClose && (
+          <button style={styles.ghostBtn} onClick={onClose}>Close</button>
+        )}
       </div>
 
-      {showHistory && (
-        <AttendanceHistory students={students} onSaved={onSaved} />
-      )}
-
-      {!showHistory && (<>
       {/* Session number + meeting date */}
       <div style={styles.fieldRow}>
         <div>
@@ -614,38 +552,20 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
             empty="No students matched yet."
             items={parsed.matched.map((m) => `${m.id} — ${m.name}${m.shirt ? "  👕 shirt" : ""}`)}
           />
-          <AssignSection
+          <Section
             color="#9a6b00"
             bg="#fdf3da"
             title={`Needs review (${parsed.unknown.length})`}
             empty="Nothing to review."
-            hint="Tap the right student to mark them present, or search below each entry."
-            rows={parsed.unknown.map((u, i) => {
-              const isId = u.id && u.id !== "(name)";
-              const label = isId ? `${u.id} — ${u.name}` : u.name;
-              const line = isId ? "" : String(u.name).replace(/ — matches more than one student$/, "");
-              return { key: "U:" + i + ":" + label, label, candidates: line ? candidatesFor(line) : [] };
-            })}
-            students={students}
-            marked={extraMarked}
-            markingKey={markingKey}
-            onMark={markPresentInline}
+            hint="Unmatched IDs or names matching more than one student — handle these manually."
+            items={parsed.unknown.map((u) => (u.id && u.id !== "(name)" ? `${u.id} — ${u.name}` : u.name))}
           />
-          <AssignSection
+          <Section
             color="#1f3a93"
             bg="#e9eefc"
             title={`Guests (${parsed.guests.length})`}
             empty="No guests detected."
-            hint="If a guest is actually a student, tap their name to mark them present (they won't be saved as a guest)."
-            rows={parsed.guests.map((g) => ({
-              key: "G:" + g.display_name,
-              label: g.display_name,
-              candidates: candidatesFor(g.display_name),
-            }))}
-            students={students}
-            marked={extraMarked}
-            markingKey={markingKey}
-            onMark={markPresentInline}
+            items={parsed.guests.map((g) => g.display_name)}
           />
 
           <button
@@ -658,10 +578,8 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
         </div>
       )}
 
-      </>)}
-
       {/* Result */}
-      {!showHistory && result && (
+      {result && (
         <div style={styles.resultBox}>
           <h3 style={{ margin: "0 0 8px", color: "#1b2a4a" }}>Saved ✓</h3>
           <p style={styles.resultLine}>
@@ -683,28 +601,11 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
               and add them manually if needed.
             </p>
           )}
-          {typeof onReport === "function" && result.presentList && (
-            <div style={{ margin: "10px 0 2px" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Include in report:</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13 }}>
-                {[["age", "Age"], ["dob", "Date of birth"], ["address", "Address"], ["contact", "Contact"], ["goals", "Goals"], ["affirmation", "Affirmation"], ["gratitude", "Gratitude (this session)"]].map(([k, lbl]) => (
-                  <label key={k} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={!!reportOpts[k]}
-                      onChange={(e) => setReportOpts((p) => ({ ...p, [k]: e.target.checked }))}
-                    />
-                    {lbl}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
           <div style={styles.resultBtnRow}>
             {typeof onReport === "function" && result.presentList && (
               <button
                 style={styles.reportBtn}
-                onClick={() => onReport(result.session, result.presentList, result.date, reportOpts)}
+                onClick={() => onReport(result.session, result.presentList, result.date)}
               >
                 Download report
               </button>
@@ -734,269 +635,6 @@ function Section({ title, items, empty, hint, color, bg }) {
     </div>
   );
 }
-
-function AttendanceHistory({ students, onSaved }) {
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
-  const [marks, setMarks] = useState([]);
-  const [guests, setGuests] = useState([]);
-  const [openSession, setOpenSession] = useState(null);
-  const [busyKey, setBusyKey] = useState(null);
-
-  const nameById = useMemo(() => {
-    const m = {};
-    (students || []).forEach((s) => {
-      m[(s.student_id || "").toUpperCase()] = `${s.first_name || ""} ${s.last_name || ""}`.trim();
-    });
-    return m;
-  }, [students]);
-
-  async function load() {
-    setLoading(true);
-    setErr("");
-    try {
-      const { data: mData, error: mErr } = await supabase
-        .from("attendance_marks")
-        .select("student_id, session_number, attendance, hj_shirt, marked_by")
-        .eq("attendance", true)
-        .order("session_number", { ascending: true });
-      if (mErr) throw mErr;
-      const { data: gData, error: gErr } = await supabase
-        .from("guests")
-        .select("id, display_name, session_number, meeting_date")
-        .order("session_number", { ascending: true });
-      if (gErr) throw gErr;
-      setMarks(mData || []);
-      setGuests(gData || []);
-    } catch (e) {
-      setErr(e.message || "Failed to load attendance history.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  React.useEffect(() => { load(); }, []);
-
-  const sessions = useMemo(() => {
-    const map = {};
-    marks.forEach((m) => {
-      map[m.session_number] = map[m.session_number] || { present: [], guests: [] };
-      map[m.session_number].present.push(m);
-    });
-    guests.forEach((g) => {
-      map[g.session_number] = map[g.session_number] || { present: [], guests: [] };
-      map[g.session_number].guests.push(g);
-    });
-    return Object.keys(map).map(Number).sort((a, b) => a - b).map((sn) => ({ sn, ...map[sn] }));
-  }, [marks, guests]);
-
-  async function removeMark(m) {
-    const nm = nameById[(m.student_id || "").toUpperCase()] || m.student_id;
-    if (!window.confirm(`Remove ${nm} (${m.student_id}) from session ${m.session_number}? Their grade will be recomputed.`)) return;
-    const key = "m" + m.student_id + ":" + m.session_number;
-    setBusyKey(key);
-    try {
-      const { error: dErr } = await supabase
-        .from("attendance_marks")
-        .delete()
-        .eq("student_id", m.student_id)
-        .eq("session_number", m.session_number);
-      if (dErr) throw dErr;
-      setMarks((prev) => prev.filter((x) => !(x.student_id === m.student_id && x.session_number === m.session_number)));
-      if (typeof onSaved === "function") { try { await onSaved(); } catch (e) { console.error(e); } }
-    } catch (e) {
-      setErr(e.message || "Failed to remove.");
-    } finally {
-      setBusyKey(null);
-    }
-  }
-
-  async function removeGuest(g) {
-    if (!window.confirm(`Delete guest "${g.display_name}" from session ${g.session_number}?`)) return;
-    const key = "g" + g.id;
-    setBusyKey(key);
-    try {
-      const { error: dErr } = await supabase.from("guests").delete().eq("id", g.id);
-      if (dErr) throw dErr;
-      setGuests((prev) => prev.filter((x) => x.id !== g.id));
-    } catch (e) {
-      setErr(e.message || "Failed to delete guest.");
-    } finally {
-      setBusyKey(null);
-    }
-  }
-
-  async function deleteSession(sn, presentCount, guestCount) {
-    const typed = window.prompt(
-      `This will permanently delete ALL saved attendance for session ${sn} ` +
-      `(${presentCount} present, ${guestCount} guest(s)) and recompute every grade.\n\n` +
-      `Type the session number (${sn}) to confirm:`
-    );
-    if (typed === null) return;
-    if (String(typed).trim() !== String(sn)) {
-      window.alert("Session number didn't match — nothing was deleted.");
-      return;
-    }
-    const key = "sess" + sn;
-    setBusyKey(key);
-    setErr("");
-    try {
-      const { error: aErr } = await supabase.from("attendance_marks").delete().eq("session_number", sn);
-      if (aErr) throw aErr;
-      const { error: gErr } = await supabase.from("guests").delete().eq("session_number", sn);
-      if (gErr) throw gErr;
-      setMarks((prev) => prev.filter((m) => m.session_number !== sn));
-      setGuests((prev) => prev.filter((g) => g.session_number !== sn));
-      setOpenSession(null);
-      if (typeof onSaved === "function") { try { await onSaved(); } catch (e) { console.error(e); } }
-    } catch (e) {
-      setErr(e.message || "Failed to delete session.");
-    } finally {
-      setBusyKey(null);
-    }
-  }
-
-  return (
-    <div style={histStyles.wrap}>
-      <div style={histStyles.headRow}>
-        <h3 style={{ margin: 0, fontSize: 17 }}>Saved attendance</h3>
-        <button style={styles.ghostBtn} onClick={load} disabled={loading}>{loading ? "Loading…" : "↻ Refresh"}</button>
-      </div>
-      {err && <div style={styles.error}>{err}</div>}
-      {!loading && sessions.length === 0 && (
-        <p style={{ fontSize: 14, color: "#5a6478" }}>No attendance saved yet.</p>
-      )}
-      {sessions.map(({ sn, present, guests: gl }) => (
-        <div key={sn} style={histStyles.sessionCard}>
-          <button style={histStyles.sessionHead} onClick={() => setOpenSession(openSession === sn ? null : sn)}>
-            <span style={{ fontWeight: 700 }}>Session {sn}</span>
-            <span style={{ fontSize: 13, color: "#5a6478" }}>
-              {present.length} present · {gl.length} guest(s) {openSession === sn ? "▲" : "▼"}
-            </span>
-          </button>
-          {openSession === sn && (
-            <div style={{ padding: "4px 10px 10px" }}>
-              {present
-                .slice()
-                .sort((a, b) => (nameById[a.student_id?.toUpperCase()] || "").localeCompare(nameById[b.student_id?.toUpperCase()] || ""))
-                .map((m) => {
-                  const key = "m" + m.student_id + ":" + m.session_number;
-                  return (
-                    <div key={key} style={histStyles.row}>
-                      <span style={{ flex: 1, fontSize: 14 }}>
-                        {nameById[(m.student_id || "").toUpperCase()] || "(unknown)"} <span style={{ color: "#8a93a5" }}>({m.student_id})</span>
-                        {m.hj_shirt ? " 👕" : ""}
-                        <span style={histStyles.tag}>{m.marked_by || "?"}</span>
-                      </span>
-                      <button style={histStyles.removeBtn} disabled={busyKey === key} onClick={() => removeMark(m)}>
-                        {busyKey === key ? "…" : "✕ Remove"}
-                      </button>
-                    </div>
-                  );
-                })}
-              {gl.length > 0 && <div style={{ ...sectionStyles.head, color: "#1f3a93", marginTop: 10 }}>Guests</div>}
-              {gl.map((g) => {
-                const key = "g" + g.id;
-                return (
-                  <div key={key} style={histStyles.row}>
-                    <span style={{ flex: 1, fontSize: 14 }}>{g.display_name}</span>
-                    <button style={histStyles.removeBtn} disabled={busyKey === key} onClick={() => removeGuest(g)}>
-                      {busyKey === key ? "…" : "✕ Delete"}
-                    </button>
-                  </div>
-                );
-              })}
-              <button
-                style={histStyles.deleteSessionBtn}
-                disabled={busyKey === "sess" + sn}
-                onClick={() => deleteSession(sn, present.length, gl.length)}
-              >
-                {busyKey === "sess" + sn ? "Deleting…" : `🗑 Delete entire session ${sn} (attendance + guests)`}
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-const histStyles = {
-  wrap: { marginTop: 8, marginBottom: 16 },
-  headRow: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  sessionCard: { border: "1px solid #e6e9f0", borderRadius: 10, marginBottom: 8, background: "#fafbfd" },
-  sessionHead: { width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "transparent", border: "none", cursor: "pointer", fontSize: 15 },
-  row: { display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" },
-  tag: { marginLeft: 6, fontSize: 11, background: "#eef1f6", color: "#5a6478", borderRadius: 6, padding: "1px 6px" },
-  removeBtn: { padding: "4px 10px", fontSize: 12, fontWeight: 600, background: "#fff", color: "#b3261e", border: "1px solid #e3b7b4", borderRadius: 8, cursor: "pointer" },
-  deleteSessionBtn: { width: "100%", marginTop: 12, padding: "10px", fontSize: 13, fontWeight: 700, background: "#fdecec", color: "#b3261e", border: "1px solid #e3b7b4", borderRadius: 8, cursor: "pointer" },
-};
-
-function AssignSection({ title, rows, empty, hint, color, bg, students, marked, markingKey, onMark }) {
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ ...sectionStyles.head, color }}>{title}</div>
-      {hint && <div style={sectionStyles.hint}>{hint}</div>}
-      {rows.length === 0 ? (
-        <div style={sectionStyles.empty}>{empty}</div>
-      ) : (
-        <div style={{ background: bg, borderRadius: 8, padding: 8 }}>
-          {rows.map((r) => (
-            <AssignRow key={r.key} row={r} students={students} marked={marked[r.key]} busy={markingKey === r.key} onMark={onMark} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AssignRow({ row, students, marked, busy, onMark }) {
-  const [q, setQ] = useState("");
-  const ql = q.trim().toLowerCase();
-  const searchHits = ql.length >= 2
-    ? students
-        .filter((s) => (`${s.student_id} ${s.first_name || ""} ${s.last_name || ""} ${s.nickname || ""}`).toLowerCase().includes(ql))
-        .slice(0, 5)
-    : [];
-  return (
-    <div style={assignStyles.row}>
-      <div style={assignStyles.label}>{row.label}</div>
-      {marked ? (
-        <div style={assignStyles.done}>✓ Marked present — {marked.name} ({marked.id})</div>
-      ) : (
-        <div style={assignStyles.controls}>
-          {row.candidates.map((s) => (
-            <button key={s.student_id} style={assignStyles.candBtn} disabled={busy} onClick={() => onMark(row.key, s)}>
-              ✓ {(s.first_name || "")} {(s.last_name || "")} ({s.student_id})
-            </button>
-          ))}
-          <input
-            style={assignStyles.search}
-            placeholder="Search student…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          {searchHits.map((s) => (
-            <button key={"s" + s.student_id} style={assignStyles.candBtn} disabled={busy} onClick={() => onMark(row.key, s)}>
-              ✓ {(s.first_name || "")} {(s.last_name || "")} ({s.student_id})
-            </button>
-          ))}
-          {busy && <span style={assignStyles.busy}>saving…</span>}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const assignStyles = {
-  row: { padding: "8px 6px", borderBottom: "1px solid rgba(0,0,0,0.06)" },
-  label: { fontSize: 14, fontWeight: 600, marginBottom: 6 },
-  controls: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" },
-  candBtn: { padding: "6px 10px", fontSize: 13, fontWeight: 600, background: "#fff", color: "#1b2a4a", border: "1px solid #1b2a4a", borderRadius: 8, cursor: "pointer" },
-  search: { padding: "6px 10px", fontSize: 13, border: "1px solid #cdd3df", borderRadius: 8, minWidth: 140 },
-  done: { fontSize: 13, fontWeight: 700, color: "#2e7d4f" },
-  busy: { fontSize: 12, color: "#5a6478" },
-};
 
 const NAVY = "#1b2a4a";
 const GOLD = "#c9a227";

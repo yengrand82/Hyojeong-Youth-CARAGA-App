@@ -227,8 +227,6 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
   const [error, setError] = useState("");
   const [extraMarked, setExtraMarked] = useState({}); // rowKey -> { id, name }
   const [markingKey, setMarkingKey] = useState(null);
-  const [showHistory, setShowHistory] = useState(false);
-  const [reportOpts, setReportOpts] = useState({});
   const fileRef = useRef(null);
 
   // Build a fast lookup of valid IDs -> student record
@@ -537,21 +535,11 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
             Paste or upload the Hoondokhae chat. Students type their ID (or full name) to be marked present — add “shirt”, “naka shirt”, or “naay shirt” for the HJ shirt.
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button style={styles.ghostBtn} onClick={() => setShowHistory((v) => !v)}>
-            {showHistory ? "Back to marking" : "📋 Saved attendance"}
-          </button>
-          {onClose && (
-            <button style={styles.ghostBtn} onClick={onClose}>Close</button>
-          )}
-        </div>
+        {onClose && (
+          <button style={styles.ghostBtn} onClick={onClose}>Close</button>
+        )}
       </div>
 
-      {showHistory && (
-        <AttendanceHistory students={students} onSaved={onSaved} />
-      )}
-
-      {!showHistory && (<>
       {/* Session number + meeting date */}
       <div style={styles.fieldRow}>
         <div>
@@ -658,10 +646,8 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
         </div>
       )}
 
-      </>)}
-
       {/* Result */}
-      {!showHistory && result && (
+      {result && (
         <div style={styles.resultBox}>
           <h3 style={{ margin: "0 0 8px", color: "#1b2a4a" }}>Saved ✓</h3>
           <p style={styles.resultLine}>
@@ -683,28 +669,11 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
               and add them manually if needed.
             </p>
           )}
-          {typeof onReport === "function" && result.presentList && (
-            <div style={{ margin: "10px 0 2px" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Include in report:</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13 }}>
-                {[["age", "Age"], ["dob", "Date of birth"], ["address", "Address"], ["contact", "Contact"], ["goals", "Goals"], ["affirmation", "Affirmation"], ["gratitude", "Gratitude (this session)"]].map(([k, lbl]) => (
-                  <label key={k} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={!!reportOpts[k]}
-                      onChange={(e) => setReportOpts((p) => ({ ...p, [k]: e.target.checked }))}
-                    />
-                    {lbl}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
           <div style={styles.resultBtnRow}>
             {typeof onReport === "function" && result.presentList && (
               <button
                 style={styles.reportBtn}
-                onClick={() => onReport(result.session, result.presentList, result.date, reportOpts)}
+                onClick={() => onReport(result.session, result.presentList, result.date)}
               >
                 Download report
               </button>
@@ -734,203 +703,6 @@ function Section({ title, items, empty, hint, color, bg }) {
     </div>
   );
 }
-
-function AttendanceHistory({ students, onSaved }) {
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
-  const [marks, setMarks] = useState([]);
-  const [guests, setGuests] = useState([]);
-  const [openSession, setOpenSession] = useState(null);
-  const [busyKey, setBusyKey] = useState(null);
-
-  const nameById = useMemo(() => {
-    const m = {};
-    (students || []).forEach((s) => {
-      m[(s.student_id || "").toUpperCase()] = `${s.first_name || ""} ${s.last_name || ""}`.trim();
-    });
-    return m;
-  }, [students]);
-
-  async function load() {
-    setLoading(true);
-    setErr("");
-    try {
-      const { data: mData, error: mErr } = await supabase
-        .from("attendance_marks")
-        .select("student_id, session_number, attendance, hj_shirt, marked_by")
-        .eq("attendance", true)
-        .order("session_number", { ascending: true });
-      if (mErr) throw mErr;
-      const { data: gData, error: gErr } = await supabase
-        .from("guests")
-        .select("id, display_name, session_number, meeting_date")
-        .order("session_number", { ascending: true });
-      if (gErr) throw gErr;
-      setMarks(mData || []);
-      setGuests(gData || []);
-    } catch (e) {
-      setErr(e.message || "Failed to load attendance history.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  React.useEffect(() => { load(); }, []);
-
-  const sessions = useMemo(() => {
-    const map = {};
-    marks.forEach((m) => {
-      map[m.session_number] = map[m.session_number] || { present: [], guests: [] };
-      map[m.session_number].present.push(m);
-    });
-    guests.forEach((g) => {
-      map[g.session_number] = map[g.session_number] || { present: [], guests: [] };
-      map[g.session_number].guests.push(g);
-    });
-    return Object.keys(map).map(Number).sort((a, b) => a - b).map((sn) => ({ sn, ...map[sn] }));
-  }, [marks, guests]);
-
-  async function removeMark(m) {
-    const nm = nameById[(m.student_id || "").toUpperCase()] || m.student_id;
-    if (!window.confirm(`Remove ${nm} (${m.student_id}) from session ${m.session_number}? Their grade will be recomputed.`)) return;
-    const key = "m" + m.student_id + ":" + m.session_number;
-    setBusyKey(key);
-    try {
-      const { error: dErr } = await supabase
-        .from("attendance_marks")
-        .delete()
-        .eq("student_id", m.student_id)
-        .eq("session_number", m.session_number);
-      if (dErr) throw dErr;
-      setMarks((prev) => prev.filter((x) => !(x.student_id === m.student_id && x.session_number === m.session_number)));
-      if (typeof onSaved === "function") { try { await onSaved(); } catch (e) { console.error(e); } }
-    } catch (e) {
-      setErr(e.message || "Failed to remove.");
-    } finally {
-      setBusyKey(null);
-    }
-  }
-
-  async function removeGuest(g) {
-    if (!window.confirm(`Delete guest "${g.display_name}" from session ${g.session_number}?`)) return;
-    const key = "g" + g.id;
-    setBusyKey(key);
-    try {
-      const { error: dErr } = await supabase.from("guests").delete().eq("id", g.id);
-      if (dErr) throw dErr;
-      setGuests((prev) => prev.filter((x) => x.id !== g.id));
-    } catch (e) {
-      setErr(e.message || "Failed to delete guest.");
-    } finally {
-      setBusyKey(null);
-    }
-  }
-
-  async function deleteSession(sn, presentCount, guestCount) {
-    const typed = window.prompt(
-      `This will permanently delete ALL saved attendance for session ${sn} ` +
-      `(${presentCount} present, ${guestCount} guest(s)) and recompute every grade.\n\n` +
-      `Type the session number (${sn}) to confirm:`
-    );
-    if (typed === null) return;
-    if (String(typed).trim() !== String(sn)) {
-      window.alert("Session number didn't match — nothing was deleted.");
-      return;
-    }
-    const key = "sess" + sn;
-    setBusyKey(key);
-    setErr("");
-    try {
-      const { error: aErr } = await supabase.from("attendance_marks").delete().eq("session_number", sn);
-      if (aErr) throw aErr;
-      const { error: gErr } = await supabase.from("guests").delete().eq("session_number", sn);
-      if (gErr) throw gErr;
-      setMarks((prev) => prev.filter((m) => m.session_number !== sn));
-      setGuests((prev) => prev.filter((g) => g.session_number !== sn));
-      setOpenSession(null);
-      if (typeof onSaved === "function") { try { await onSaved(); } catch (e) { console.error(e); } }
-    } catch (e) {
-      setErr(e.message || "Failed to delete session.");
-    } finally {
-      setBusyKey(null);
-    }
-  }
-
-  return (
-    <div style={histStyles.wrap}>
-      <div style={histStyles.headRow}>
-        <h3 style={{ margin: 0, fontSize: 17 }}>Saved attendance</h3>
-        <button style={styles.ghostBtn} onClick={load} disabled={loading}>{loading ? "Loading…" : "↻ Refresh"}</button>
-      </div>
-      {err && <div style={styles.error}>{err}</div>}
-      {!loading && sessions.length === 0 && (
-        <p style={{ fontSize: 14, color: "#5a6478" }}>No attendance saved yet.</p>
-      )}
-      {sessions.map(({ sn, present, guests: gl }) => (
-        <div key={sn} style={histStyles.sessionCard}>
-          <button style={histStyles.sessionHead} onClick={() => setOpenSession(openSession === sn ? null : sn)}>
-            <span style={{ fontWeight: 700 }}>Session {sn}</span>
-            <span style={{ fontSize: 13, color: "#5a6478" }}>
-              {present.length} present · {gl.length} guest(s) {openSession === sn ? "▲" : "▼"}
-            </span>
-          </button>
-          {openSession === sn && (
-            <div style={{ padding: "4px 10px 10px" }}>
-              {present
-                .slice()
-                .sort((a, b) => (nameById[a.student_id?.toUpperCase()] || "").localeCompare(nameById[b.student_id?.toUpperCase()] || ""))
-                .map((m) => {
-                  const key = "m" + m.student_id + ":" + m.session_number;
-                  return (
-                    <div key={key} style={histStyles.row}>
-                      <span style={{ flex: 1, fontSize: 14 }}>
-                        {nameById[(m.student_id || "").toUpperCase()] || "(unknown)"} <span style={{ color: "#8a93a5" }}>({m.student_id})</span>
-                        {m.hj_shirt ? " 👕" : ""}
-                        <span style={histStyles.tag}>{m.marked_by || "?"}</span>
-                      </span>
-                      <button style={histStyles.removeBtn} disabled={busyKey === key} onClick={() => removeMark(m)}>
-                        {busyKey === key ? "…" : "✕ Remove"}
-                      </button>
-                    </div>
-                  );
-                })}
-              {gl.length > 0 && <div style={{ ...sectionStyles.head, color: "#1f3a93", marginTop: 10 }}>Guests</div>}
-              {gl.map((g) => {
-                const key = "g" + g.id;
-                return (
-                  <div key={key} style={histStyles.row}>
-                    <span style={{ flex: 1, fontSize: 14 }}>{g.display_name}</span>
-                    <button style={histStyles.removeBtn} disabled={busyKey === key} onClick={() => removeGuest(g)}>
-                      {busyKey === key ? "…" : "✕ Delete"}
-                    </button>
-                  </div>
-                );
-              })}
-              <button
-                style={histStyles.deleteSessionBtn}
-                disabled={busyKey === "sess" + sn}
-                onClick={() => deleteSession(sn, present.length, gl.length)}
-              >
-                {busyKey === "sess" + sn ? "Deleting…" : `🗑 Delete entire session ${sn} (attendance + guests)`}
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-const histStyles = {
-  wrap: { marginTop: 8, marginBottom: 16 },
-  headRow: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  sessionCard: { border: "1px solid #e6e9f0", borderRadius: 10, marginBottom: 8, background: "#fafbfd" },
-  sessionHead: { width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "transparent", border: "none", cursor: "pointer", fontSize: 15 },
-  row: { display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" },
-  tag: { marginLeft: 6, fontSize: 11, background: "#eef1f6", color: "#5a6478", borderRadius: 6, padding: "1px 6px" },
-  removeBtn: { padding: "4px 10px", fontSize: 12, fontWeight: 600, background: "#fff", color: "#b3261e", border: "1px solid #e3b7b4", borderRadius: 8, cursor: "pointer" },
-  deleteSessionBtn: { width: "100%", marginTop: 12, padding: "10px", fontSize: 13, fontWeight: 700, background: "#fdecec", color: "#b3261e", border: "1px solid #e3b7b4", borderRadius: 8, cursor: "pointer" },
-};
 
 function AssignSection({ title, rows, empty, hint, color, bg, students, marked, markingKey, onMark }) {
   return (

@@ -228,7 +228,6 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
   const [extraMarked, setExtraMarked] = useState({}); // rowKey -> { id, name }
   const [markingKey, setMarkingKey] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [reportOpts, setReportOpts] = useState({});
   const fileRef = useRef(null);
 
   // Build a fast lookup of valid IDs -> student record
@@ -683,28 +682,11 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
               and add them manually if needed.
             </p>
           )}
-          {typeof onReport === "function" && result.presentList && (
-            <div style={{ margin: "10px 0 2px" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Include in report:</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13 }}>
-                {[["age", "Age"], ["dob", "Date of birth"], ["address", "Address"], ["contact", "Contact"], ["goals", "Goals"], ["affirmation", "Affirmation"], ["gratitude", "Gratitude (this session)"]].map(([k, lbl]) => (
-                  <label key={k} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={!!reportOpts[k]}
-                      onChange={(e) => setReportOpts((p) => ({ ...p, [k]: e.target.checked }))}
-                    />
-                    {lbl}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
           <div style={styles.resultBtnRow}>
             {typeof onReport === "function" && result.presentList && (
               <button
                 style={styles.reportBtn}
-                onClick={() => onReport(result.session, result.presentList, result.date, reportOpts)}
+                onClick={() => onReport(result.session, result.presentList, result.date)}
               >
                 Download report
               </button>

@@ -1541,7 +1541,7 @@ const App = () => {
   };
 
   // Build + open a printable per-session attendance report (present students only).
-  const printSessionAttendance = async (sessionNumber, presentList, meetingDate, reportOpts = {}) => {
+  const printSessionAttendance = (sessionNumber, presentList, meetingDate) => {
     // presentList is [{ id, name }] from the Zoom screen. Enrich with team from allStudents.
     const byId = {};
     (allStudents || []).forEach(s => { byId[(s['Student ID'] || '').toUpperCase()] = s; });
@@ -1550,120 +1550,15 @@ const App = () => {
         return new Date(meetingDate + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
       } catch (e) { return meetingDate || ''; }
     })();
-    // Pull the present list from the database (includes inline/manual marks),
-    // falling back to the parse-time list if the query fails.
-    let presentRows = (presentList || []).map(p => ({ id: p.id, name: p.name, shirt: !!p.shirt }));
-    try {
-      const { data: dbMarks, error: dbErr } = await supabase
-        .from('attendance_marks')
-        .select('student_id, hj_shirt')
-        .eq('session_number', sessionNumber)
-        .eq('attendance', true);
-      if (!dbErr && dbMarks && dbMarks.length > 0) {
-        presentRows = dbMarks.map(m => {
-          const s = byId[(m.student_id || '').toUpperCase()] || {};
-          const nm = `${s['First Name'] || ''} ${s['Last Name'] || ''}`.trim();
-          return { id: m.student_id, name: nm || '(unknown)', last: (s['Last Name'] || '').toLowerCase(), first: (s['First Name'] || '').toLowerCase(), shirt: !!m.hj_shirt };
-        }).sort((a, b) => a.last.localeCompare(b.last) || a.first.localeCompare(b.first));
-      }
-    } catch (e) { console.error('Present fetch for report failed:', e); }
-    const wantAge = !!reportOpts.age, wantDob = !!reportOpts.dob, wantAddr = !!reportOpts.address,
-          wantContact = !!reportOpts.contact, wantGoals = !!reportOpts.goals,
-          wantAff = !!reportOpts.affirmation, wantGrat = !!reportOpts.gratitude;
-    const esc = (v) => String(v == null ? '' : v).replace(/</g, '&lt;');
-    let extraInfo = {};
-    if (wantAge || wantDob || wantAddr || wantContact || wantGoals || wantAff) {
-      try {
-        const ids = (presentRows || []).map(p => (p.id || '').toUpperCase());
-        const { data: exRows } = await supabase
-          .from('students')
-          .select('student_id, age, date_of_birth, address, contact_number, affirmation, goal1, goal2, goal3')
-          .in('student_id', ids);
-        (exRows || []).forEach(r => { extraInfo[(r.student_id || '').toUpperCase()] = r; });
-      } catch (e) { console.error('Extra info fetch failed:', e); }
-    }
-    let gratById = {};
-    if (wantGrat) {
-      try {
-        const { data: gRows } = await supabase
-          .from('gratitude')
-          .select('student_id, entry_text')
-          .eq('session_number', sessionNumber);
-        (gRows || []).forEach(r => { gratById[(r.student_id || '').toUpperCase()] = r.entry_text || ''; });
-      } catch (e) { console.error('Gratitude fetch failed:', e); }
-    }
-    const th = (t) => `<th style="padding:8px;border-bottom:2px solid #e5e7eb">${t}</th>`;
-    const extraHeads =
-      (wantAge ? th('Age') : '') + (wantDob ? th('Date of birth') : '') +
-      (wantAddr ? th('Address') : '') + (wantContact ? th('Contact') : '') +
-      (wantGoals ? th('Goals') : '') + (wantAff ? th('Affirmation') : '') +
-      (wantGrat ? th('Gratitude (this session)') : '');
-    const rows = (presentRows || []).map((p, i) => {
+    const rows = (presentList || []).map((p, i) => {
       const s = byId[(p.id || '').toUpperCase()] || {};
-      const ex = extraInfo[(p.id || '').toUpperCase()] || {};
-      const td = (t) => `<td style="padding:6px;border-bottom:1px solid #eee">${t}</td>`;
-      const goalsTxt = [ex.goal1, ex.goal2, ex.goal3].filter(Boolean).map(esc).join('; ');
-      const extraCells =
-        (wantAge ? td(esc(ex.age)) : '') + (wantDob ? td(esc(ex.date_of_birth)) : '') +
-        (wantAddr ? td(esc(ex.address)) : '') + (wantContact ? td(esc(ex.contact_number)) : '') +
-        (wantGoals ? td(goalsTxt) : '') + (wantAff ? td(esc(ex.affirmation)) : '') +
-        (wantGrat ? td(esc(gratById[(p.id || '').toUpperCase()])) : '');
       return `<tr>
-        ${td(i + 1)}
-        ${td(esc(p.name))}
-        ${td(esc(p.id))}
-        ${td(esc(s['TEAM']))}
-        ${extraCells}
+        <td style="padding:6px;border-bottom:1px solid #eee">${i + 1}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee">${p.name || ''}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee">${p.id || ''}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee">${s['TEAM'] || ''}</td>
       </tr>`;
     }).join('');
-    // Guests for this session, straight from the guests table (reflects any admin cleanup).
-    let guestsHtml = '';
-    try {
-      const { data: guestRows, error: gErr } = await supabase
-        .from('guests')
-        .select('display_name')
-        .eq('session_number', sessionNumber)
-        .order('display_name');
-      const cleanGuestName = (display) => {
-        let t = String(display || '').replace(/^\s*name\s*:\s*/i, '');
-        t = t.split(/\(\s*[A-Z][a-z]{2}\s+\d/)[0];
-        t = t.split(/\b(?:age|from)\b\s*:?/i)[0];
-        t = t.split(/\bpurok\b/i)[0];
-        t = t.replace(/\bp\s*-\s*\d+.*/i, '');
-        t = t.replace(/[-\u2013]\s*\d+\s*$/, '');
-        t = t.replace(/[|,;:.]+\s*$/, '').trim();
-        const letters = (t.match(/[a-z\u00e0-\u00ff\u00f1]/gi) || []).length;
-        return letters >= 3 ? t : null;
-      };
-      const seen = new Set();
-      const cleanedGuests = (guestRows || [])
-        .map((g) => cleanGuestName(g.display_name))
-        .filter((nm) => {
-          if (!nm) return false;
-          const k = nm.toLowerCase();
-          if (seen.has(k)) return false;
-          seen.add(k);
-          return true;
-        });
-      if (!gErr && cleanedGuests.length > 0) {
-        const gRows = cleanedGuests.map((nm, i) => `<tr>
-          <td style="padding:6px;border-bottom:1px solid #eee">${i + 1}</td>
-          <td style="padding:6px;border-bottom:1px solid #eee">${nm.replace(/</g, '&lt;')}</td>
-        </tr>`).join('');
-        guestsHtml = `
-        <h2 style="margin:28px 0 4px;font-size:17px;color:#1b2a4a">Guests</h2>
-        <p style="font-size:14px;margin:4px 0 12px"><strong>${cleanedGuests.length}</strong> guest(s) joined this session</p>
-        <table style="width:100%;border-collapse:collapse;font-size:14px">
-          <thead>
-            <tr style="background:#f3f4f6;text-align:left">
-              <th style="padding:8px;border-bottom:2px solid #e5e7eb">#</th>
-              <th style="padding:8px;border-bottom:2px solid #e5e7eb">Name</th>
-            </tr>
-          </thead>
-          <tbody>${gRows}</tbody>
-        </table>`;
-      }
-    } catch (e) { console.error('Guest fetch for report failed:', e); }
     const html = `<html><head><title>Session ${sessionNumber} Attendance</title></head>
       <body style="font-family:system-ui,sans-serif;padding:24px;color:#1F2937">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
@@ -1673,7 +1568,7 @@ const App = () => {
             <div style="font-size:14px;color:#6B7280">Session ${sessionNumber} Attendance &middot; ${dateLabel}</div>
           </div>
         </div>
-        <p style="font-size:14px;margin:8px 0 16px"><strong>${(presentRows || []).length}</strong> students present</p>
+        <p style="font-size:14px;margin:8px 0 16px"><strong>${(presentList || []).length}</strong> students present</p>
         <table style="width:100%;border-collapse:collapse;font-size:14px">
           <thead>
             <tr style="background:#f3f4f6;text-align:left">
@@ -1681,12 +1576,10 @@ const App = () => {
               <th style="padding:8px;border-bottom:2px solid #e5e7eb">Name</th>
               <th style="padding:8px;border-bottom:2px solid #e5e7eb">Student ID</th>
               <th style="padding:8px;border-bottom:2px solid #e5e7eb">Team</th>
-              ${extraHeads}
             </tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
-        ${guestsHtml}
         <p style="margin-top:24px;font-size:12px;color:#9CA3AF">Generated ${new Date().toLocaleString()}</p>
       </body></html>`;
     openPrintable(html, `Session ${sessionNumber} Attendance`);
