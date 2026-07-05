@@ -548,7 +548,7 @@ export default function ZoomAttendance({ students = [], onClose, onSaved, onRepo
       </div>
 
       {showHistory && (
-        <AttendanceHistory students={students} onSaved={onSaved} onReport={onReport} />
+        <AttendanceHistory students={students} onSaved={onSaved} />
       )}
 
       {!showHistory && (<>
@@ -735,14 +735,13 @@ function Section({ title, items, empty, hint, color, bg }) {
   );
 }
 
-function AttendanceHistory({ students, onSaved, onReport }) {
+function AttendanceHistory({ students, onSaved }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [marks, setMarks] = useState([]);
   const [guests, setGuests] = useState([]);
   const [openSession, setOpenSession] = useState(null);
   const [busyKey, setBusyKey] = useState(null);
-  const [hOpts, setHOpts] = useState({});
 
   const nameById = useMemo(() => {
     const m = {};
@@ -907,29 +906,6 @@ function AttendanceHistory({ students, onSaved, onReport }) {
                   </div>
                 );
               })}
-              {typeof onReport === "function" && (
-                <div style={{ marginTop: 12, padding: "10px", background: "#fff", border: "1px solid #e6e9f0", borderRadius: 8 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Include in report:</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13, marginBottom: 8 }}>
-                    {[["age", "Age"], ["dob", "Date of birth"], ["address", "Address"], ["contact", "Contact"], ["goals", "Goals"], ["affirmation", "Affirmation"], ["gratitude", "Gratitude (this session)"]].map(([k, lbl]) => (
-                      <label key={k} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-                        <input
-                          type="checkbox"
-                          checked={!!hOpts[k]}
-                          onChange={(e) => setHOpts((p) => ({ ...p, [k]: e.target.checked }))}
-                        />
-                        {lbl}
-                      </label>
-                    ))}
-                  </div>
-                  <button
-                    style={{ ...styles.reportBtn, width: "100%" }}
-                    onClick={() => onReport(sn, [], null, hOpts)}
-                  >
-                    📄 Download session {sn} report
-                  </button>
-                </div>
-              )}
               <button
                 style={histStyles.deleteSessionBtn}
                 disabled={busyKey === "sess" + sn}
